@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
@@ -42,6 +41,7 @@ public partial class TeacherWindow : Window
     private readonly Func<CancellationToken, Task<AvailableUpdate?>> checkRelease;
     private AvailableUpdate? availableUpdate;
     private bool checkingUpdate;
+    private bool applyingUpdate;
     private Lesson saved;
     private Page? renderedPage;
     private ProgramFrame? renderedOutput;
@@ -133,6 +133,11 @@ public partial class TeacherWindow : Window
         PreviewKeyDown += Shortcuts;
         Closing += (_, args) =>
         {
+            if (applyingUpdate)
+            {
+                studio?.Shutdown();
+                return;
+            }
             if (closeAfterRecording)
             {
                 args.Cancel = recording is not null;
@@ -182,22 +187,71 @@ public partial class TeacherWindow : Window
 
     private async void CheckForUpdates(object sender, RoutedEventArgs args)
     {
+        if (checkingUpdate)
+            return;
         if (availableUpdate is not { } update)
         {
             await RefreshUpdatesAsync(interactive: true);
             return;
         }
 
+        if (recording is not null)
+        {
+            Report("Stop the recording before updating EduCast.");
+            return;
+        }
+
+        var cancellationToken = updateLifetime.Token;
+        checkingUpdate = true;
+        UpdateButton.Content = "Downloading update…";
+        UpdateButton.IsEnabled = false;
+        Report($"Downloading and verifying EduCast v{update.Version}…");
         try
         {
-            Process.Start(new ProcessStartInfo(update.Installer.AbsoluteUri) { UseShellExecute = true });
-            Report("The installer download opened in your browser. Save your lesson before running it.");
+            using var staged = await InAppUpdate.StageAsync(update, cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+                return;
+            if (recording is not null)
+            {
+                Report("Stop the recording before updating EduCast.");
+                return;
+            }
+            if (!PrepareLessonForUpdate())
+            {
+                Report("Update canceled.");
+                return;
+            }
+            InAppUpdate.StartRunner(staged);
+            applyingUpdate = true;
+            Close();
         }
-        catch (Win32Exception error)
+        catch (Exception error) when (FileError(error) || error is Win32Exception or HttpRequestException or OperationCanceledException)
         {
-            App.Log(error);
-            Report("Could not open the download. Visit github.com/WealthGate/EduCast/releases.");
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                App.Log(error);
+                Report(error is InvalidDataException ? error.Message : "The update could not start. Try again when connected.");
+            }
         }
+        finally
+        {
+            checkingUpdate = false;
+            if (!cancellationToken.IsCancellationRequested && !applyingUpdate)
+            {
+                UpdateButton.Content = $"Update to v{update.Version}";
+                UpdateButton.IsEnabled = true;
+            }
+        }
+    }
+
+    private bool PrepareLessonForUpdate()
+    {
+        CommitFields();
+        if (session.Lesson == saved)
+            return true;
+        var answer = MessageBox.Show(this, "Save your lesson before EduCast restarts to install the update?",
+            "Save before updating", MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Yes);
+        return answer == MessageBoxResult.No || (answer == MessageBoxResult.Yes && Save(false));
     }
 
     private async Task RefreshUpdatesAsync(bool interactive)
@@ -218,9 +272,9 @@ public partial class TeacherWindow : Window
             availableUpdate = update;
             if (update is not null)
             {
-                UpdateButton.Content = $"Download v{update.Version}";
+                UpdateButton.Content = $"Update to v{update.Version}";
                 UpdateButton.Style = (Style)FindResource("Primary");
-                UpdateButton.ToolTip = "Open the Windows installer download on GitHub";
+                UpdateButton.ToolTip = "Download, install for this user, and reopen EduCast";
             }
             else if (interactive)
                 Report("No newer EduCast installer is published.");
@@ -484,7 +538,7 @@ public partial class TeacherWindow : Window
     private void SaveLesson(object sender, RoutedEventArgs args) => Save(false);
     private void SaveAs(object sender, RoutedEventArgs args) => Save(true);
 
-    private void Save(bool newPath)
+    private bool Save(bool newPath)
     {
         CommitFields();
         var path = newPath ? null : projectPath;
@@ -496,7 +550,7 @@ public partial class TeacherWindow : Window
                 FileName = "Lesson.educast", AddExtension = true
             };
             if (dialog.ShowDialog(this) != true)
-                return;
+                return false;
             path = dialog.FileName;
         }
         try
@@ -506,8 +560,13 @@ public partial class TeacherWindow : Window
             projectPath = path;
             Refresh();
             Report($"Saved {Path.GetFileName(path)}.");
+            return true;
         }
-        catch (Exception error) when (FileError(error)) { ShowFileError(error); }
+        catch (Exception error) when (FileError(error))
+        {
+            ShowFileError(error);
+            return false;
+        }
     }
 
     private static bool FileError(Exception error) =>

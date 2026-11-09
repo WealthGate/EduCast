@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Added in-app updates that verify the GitHub installer, install it after EduCast closes, and reopen the updated app.
+- Windows Installer replaces the previous installed release as part of the upgrade. Successful release builds also prune recognized older local packages and portable binaries.
+
 ## 0.5.0
 
 - Added movable on-board rulers, compasses, 180° and 360° protractors, two set squares, and a quadratic French curve.

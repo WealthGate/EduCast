@@ -4,11 +4,12 @@ using System.Text.Json;
 
 namespace EduCast.Studio;
 
-internal sealed record AvailableUpdate(Version Version, Uri Installer);
+internal sealed record AvailableUpdate(Version Version, Uri Installer, long Size, string Sha256);
 
 internal static class ReleaseCatalog
 {
     private const string Releases = "https://github.com/WealthGate/EduCast/releases";
+    internal const long MaxInstallerBytes = 256L * 1024 * 1024;
     private static readonly Uri Latest = new("https://api.github.com/repos/WealthGate/EduCast/releases/latest");
     private static readonly HttpClient Client = new(new HttpClientHandler { AllowAutoRedirect = false })
     {
@@ -54,10 +55,17 @@ internal static class ReleaseCatalog
                 asset.TryGetProperty("name", out var assetName) && assetName.ValueKind == JsonValueKind.String &&
                 assetName.GetString() == filename &&
                 asset.TryGetProperty("state", out var state) && state.ValueKind == JsonValueKind.String &&
-                state.GetString() == "uploaded")
-                return new AvailableUpdate(version, new Uri($"{Releases}/download/{name}/{filename}"));
+                state.GetString() == "uploaded" &&
+                asset.TryGetProperty("size", out var bytes) && bytes.ValueKind == JsonValueKind.Number &&
+                bytes.TryGetInt64(out var size) && size is > 0 and <= MaxInstallerBytes &&
+                asset.TryGetProperty("digest", out var digest) && digest.ValueKind == JsonValueKind.String &&
+                digest.GetString() is { Length: 71 } hash && hash.StartsWith("sha256:", StringComparison.Ordinal) &&
+                IsSha256(hash[7..]))
+                return new AvailableUpdate(version, new Uri($"{Releases}/download/{name}/{filename}"), size, hash[7..]);
         }
 
         return null;
     }
+
+    internal static bool IsSha256(string? value) => value is { Length: 64 } && value.All(Uri.IsHexDigit);
 }

@@ -6,7 +6,7 @@ Open **Studio & clock…** for an analog or digital classroom clock, stopwatch, 
 
 Open **Math instruments…** to put an interactive ruler, compass, protractor, set square, quadratic French curve, or calculator on the board. Select **Show on Program** when you want students to see the tool.
 
-Get the installer or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). For new-version notifications, choose **Watch → Custom → Releases** on GitHub. The teacher workspace also checks for updates.
+Get the installer or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). The teacher workspace checks for updates and can install newer versions when you click **Update**. For new-version notifications, choose **Watch → Custom → Releases** on GitHub.
 
 ## Start teaching
 

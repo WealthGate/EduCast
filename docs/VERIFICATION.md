@@ -1,5 +1,11 @@
 # Classroom milestone verification
 
+## 0.6 in-app update
+
+The Release build and all 21 local checks passed with `--media`. The update tests checked the published version, asset digest and size, verified a download across the GitHub redirect, rejected an external redirect and corrupted bytes, and checked the Windows Installer command. The WPF test verified that a rejected update leaves EduCast open and makes the update button available again.
+
+The actual release MSI passed the native Windows Installer database checks for its product, upgrade family, release version and per-user scope. The older build cleanup was previewed with `-WhatIf` before packaging. It targets recognized release files inside the workspace and preserves other files. [Update instructions](RELEASES.md)
+
 ## 0.5 on-board instruments
 
 The Release build, whitespace check, and all 20 local checks passed with `--media`. The WPF demonstration check opened the tool selector, published and revoked a ruler, moved it while Program was frozen, and verified that the adjustment handle and calibration line stayed private. It also checked a committed ruler trace, compass arc, protractor construction, set-square edges, and French-curve vertex against the rendered student output. The calculator tests covered degree and radian results, keypad entry, and undefined input.

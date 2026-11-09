@@ -48,3 +48,7 @@ $hashes | ForEach-Object {
     $_.Hash.ToLowerInvariant() + '  ' + (Split-Path -Leaf $_.Path)
 } | Set-Content -LiteralPath (Join-Path $releaseDirectory 'SHA256SUMS.txt') -Encoding utf8
 $hashes
+
+if (-not $SkipInstaller) {
+    & (Join-Path $PSScriptRoot 'Remove-OldBuilds.ps1') -KeepVersion ([version]$version)
+}

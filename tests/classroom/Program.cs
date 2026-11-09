@@ -1,5 +1,8 @@
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -35,6 +38,7 @@ internal static class Checks
             ("Malformed notation fails safely", InvalidNotation),
             ("Quadratic graph evaluates roots and vertex correctly", Quadratic),
             ("Release catalog offers only newer published Windows installers", ReleaseUpdates),
+            ("Update download verifies bytes and checksum and rejects an unsafe redirect", DownloadUpdate),
             ("Classroom clock follows local time and stopwatch/countdown use monotonic time", ClockControls),
             ("Math instrument scales, edge projection, angles and exact guide geometry", MathGeometry),
             ("Scientific calculator evaluates expressions and rejects undefined results", Calculator),
@@ -57,6 +61,21 @@ internal static class Checks
             {
                 failures++;
                 Console.Error.WriteLine($"FAIL  {name}{Environment.NewLine}{error}");
+            }
+        }
+        var msi = Array.IndexOf(args, "--verify-msi");
+        if (msi >= 0 && msi + 1 < args.Length)
+        {
+            try
+            {
+                MsiUpdatePackage.Verify(args[msi + 1], ReleaseCatalog.InstalledVersion);
+                Expect<InvalidDataException>(() => MsiUpdatePackage.Verify(args[msi + 1], new Version(0, 0, 0)));
+                Console.WriteLine("PASS  Actual MSI identity, upgrade family, per-user scope and release version");
+            }
+            catch (Exception error)
+            {
+                failures++;
+                Console.Error.WriteLine($"FAIL  Actual MSI verification{Environment.NewLine}{error}");
             }
         }
         return failures == 0 ? 0 : 1;
@@ -240,31 +259,76 @@ internal static class Checks
 
     private static void ReleaseUpdates()
     {
+        var digest = "sha256:" + new string('a', 64);
         static JsonElement Release(string tag, string filename, bool draft = false, bool prerelease = false,
-            string state = "uploaded") => JsonSerializer.SerializeToElement(new
+            string state = "uploaded", string? digest = null, long size = 42) => JsonSerializer.SerializeToElement(new
         {
             tag_name = tag,
             draft,
             prerelease,
-            assets = new[] { new { name = filename, state, browser_download_url = "https://example.invalid/installer" } }
+            assets = new[] { new { name = filename, state, digest, size, browser_download_url = "https://example.invalid/installer" } }
         });
 
         var installed = new Version(0, 3, 0);
         const string tag = "v0.3.1";
         const string installer = "EduCast-Studio-0.3.1-win-x64.msi";
-        var update = ReleaseCatalog.ReadUpdate(Release(tag, installer), installed);
+        var update = ReleaseCatalog.ReadUpdate(Release(tag, installer, digest: digest), installed);
         Assert(update?.Version == new Version(0, 3, 1));
         Assert(update!.Installer.AbsoluteUri == $"https://github.com/WealthGate/EduCast/releases/download/{tag}/{installer}");
-        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer), new Version(0, 3, 1)) is null);
-        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer), new Version(0, 4, 0)) is null);
-        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, draft: true), installed) is null);
-        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, prerelease: true), installed) is null);
-        Assert(ReleaseCatalog.ReadUpdate(Release(tag, "EduCast-Studio-0.3.1-win-x64.zip"), installed) is null);
-        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, state: "new"), installed) is null);
-        Assert(ReleaseCatalog.ReadUpdate(Release("v0.3.1.1", installer), installed) is null);
-        Assert(ReleaseCatalog.ReadUpdate(Release("v0.03.1", installer), installed) is null);
+        Assert(update.Size == 42 && update.Sha256 == digest[7..]);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, digest: digest), new Version(0, 3, 1)) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, digest: digest), new Version(0, 4, 0)) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, draft: true, digest: digest), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, prerelease: true, digest: digest), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, "EduCast-Studio-0.3.1-win-x64.zip", digest: digest), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, state: "new", digest: digest), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release("v0.3.1.1", installer, digest: digest), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release("v0.03.1", installer, digest: digest), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, digest: digest, size: 0), installed) is null);
         Assert(ReleaseCatalog.ReadUpdate(JsonSerializer.SerializeToElement(new { }), installed) is null);
     }
+
+    private sealed class UpdateHttp(Func<Uri, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken) => Task.FromResult(respond(request.RequestUri!));
+    }
+
+    private static void DownloadUpdate() => InTemporaryDirectory(directory =>
+    {
+        byte[] bytes = [10, 20, 30, 40, 50];
+        var checksum = Convert.ToHexString(SHA256.HashData(bytes));
+        var release = new AvailableUpdate(new Version(0, 6, 1),
+            new Uri("https://github.com/WealthGate/EduCast/releases/download/v0.6.1/EduCast-Studio-0.6.1-win-x64.msi"),
+            bytes.Length, checksum);
+        var file = Path.Combine(directory, "update test.msi");
+        using var trusted = new HttpClient(new UpdateHttp(uri => uri.Host == "github.com"
+            ? new HttpResponseMessage(HttpStatusCode.Redirect)
+            {
+                Headers = { Location = new Uri("https://release-assets.githubusercontent.com/example") }
+            }
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) }));
+        UpdateDownload.SaveAsync(trusted, release, file, default).GetAwaiter().GetResult();
+        Assert(File.ReadAllBytes(file).SequenceEqual(bytes));
+        InAppUpdate.VerifyStagedFileAsync(file, release.Size, checksum).GetAwaiter().GetResult();
+        Expect<InvalidDataException>(() => InAppUpdate.VerifyStagedFileAsync(file, release.Size,
+            new string('0', 64)).GetAwaiter().GetResult());
+        var command = InAppUpdate.InstallerCommand(file);
+        Assert(Path.GetFileName(command.FileName) == "msiexec.exe" &&
+            command.ArgumentList.SequenceEqual(["/i", file, "/passive", "/norestart"]));
+        File.Delete(file);
+        Expect<InvalidDataException>(() => UpdateDownload.SaveAsync(trusted,
+            release with { Sha256 = new string('0', 64) }, file, default).GetAwaiter().GetResult());
+        Assert(!File.Exists(file), "a rejected payload must be removed");
+        using var untrusted = new HttpClient(new UpdateHttp(_ => new HttpResponseMessage(HttpStatusCode.Redirect)
+        {
+            Headers = { Location = new Uri("https://example.invalid/update.msi") }
+        }));
+        Expect<InvalidDataException>(() => UpdateDownload.SaveAsync(untrusted,
+            release, file, default).GetAwaiter().GetResult());
+        Assert(!File.Exists(file));
+    });
 
     private sealed class TestTime : TimeProvider
     {
@@ -362,15 +426,21 @@ internal static class Checks
         var app = new App();
         app.InitializeComponent();
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var installed = ReleaseCatalog.InstalledVersion;
+        var newer = new Version(installed.Major, installed.Minor, installed.Build + 1);
         var teacher = new TeacherWindow(_ => Task.FromResult<AvailableUpdate?>(new AvailableUpdate(
-            new Version(0, 3, 1), new Uri("https://github.com/WealthGate/EduCast/releases"))))
+            newer, new Uri("https://github.com/WealthGate/EduCast/releases"), 42, "")))
         {
             ShowActivated = false
         };
         app.MainWindow = teacher;
         teacher.Show();
         Pump();
-        Assert((string)Find<Button>(teacher, "UpdateButton").Content == "Download v0.3.1");
+        Assert((string)Find<Button>(teacher, "UpdateButton").Content == $"Update to v{newer}");
+        Click(teacher, "UpdateButton");
+        Pump();
+        Assert(teacher.IsVisible && Find<Button>(teacher, "UpdateButton").IsEnabled,
+            "a rejected download must leave EduCast open and the update action available");
         var scroller = Find<ScrollViewer>(teacher, "BoardScroller");
         Assert(scroller.ScrollableWidth < 1 && scroller.ScrollableHeight < 1, "teacher board must start fitted");
 

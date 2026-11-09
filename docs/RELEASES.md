@@ -4,9 +4,13 @@
 
 Get the current Windows MSI or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). To receive GitHub notifications, open the repository and choose **Watch → Custom → Releases**. GitHub uses the delivery preferences in your account. [GitHub notification settings](https://docs.github.com/en/subscriptions-and-notifications/get-started/configuring-notifications#configuring-your-watch-settings-for-an-individual-repository)
 
-EduCast 0.3.0 and later check for a newer published Windows installer at startup. Choose **Check for updates** to check again. When the toolbar shows **Download v…**, select it to open the matching GitHub installer download. Save and close your lesson before running the downloaded MSI. A portable user can instead download and extract the new ZIP. Both packages require the Windows x64 .NET 10 Desktop Runtime. The preview MSI is unsigned and runs only when you start it yourself.
+Install v0.6.0 or later once to enable in-app installation. When the toolbar shows **Update to v…**, click it. EduCast downloads and verifies the MSI, prompts about any unsaved lesson, and closes to let Windows Installer apply the upgrade. EduCast reopens after success. If Windows Installer requires a reboot, EduCast asks you to restart Windows. Stop any active recording before updating.
 
-The update request goes to the public GitHub release API. The check runs in the background. Classroom features work offline, and no account or lesson data is sent by the check. Downloads open in the system browser. [GitHub latest release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
+Choose **Check for updates** to check again. Users on v0.3 through v0.5 can use **Download v…** to get the new MSI and run it once. Both the installer and ZIP require the Windows x64 .NET 10 Desktop Runtime. The MSI is unsigned.
+
+Windows Installer removes the previous version as part of the per-user upgrade. After verifying the replacement, a portable app that used **Update** switches to the per-user installation and cleans the verified old app files from its launch folder when Windows permits it. Lesson files are separate from these app binaries. EduCast cleans completed installer staging folders on startup. GitHub keeps the older published packages available.
+
+The check runs in the background against the public GitHub release API. Classroom features work offline, and the check sends no account or lesson data. [GitHub latest release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
 
 ## Publish a new version
 
@@ -25,4 +29,4 @@ Use three-part versions such as `0.3.1`. Keep `Directory.Build.props`, the chang
 4. The Windows workflow checks that the tag matches the source version. It builds and tests the project, creates the MSI and ZIP, and publishes them with `SHA256SUMS.txt`. The publish job has write permission for Releases. Ordinary branch and pull-request builds produce a preview artifact for developers.
 5. Confirm the run and the assets on the published release page. If the run fails before publication, diagnose it in GitHub Actions. Fix the issue in a new commit and version when a source change is needed.
 
-The shared classroom release feed follows GitHub's latest published non-prerelease. A separate tester channel and signed automatic installation are later release work.
+The shared classroom release feed follows GitHub's latest published non-prerelease. A complete local release build removes recognized earlier packages and app binaries from the workspace's `artifacts` folder after the new packages are ready. Use `./scripts/Remove-OldBuilds.ps1 -KeepVersion 0.6.0 -WhatIf` to preview the cleanup. A separate tester channel and Authenticode signing are later release work.
