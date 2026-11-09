@@ -78,6 +78,8 @@
                             <Button x:Name="CircleButton" Content="Compass circle" Click="ChooseTool" Tag="Circle" ToolTip="Drag from the center to set a radius"/>
                             <Button x:Name="ArcButton" Content="Compass arc" Click="ChooseTool" Tag="Arc" ToolTip="Drag from the center to set radius and start. Then move and click the end."/>
                             <Button x:Name="RectButton" Content="Rectangle" Click="ChooseTool" Tag="Rectangle"/>
+                            <Button x:Name="MathToolsButton" Content="Math instruments…" Click="OpenMathTools"
+                                ToolTip="Place a movable teaching instrument on the board"/>
                         </WrapPanel>
                         <WrapPanel>
                             <ComboBox x:Name="Colors" Width="91" SelectionChanged="UpdateInk" AutomationProperties.Name="Ink color"/>
@@ -88,6 +90,42 @@
                             <Button Content="Clear" Click="ClearPage"/>
                             <ComboBox x:Name="Paper" Width="81" SelectionChanged="ChangePaper" AutomationProperties.Name="Board paper"/>
                         </WrapPanel>
+                        <StackPanel x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,4,0,0">
+                            <WrapPanel>
+                                <ComboBox x:Name="InstrumentChoice" Width="158" DisplayMemberPath="Label"
+                                    SelectionChanged="ChangeInstrument" AutomationProperties.Name="On-board math instrument"/>
+                                <Button Content="Use tool" Click="UseMathInstrument"/>
+                                <CheckBox x:Name="TraceInstrument" Content="Trace" Click="ChangeTraceMode"
+                                    Margin="4,6,8,0" ToolTip="Drag along an edge, curve, or compass path to draw"/>
+                                <CheckBox x:Name="PublishInstrument" Content="Show on Program" Click="ChangeInstrumentPublication"
+                                    Margin="4,6,8,0"/>
+                                <Button x:Name="RemoveInstrumentButton" Content="Remove tool" Click="RemoveMathInstrument"/>
+                            </WrapPanel>
+                            <WrapPanel>
+                                <Button x:Name="InstrumentDrawButton" Click="DrawFromInstrument"/>
+                                <WrapPanel x:Name="RulerControls" Visibility="Collapsed">
+                                    <CheckBox x:Name="RulerInches" Content="Inches" Click="ChangeRulerUnits" Margin="4,6,8,0"/>
+                                    <CheckBox x:Name="RulerLabels" Content="Label length" Margin="4,6,8,0"/>
+                                    <TextBox x:Name="ReferenceLength" Width="53" Text="5" MaxLength="12" Margin="0,0,5,5"
+                                        AutomationProperties.Name="Known ruler reference length in selected units"/>
+                                    <Button x:Name="CalibrateButton" Content="Calibrate…" Click="CalibrateRuler"
+                                        ToolTip="Drag along a known reference length on the board"/>
+                                    <Button Content="Reset scale" Click="ResetRulerScale"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="InstrumentStatus" Margin="5,5,8,5" Foreground="{StaticResource Muted}"/>
+                            </WrapPanel>
+                            <WrapPanel x:Name="CalculatorControls" Visibility="Collapsed">
+                                <TextBox x:Name="CalculatorEntry" Width="185" MaxLength="280" Margin="0,0,5,5"
+                                    KeyDown="CalculatorKeyDown" ToolTip="Try (3/4)^2, sqrt(81) or sin(30)"
+                                    AutomationProperties.Name="Calculator expression"/>
+                                <CheckBox x:Name="CalculatorDegrees" Content="Degrees" IsChecked="True" Margin="4,6,8,0"/>
+                                <Button x:Name="CalculatorEvaluateButton" Content="Evaluate" Click="CalculateOnBoard"/>
+                                <ComboBox x:Name="CalculatorHistory" Width="130" SelectionChanged="RestoreCalculation"
+                                    AutomationProperties.Name="Calculation history"/>
+                                <CheckBox x:Name="ShowCalculatorKeys" Content="Keypad" Click="ToggleCalculatorKeys" Margin="4,6,8,0"/>
+                            </WrapPanel>
+                            <WrapPanel x:Name="CalculatorKeys" Visibility="Collapsed"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -103,6 +141,7 @@
                                     PreviewMouseLeftButtonUp="BoardUp" LostMouseCapture="BoardCaptureLost">
                                     <studio:BoardSurface x:Name="TeacherBoard"/>
                                     <studio:LiveInkCanvas x:Name="DrawingInput" Background="Transparent" StrokeCollected="CollectInk"/>
+                                    <studio:TeacherInstrumentSurface x:Name="TeacherInstrument"/>
                                 </Grid>
                             </Viewbox>
                         </Border>

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Added movable on-board rulers, compasses, 180° and 360° protractors, two set squares, and a quadratic French curve.
+- Added calibrated metric and imperial ruler scales, guided construction and tracing, and measurement labels.
+- Added a scientific calculator with an on-board readout, degree and radian modes, optional keypad, and private calculation history.
+- Added explicit sharing of the current instrument to Program, including the student display and recordings.
+
 ## 0.4.0
 
 - Added two DirectShow camera preview slots with separate controls for private preview and publishing to Program.

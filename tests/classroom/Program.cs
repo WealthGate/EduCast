@@ -36,6 +36,8 @@ internal static class Checks
             ("Quadratic graph evaluates roots and vertex correctly", Quadratic),
             ("Release catalog offers only newer published Windows installers", ReleaseUpdates),
             ("Classroom clock follows local time and stopwatch/countdown use monotonic time", ClockControls),
+            ("Math instrument scales, edge projection, angles and exact guide geometry", MathGeometry),
+            ("Scientific calculator evaluates expressions and rejects undefined results", Calculator),
             ("DirectShow enumeration separates camera inputs from audio", CameraListing),
             ("WPF teacher window, progressive ink and separate clean output", () => Desktop(args)),
             ("WPF selection overlay and committed move preserve object identity and pressure", SelectionMove),
@@ -315,6 +317,46 @@ internal static class Checks
         Assert(cameras.Count == 2 && cameras[0].Id == "@device_sw_usb" && cameras[1].Name == "Integrated Camera");
     }
 
+    private static void MathGeometry()
+    {
+        var ruler = InstrumentPose.Create(InstrumentKind.Ruler) with { Rotation = 90, Inches = true };
+        Assert(Math.Abs(ruler.UnitsPerMeasure - 81.28) < 1e-9);
+        var rotated = ruler.ToBoard(new BoardPoint(110, 0));
+        Assert(Math.Abs(rotated.X - ruler.Origin.X) < 1e-9 && Math.Abs(rotated.Y - ruler.Origin.Y - 110) < 1e-9);
+        var edge = ruler.Edges()[0];
+        Assert(edge.Closest(new BoardPoint(48, 13)) == new BoardPoint(48, 0));
+        Assert(edge.Closest(new BoardPoint(-30, 13)) == new BoardPoint(0, 0));
+
+        var protractor = InstrumentPose.Create(InstrumentKind.Protractor180) with { Rotation = 27 };
+        Assert(Math.Abs(protractor.ReadAngle(protractor.ToBoard(InstrumentPose.Polar(-127, 100))) - 127) < 1e-8);
+        Assert(protractor.ReadAngle(protractor.ToBoard(InstrumentPose.Polar(35, 100))) == 0);
+        var full = protractor with { Kind = InstrumentKind.Protractor360 };
+        Assert(Math.Abs(full.ReadAngle(full.ToBoard(InstrumentPose.Polar(35, 100))) - 325) < 1e-8);
+        Assert(InstrumentPose.SweepStep(179, -179) == 2 && InstrumentPose.SweepStep(-179, 179) == -2);
+
+        var square = InstrumentPose.Create(InstrumentKind.SetSquare30);
+        Assert(square.Edges().Length == 3);
+        Assert(Math.Abs(Math.Atan(square.TriangleHeight / square.Size) * 180 / Math.PI - 30) < 1e-8);
+        Assert(InstrumentPose.Create(InstrumentKind.SetSquare45).TriangleHeight == square.Size);
+        var curve = InstrumentPose.Create(InstrumentKind.FrenchCurve);
+        var points = curve.TraceCurve(-curve.Size / 2, curve.Size / 2);
+        Assert(points[points.Length / 2] == curve.Origin);
+        Assert(Math.Abs(points[24].Y - curve.Origin.Y + curve.CurveRise / 4) < 1e-8);
+        Assert(points[0].Y == points[^1].Y && points[0].Y < curve.Origin.Y);
+    }
+
+    private static void Calculator()
+    {
+        Assert(MathParser.TryCalculate("(3/4)^2", true, out var fraction, out _) && fraction == .5625);
+        Assert(MathParser.TryCalculate("sqrt(81)+sin(30)", true, out var degrees, out _) && Math.Abs(degrees - 9.5) < 1e-10);
+        Assert(MathParser.TryCalculate("asin(0.5)", true, out var inverse, out _) && Math.Abs(inverse - 30) < 1e-10);
+        Assert(MathParser.TryCalculate("sin(pi/2)", false, out var radians, out _) && Math.Abs(radians - 1) < 1e-10);
+        Assert(!MathParser.TryCalculate("x+2", false, out _, out _));
+        Assert(!MathParser.TryCalculate("1/0", false, out _, out _));
+        Assert(!MathParser.TryCalculate("tan(90)", true, out _, out _));
+        Assert(!MathParser.TryCalculate("root(0,1)", true, out _, out _));
+    }
+
     private static void Desktop(string[] args)
     {
         var app = new App();
@@ -412,6 +454,7 @@ internal static class Checks
         Pump();
         Assert(Pixel(studentBoard, 980, 555).SequenceEqual(clean), "unpublished camera remained in the hold");
         Click(teacher, "FreezeButton");
+        InstrumentDemonstration(teacher, studentBoard, clean);
         Click(teacher, "StopButton");
         Assert(!app.Windows.Cast<Window>().Contains(student));
         ExtendedDisplay(app, teacher, program);
@@ -431,6 +474,11 @@ internal static class Checks
         var capture = Array.IndexOf(args, "--capture");
         if (capture >= 0 && capture + 1 < args.Length)
         {
+            if (args.Contains("--capture-instruments"))
+            {
+                Click(teacher, "MathToolsButton");
+                Pump();
+            }
             var bitmap = new RenderTargetBitmap((int)Math.Ceiling(teacher.ActualWidth),
                 (int)Math.Ceiling(teacher.ActualHeight), 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(teacher);
@@ -441,6 +489,103 @@ internal static class Checks
         }
         teacher.Close();
         app.Shutdown();
+    }
+
+    private static void InstrumentDemonstration(TeacherWindow teacher, FrameworkElement student, byte[] paper)
+    {
+        static void Check(TeacherWindow window, string name, bool state)
+        {
+            var check = Find<CheckBox>(window, name);
+            check.IsChecked = state;
+            check.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        }
+
+        Click(teacher, "MathToolsButton");
+        Pump();
+        var overlay = Find<FrameworkElement>(teacher, "TeacherInstrument");
+        Assert(Pixel(overlay, 650, 410)[3] > 0, "teacher ruler is missing");
+        Assert(Pixel(student, 650, 410).SequenceEqual(paper), "private ruler leaked");
+        Check(teacher, "PublishInstrument", true);
+        Pump();
+        Assert(!Pixel(student, 650, 410).SequenceEqual(paper), "published ruler is missing");
+        Assert(Pixel(student, 423, 412).SequenceEqual(paper), "teacher rotation handle leaked");
+
+        Click(teacher, "FreezeButton");
+        Assert(teacher.BeginMathDrag(new BoardPoint(650, 410)));
+        teacher.EndMathDrag(new BoardPoint(650, 300), snap: false);
+        Pump();
+        Assert(!Pixel(student, 650, 410).SequenceEqual(paper) && Pixel(student, 650, 300).SequenceEqual(paper));
+        Check(teacher, "PublishInstrument", false);
+        Pump();
+        Assert(Pixel(student, 650, 410).SequenceEqual(paper), "revoked ruler remained frozen");
+        Click(teacher, "FreezeButton");
+
+        Find<TextBox>(teacher, "ReferenceLength").Text = "5";
+        Click(teacher, "CalibrateButton");
+        Assert(teacher.BeginMathDrag(new BoardPoint(150, 520)));
+        teacher.UpdateMathDrag(new BoardPoint(350, 520), snap: false);
+        Pump();
+        Assert(Pixel(student, 250, 520).SequenceEqual(paper), "private ruler calibration leaked");
+        teacher.EndMathDrag(new BoardPoint(350, 520), snap: false);
+        Assert(Find<TextBlock>(teacher, "InstrumentStatus").Text.StartsWith("10.4", StringComparison.Ordinal) ||
+            Find<TextBlock>(teacher, "InstrumentStatus").Text.StartsWith("10,4", StringComparison.Ordinal));
+
+        Check(teacher, "TraceInstrument", true);
+        Assert(teacher.BeginMathDrag(new BoardPoint(540, 275)));
+        teacher.UpdateMathDrag(new BoardPoint(800, 278), snap: false);
+        Pump();
+        Assert(!Pixel(student, 670, 266).SequenceEqual(paper), "projected ruler trace missing");
+        teacher.EndMathDrag(new BoardPoint(800, 278), snap: false);
+        Pump();
+        Assert(!Pixel(student, 670, 266).SequenceEqual(paper));
+        Click(teacher, "UndoButton");
+
+        var choice = Find<ComboBox>(teacher, "InstrumentChoice");
+        choice.SelectedIndex = 1;
+        Check(teacher, "TraceInstrument", true);
+        Assert(teacher.BeginMathDrag(new BoardPoint(581, 376)));
+        teacher.EndMathDrag(new BoardPoint(455, 502), snap: false);
+        Pump();
+        Assert(!Pixel(student, 544, 465).SequenceEqual(paper), "committed compass arc missing");
+        Click(teacher, "UndoButton");
+
+        choice.SelectedIndex = 2;
+        Click(teacher, "InstrumentDrawButton");
+        Pump();
+        Assert(!Pixel(student, 530, 376).SequenceEqual(paper), "protractor baseline missing");
+        Click(teacher, "UndoButton");
+
+        choice.SelectedIndex = 5;
+        Click(teacher, "InstrumentDrawButton");
+        Pump();
+        Assert(!Pixel(student, 455, 315).SequenceEqual(paper), "set-square leg missing");
+        Click(teacher, "UndoButton");
+
+        choice.SelectedIndex = 6;
+        Check(teacher, "TraceInstrument", true);
+        Assert(teacher.BeginMathDrag(new BoardPoint(265, 244)));
+        teacher.EndMathDrag(new BoardPoint(645, 244), snap: false);
+        Pump();
+        Assert(!Pixel(student, 455, 376).SequenceEqual(paper), "French-curve vertex missing");
+        Click(teacher, "UndoButton");
+
+        choice.SelectedIndex = 7;
+        Check(teacher, "ShowCalculatorKeys", true);
+        var keys = Find<WrapPanel>(teacher, "CalculatorKeys").Children.OfType<Button>().ToArray();
+        foreach (var value in new[] { "7", "+", "2" })
+            keys.Single(button => (string)button.Content == value).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert(Find<TextBox>(teacher, "CalculatorEntry").Text == "7+2");
+        Find<TextBox>(teacher, "CalculatorEntry").Text = "sin(30)";
+        Click(teacher, "CalculatorEvaluateButton");
+        Assert(Find<TextBlock>(teacher, "Status").Text == "Result 0.5.");
+        Pump();
+        Assert(Pixel(student, 620, 470).SequenceEqual(paper), "private calculation leaked");
+        Check(teacher, "PublishInstrument", true);
+        Pump();
+        Assert(!Pixel(student, 620, 470).SequenceEqual(paper));
+        Click(teacher, "RemoveInstrumentButton");
+        Pump();
+        Assert(Pixel(student, 620, 470).SequenceEqual(paper));
     }
 
     private static void ExtendedDisplay(App app, TeacherWindow teacher, FrameworkElement program)
@@ -574,7 +719,7 @@ internal static class Checks
         var profile = RecordingProfile.Options[^1];
         var renderer = new ProgramVideoRenderer(profile);
         var layers = new ProgramLayers(SolidFrame(Colors.Red), SolidFrame(Colors.Blue),
-            new(ClockView.Analog, TimeSpan.FromHours(10)));
+            new(ClockView.Analog, TimeSpan.FromHours(10)), new(InstrumentPose.Create(InstrumentKind.Ruler)));
         var frame = new StudioFrame(ProgramFrame.From(Page.Empty()), null, layers);
         var pixels = renderer.Capture(frame);
         Assert(pixels.Length == 3840 * 2160 * 4);
@@ -582,6 +727,7 @@ internal static class Checks
         Assert(Channel(980, 560, 2) > 220 && Channel(980, 560, 0) < 20, "camera one was not rendered at UHD");
         Assert(Channel(660, 560, 0) > 220 && Channel(660, 560, 2) < 20, "camera two was not rendered at UHD");
         Assert(Channel(1170, 70, 2) < 80, "clock overlay was not rendered");
+        Assert(Channel(650, 416, 2) < 240 && Channel(650, 416, 2) > 120, "published ruler not rendered");
         renderer.Capture(frame with { Board = null });
         Assert(Channel(980, 560, 2) == 0 && Channel(660, 560, 0) == 0 && Channel(1170, 70, 2) == 0);
     }

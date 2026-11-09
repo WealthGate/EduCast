@@ -65,42 +65,63 @@ public static class MathParser
         return false;
     }
 
-    public static double Evaluate(MathNode node, double x) => node switch
+    public static bool TryCalculate(string source, bool degrees, out double value, out string error)
+    {
+        value = double.NaN;
+        if (!TryParse(source, out var node, out error))
+            return false;
+        if (!IsNumeric(node!, allowVariable: false))
+        {
+            error = "Enter a numeric expression without a variable or an equals sign.";
+            return false;
+        }
+        value = Evaluate(node!, 0, degrees);
+        if (double.IsFinite(value))
+            return true;
+        error = "This calculation is undefined or outside the supported range.";
+        return false;
+    }
+
+    public static double Evaluate(MathNode node, double x) => Evaluate(node, x, degrees: false);
+
+    private static double Evaluate(MathNode node, double x, bool degrees) => node switch
     {
         Literal { Value: "x" } => x,
         Literal { Value: "π" } => Math.PI,
         Literal { Value: "e" } => Math.E,
         Literal literal => double.TryParse(literal.Value, NumberStyles.Float, CultureInfo.InvariantCulture,
             out var value) ? value : double.NaN,
-        Group group => Evaluate(group.Child, x),
-        Prefix prefix => (prefix.Operator == "−" ? -1 : 1) * Evaluate(prefix.Operand, x),
-        Fraction fraction => Evaluate(fraction.Top, x) / Evaluate(fraction.Bottom, x),
+        Group group => Evaluate(group.Child, x, degrees),
+        Prefix prefix => (prefix.Operator == "−" ? -1 : 1) * Evaluate(prefix.Operand, x, degrees),
+        Fraction fraction => Evaluate(fraction.Top, x, degrees) / Evaluate(fraction.Bottom, x, degrees),
         Scripts { Superscript: not null } script =>
-            Math.Pow(Evaluate(script.Basis, x), Evaluate(script.Superscript, x)),
-        Radical radical => Root(Evaluate(radical.Child, x),
-            radical.Index is null ? 2 : Evaluate(radical.Index, x)),
-        Binary binary => EvaluateBinary(binary.Operator, Evaluate(binary.Left, x), Evaluate(binary.Right, x)),
-        Function function => EvaluateFunction(function.Name, Evaluate(function.Argument, x)),
+            Math.Pow(Evaluate(script.Basis, x, degrees), Evaluate(script.Superscript, x, degrees)),
+        Radical radical => Root(Evaluate(radical.Child, x, degrees),
+            radical.Index is null ? 2 : Evaluate(radical.Index, x, degrees)),
+        Binary binary => EvaluateBinary(binary.Operator, Evaluate(binary.Left, x, degrees), Evaluate(binary.Right, x, degrees)),
+        Function function => EvaluateFunction(function.Name, Evaluate(function.Argument, x, degrees), degrees),
         _ => double.NaN
     };
 
     private static double Root(double number, double index) =>
-        number < 0 && index % 2 == 1 ? -Math.Pow(-number, 1 / index) : Math.Pow(number, 1 / index);
+        index == 0 ? double.NaN :
+        number < 0 && Math.Abs(index % 2) == 1 ? -Math.Pow(-number, 1 / index) : Math.Pow(number, 1 / index);
 
-    private static bool IsNumeric(MathNode node) => node switch
+    private static bool IsNumeric(MathNode node, bool allowVariable = true) => node switch
     {
-        Literal { Value: "x" or "π" or "e" } => true,
+        Literal { Value: "x" } => allowVariable,
+        Literal { Value: "π" or "e" } => true,
         Literal literal => double.TryParse(literal.Value, NumberStyles.Float,
             CultureInfo.InvariantCulture, out var number) && double.IsFinite(number),
-        Group group => IsNumeric(group.Child),
-        Prefix { Operator: "+" or "−" } prefix => IsNumeric(prefix.Operand),
-        Fraction fraction => IsNumeric(fraction.Top) && IsNumeric(fraction.Bottom),
-        Radical radical => IsNumeric(radical.Child) && (radical.Index is null || IsNumeric(radical.Index)),
+        Group group => IsNumeric(group.Child, allowVariable),
+        Prefix { Operator: "+" or "−" } prefix => IsNumeric(prefix.Operand, allowVariable),
+        Fraction fraction => IsNumeric(fraction.Top, allowVariable) && IsNumeric(fraction.Bottom, allowVariable),
+        Radical radical => IsNumeric(radical.Child, allowVariable) && (radical.Index is null || IsNumeric(radical.Index, allowVariable)),
         Scripts { Superscript: not null, Subscript: null } script =>
-            IsNumeric(script.Basis) && IsNumeric(script.Superscript),
+            IsNumeric(script.Basis, allowVariable) && IsNumeric(script.Superscript, allowVariable),
         Binary { Operator: "+" or "−" or "·" or "×" or "" } binary =>
-            IsNumeric(binary.Left) && IsNumeric(binary.Right),
-        Function function => IsNumeric(function.Argument),
+            IsNumeric(binary.Left, allowVariable) && IsNumeric(binary.Right, allowVariable),
+        Function function => IsNumeric(function.Argument, allowVariable),
         _ => false
     };
 
@@ -109,13 +130,19 @@ public static class MathParser
         "+" => a + b, "−" => a - b, "" or "·" or "×" => a * b, _ => double.NaN
     };
 
-    private static double EvaluateFunction(string name, double value) => name switch
+    private static double EvaluateFunction(string name, double value, bool degrees)
     {
-        "sin" => Math.Sin(value), "cos" => Math.Cos(value), "tan" => Math.Tan(value),
-        "asin" => Math.Asin(value), "acos" => Math.Acos(value), "atan" => Math.Atan(value),
-        "ln" => Math.Log(value), "log" => Math.Log10(value), "exp" => Math.Exp(value),
-        "abs" => Math.Abs(value), _ => double.NaN
-    };
+        var angle = degrees ? value * Math.PI / 180 : value;
+        var conversion = degrees ? 180 / Math.PI : 1;
+        return name switch
+        {
+            "sin" => Math.Sin(angle), "cos" => Math.Cos(angle),
+            "tan" => Math.Abs(Math.Cos(angle)) < 1e-14 ? double.NaN : Math.Tan(angle),
+            "asin" => Math.Asin(value) * conversion, "acos" => Math.Acos(value) * conversion,
+            "atan" => Math.Atan(value) * conversion, "ln" => Math.Log(value), "log" => Math.Log10(value),
+            "exp" => Math.Exp(value), "abs" => Math.Abs(value), _ => double.NaN
+        };
+    }
 
     private sealed class Parser(string source)
     {

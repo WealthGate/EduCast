@@ -162,6 +162,8 @@ internal sealed class BoardSurface : FrameworkElement
 
     private static DrawingGroup For(Content content) => Drawings.GetValue(content, MakeDrawing);
 
+    internal static void DrawInk(DrawingContext dc, Ink ink) => dc.DrawDrawing(For(ink));
+
     private static DrawingGroup MakeDrawing(Content item)
     {
         var drawing = new DrawingGroup();

@@ -21,7 +21,7 @@ namespace EduCast.Studio;
 
 public partial class TeacherWindow : Window
 {
-    private enum Tool { Pen, Highlighter, Eraser, Select, Line, Circle, Arc, Rectangle, Place }
+    private enum Tool { Pen, Highlighter, Eraser, Select, Line, Circle, Arc, Rectangle, Place, Instrument }
     private sealed record ColorChoice(string Name, uint Argb);
     private sealed record OutputChoice(Display? Display)
     {
@@ -84,6 +84,7 @@ public partial class TeacherWindow : Window
         this.checkRelease = checkRelease;
         saved = session.Lesson;
         InitializeComponent();
+        InitializeMathTools();
         recordingClock = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background,
             (_, _) => RefreshRecordingStatus(), Dispatcher);
         recordingClock.Stop();
@@ -326,7 +327,7 @@ public partial class TeacherWindow : Window
 
     private void RefreshLiveInk()
     {
-        var projected = session.ProjectLiveInk(liveStroke);
+        var projected = session.ProjectLiveInk(mathDrag?.Calibration == true ? liveStroke : instrumentTrace ?? liveStroke);
         programInk = projected;
         if (projected is null && !liveInkShown)
             return;
@@ -467,6 +468,7 @@ public partial class TeacherWindow : Window
     {
         StopOutput(this, new RoutedEventArgs());
         studio?.Unpublish();
+        CloseMathTools();
         frozenLayers = null;
         CancelGesture();
         ClearSelection();
@@ -587,14 +589,18 @@ public partial class TeacherWindow : Window
         Refresh();
     }
 
-    private void AddItem(BoardItem item)
+    private void AddItem(BoardItem item) => AddItems([item]);
+
+    private void AddItems(ImmutableArray<BoardItem> items)
     {
-        if (session.Page.Items.Length >= 3000)
+        if (items.IsEmpty)
+            return;
+        if (session.Page.Items.Length + items.Length > 3000)
         {
             Report("This page already has 3,000 objects. Add a page to continue.");
             return;
         }
-        session.ChangePage(session.Page with { Items = session.Page.Items.Add(item) });
+        session.ChangePage(session.Page with { Items = session.Page.Items.AddRange(items) });
         Refresh();
     }
 
@@ -669,6 +675,7 @@ public partial class TeacherWindow : Window
             Tool.Circle => "Compass circle · drag from the center",
             Tool.Arc => "Compass arc · drag center to start, then click its end",
             Tool.Rectangle => "Rectangle · drag opposite corners",
+            Tool.Instrument => "Drag the instrument to move it. Use the handles to adjust it, or enable Trace to draw along it.",
             _ => "Click the board to place your object. Esc cancels."
         };
         UpdateInk(null, null);
@@ -701,6 +708,13 @@ public partial class TeacherWindow : Window
 
     private void BoardDown(object sender, MouseButtonEventArgs args)
     {
+        if (tool == Tool.Instrument)
+        {
+            args.Handled = true;
+            if (BeginMathDrag(Pointer(args.GetPosition(BoardInput))) && !BoardInput.CaptureMouse())
+                CancelMathDrag();
+            return;
+        }
         if (tool is Tool.Pen or Tool.Highlighter)
         {
             if (Selected is not null)
@@ -750,6 +764,11 @@ public partial class TeacherWindow : Window
     private void BoardMove(object sender, MouseEventArgs args)
     {
         var position = args.GetPosition(BoardInput);
+        if (mathDrag is not null && BoardInput.IsMouseCaptured)
+        {
+            UpdateMathDrag(Pointer(position), Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+            return;
+        }
         if (pendingArc is { } arc)
         {
             TeacherBoard.Mark(null, arc with { Sweep = Sweep(arc, position, Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) });
@@ -777,6 +796,13 @@ public partial class TeacherWindow : Window
 
     private void BoardUp(object sender, MouseButtonEventArgs args)
     {
+        if (mathDrag is not null)
+        {
+            args.Handled = true;
+            EndMathDrag(Pointer(args.GetPosition(BoardInput)), Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+            BoardInput.ReleaseMouseCapture();
+            return;
+        }
         if (anchor is not Point start)
             return;
         args.Handled = true;
@@ -871,7 +897,7 @@ public partial class TeacherWindow : Window
 
     private void BoardCaptureLost(object sender, MouseEventArgs args)
     {
-        if (anchor is not null)
+        if (anchor is not null || mathDrag is not null)
         {
             CancelGesture();
             Refresh();
@@ -880,6 +906,7 @@ public partial class TeacherWindow : Window
 
     private void CancelGesture()
     {
+        CancelMathDrag();
         DrawingInput.CancelStroke();
         anchor = null;
         movingSelection = false;
@@ -1078,12 +1105,14 @@ public partial class TeacherWindow : Window
     private void SetLive(object sender, RoutedEventArgs args)
     {
         session.Live = LiveMode.IsChecked == true;
+        if (session.Live)
+            RefreshMathInstrument(publish: true);
         RefreshProgram();
     }
 
     private void Freeze(object sender, RoutedEventArgs args)
     {
-        frozenLayers = session.Frozen ? null : studioLayers;
+        frozenLayers = session.Frozen ? null : LiveStudioLayers();
         session.ToggleFreeze();
         RefreshProgram();
     }
@@ -1097,6 +1126,7 @@ public partial class TeacherWindow : Window
     private void Take(object sender, RoutedEventArgs args)
     {
         session.Take();
+        RefreshMathInstrument(publish: true);
         RefreshProgram();
     }
 
@@ -1136,16 +1166,20 @@ public partial class TeacherWindow : Window
 
     private void RefreshStudioLayers()
     {
+        var live = LiveStudioLayers();
         if (frozenLayers is { } held)
-            frozenLayers = new ProgramLayers(studioLayers.CameraOne is null ? null : held.CameraOne,
-                studioLayers.CameraTwo is null ? null : held.CameraTwo, studioLayers.Clock is null ? null : held.Clock);
-        var next = session.Blackout ? new ProgramLayers() : frozenLayers ?? studioLayers;
+            frozenLayers = new ProgramLayers(live.CameraOne is null ? null : held.CameraOne,
+                live.CameraTwo is null ? null : held.CameraTwo, live.Clock is null ? null : held.Clock,
+                live.Instrument is null ? null : held.Instrument);
+        var next = session.Blackout ? new ProgramLayers() : frozenLayers ?? live;
         if (next == visibleLayers)
             return;
         visibleLayers = next;
         ProgramPreview.PresentLayers(next);
         output?.SetLayers(next);
     }
+
+    private ProgramLayers LiveStudioLayers() => studioLayers with { Instrument = publishedInstrument };
 
     private void RecordingAction(object sender, RoutedEventArgs args)
     {

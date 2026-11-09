@@ -24,6 +24,7 @@ Windows enumeration supplies physical monitor coordinates. The app uses a per-mo
 - The board uses a 1280 × 720 logical coordinate space. WPF scales the vectors to the window. The output 4:3 setting fits the board inside a 4:3 matte without distorting geometry.
 - The native InkCanvas renders in-progress pressure-sensitive strokes. Routed stylus packets or mouse samples feed a bounded overlay at WPF render priority. The session projects this overlay only for approved live ink. A completed stroke enters editable history once, using the native stroke's captured samples. Freeze, manual Take, and PNG export use committed frames. Drawings and paper patterns are reused across views.
 - While the teacher drags a selected object, the teacher canvas translates its cached drawing in an overlay. Releasing the object commits the movement as one undoable edit.
+- On-board instruments keep their pose and controls separate from lesson data. Trace gestures project onto mathematical guides and commit ordinary vector objects. Program receives a separately approved instrument display and the same privacy-filtered transient ink used for pen strokes. [Instrument guide](MATH_INSTRUMENTS.md)
 - Equations are stored as source and parsed into a structured syntax tree. WPF typesets grouped expressions, fractions, scripts, radicals and small matrices. The graph evaluator accepts a constrained expression tree over real numbers. It never evaluates arbitrary code.
 - Projects are bounded, versioned JSON files. A save writes a new file beside the destination, flushes it, then replaces the destination. The app validates incoming data before it replaces the active lesson. Notes remain in the editable project. Send the Program PNG for clean sharing.
 - The desktop does not need a server. File failures appear in the app, and diagnostic entries contain an exception type and result code without lesson names or notes.
@@ -44,7 +45,7 @@ A media adapter should turn the approved composition into timestamped GPU surfac
 
 ## Next milestones
 
-1. Validate physical projector hot-plug, mixed DPI, stylus pressure and pen latency on classroom hardware. Progressive clean ink, object dragging and automated dual-display placement landed in 0.2. Calibrated ruler, protractor and set-square workflows remain open.
+1. Validate physical projector hot-plug, mixed DPI, stylus pressure and pen latency on classroom hardware. Progressive clean ink and automated dual-display placement landed in 0.2. Version 0.5 adds movable, publishable on-board instruments and guided construction.
 2. Verify physical camera combinations and sustained recording. Add microphone and system audio capture with measured A/V synchronization, plus local media and slide ingestion.
 3. Add hardware-accelerated 4K profiles, a real virtual camera, network sources, effects and streaming. Advance the parity matrix only with test evidence.
 4. Add assisted handwriting recognition, broader math interchange and subject modules. Preserve original ink during correction and validate interpretation with educators.

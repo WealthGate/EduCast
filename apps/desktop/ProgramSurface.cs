@@ -7,7 +7,8 @@ using EduCast.Classroom;
 
 namespace EduCast.Studio;
 
-internal sealed record ProgramLayers(BitmapSource? CameraOne = null, BitmapSource? CameraTwo = null, ClockReading? Clock = null);
+internal sealed record ProgramLayers(BitmapSource? CameraOne = null, BitmapSource? CameraTwo = null,
+    ClockReading? Clock = null, InstrumentDisplay? Instrument = null);
 internal sealed record StudioFrame(ProgramFrame? Board, ProgramInk? LiveInk, ProgramLayers Layers);
 
 internal sealed class ProgramSurface : Grid
@@ -65,6 +66,12 @@ internal sealed class ProgramSurface : Grid
             Camera(dc, frame.CameraTwo, 600);
             if (frame.Clock is { } clock)
                 DrawClock(dc, clock);
+            if (frame.Instrument is { } instrument)
+            {
+                dc.PushClip(new RectangleGeometry(BoardSurface.Bounds));
+                InstrumentDrawing.Draw(dc, instrument);
+                dc.Pop();
+            }
         }
 
         private static void Camera(DrawingContext dc, BitmapSource? image, int x)

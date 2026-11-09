@@ -1,5 +1,11 @@
 # Classroom milestone verification
 
+## 0.5 on-board instruments
+
+The Release build, whitespace check, and all 20 local checks passed with `--media`. The WPF demonstration check opened the tool selector, published and revoked a ruler, moved it while Program was frozen, and verified that the adjustment handle and calibration line stayed private. It also checked a committed ruler trace, compass arc, protractor construction, set-square edges, and French-curve vertex against the rendered student output. The calculator tests covered degree and radian results, keypad entry, and undefined input.
+
+The UHD compositor check included a published ruler alongside camera and clock layers. Short 720p, 1080p and UHD media checks continued to pass. The mouse-coordinate checks exercise the board's gesture handlers with known points. Physical stylus and touch testing on classroom equipment remains open. [Instrument guide](MATH_INSTRUMENTS.md)
+
 ## 0.4 studio preview
 
 The Release build passed with no compiler warnings. All 18 local checks passed with `--media` on x64 Windows using the installed FFmpeg 8.0 build.
