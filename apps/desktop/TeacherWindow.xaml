@@ -3,6 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:studio="clr-namespace:EduCast.Studio"
     Title="EduCast Studio" Width="1390" Height="870" MinWidth="860" MinHeight="690"
+    Icon="Assets/EduCast.ico"
     WindowStartupLocation="CenterScreen" Background="{StaticResource Shell}" Foreground="{StaticResource Ink}"
     FontFamily="Segoe UI" FontSize="13">
     <Grid Margin="18,12,18,9">
@@ -15,10 +16,7 @@
         <Grid Margin="0,0,0,13">
             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Background="{StaticResource Accent}" CornerRadius="9" Width="40" Height="40" Margin="0,0,12,0">
-                    <TextBlock Text="E" Foreground="#132923" FontSize="23" FontWeight="Bold"
-                        VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Border>
+                <Image Source="Assets/EduCast.png" Width="40" Height="40" Margin="0,0,12,0"/>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="EduCast Studio" FontSize="21" FontWeight="SemiBold"/>
                     <TextBlock Text="TEACHER WORKSPACE   /   CLASSROOM" Style="{StaticResource Caption}"/>

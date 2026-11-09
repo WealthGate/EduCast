@@ -4,6 +4,8 @@
     <MajorUpgrade Schedule="afterInstallInitialize"
         DowngradeErrorMessage="A newer version of EduCast Studio is already installed." />
     <MediaTemplate EmbedCab="yes" />
+    <Icon Id="EduCast.ico" SourceFile="$(sys.SOURCEFILEDIR)..\apps\desktop\Assets\EduCast.ico" />
+    <Property Id="ARPPRODUCTICON" Value="EduCast.ico" />
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="UserPrograms" Name="Programs">
         <Directory Id="INSTALLFOLDER" Name="EduCast Studio" />

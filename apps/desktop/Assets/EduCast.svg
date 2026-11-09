@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>EduCast Studio</title>
+  <rect width="64" height="64" rx="14" fill="#69E8BC"/>
+  <path fill="#13283A" fill-rule="evenodd" d="
+    M30 22 C24 17 17 15 10 17 L10 44 C17 42 24 44 30 49 Z
+    M34 22 C40 17 47 15 54 17 L54 44 C47 42 40 44 34 49 Z
+    M40 24 L50 31 L40 38 Z
+    M15 23 C19 23 23 24 26 26 L26 30 C23 28 19 27 15 27 Z"/>
+</svg>

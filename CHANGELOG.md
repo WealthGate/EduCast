@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Added an EduCast Studio logo to the teacher workspace and Windows app icon, including the Start menu, taskbar, and Installed apps.
+
 ## 0.6.0
 
 - Added in-app updates that verify the GitHub installer, install it after EduCast closes, and reopen the updated app.

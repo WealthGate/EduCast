@@ -4,9 +4,12 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/EduCast.ico</ApplicationIcon>
     <AssemblyName>EduCast.Studio</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets/EduCast.ico" />
+    <Resource Include="Assets/EduCast.png" />
     <ProjectReference Include="../../packages/classroom/EduCast.Classroom.csproj" />
     <InternalsVisibleTo Include="EduCast.Checks" />
   </ItemGroup>
