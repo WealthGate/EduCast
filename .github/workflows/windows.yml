@@ -1,6 +1,8 @@
-name: Windows classroom build
+name: Windows build and release
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   pull_request:
 
 permissions:
@@ -9,20 +11,69 @@ permissions:
 jobs:
   classroom:
     runs-on: windows-latest
+    timeout-minutes: 15
     env:
       DOTNET_NOLOGO: '1'
       DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           dotnet-version: '10.0.x'
+      - name: Verify release version
+        if: github.ref_type == 'tag'
+        run: |
+          $version = ([xml](Get-Content -Raw Directory.Build.props)).Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+$' -or $env:GITHUB_REF_NAME -cne "v$version") {
+            throw 'The tag must match the numeric version in Directory.Build.props.'
+          }
       - run: dotnet build EduCast.slnx -c Release
       - run: dotnet format whitespace . --folder --verify-no-changes --include apps/desktop packages/classroom tests/classroom
       - run: dotnet run --no-build --project tests/classroom/EduCast.Checks.csproj -c Release -- --core-only
-      - run: ./scripts/Build-Release.ps1 -SkipInstaller
-      - uses: actions/upload-artifact@v4
+      - name: Build portable preview
+        if: github.ref_type != 'tag'
+        run: ./scripts/Build-Release.ps1 -SkipInstaller
+      - name: Build release packages
+        if: github.ref_type == 'tag'
+        run: |
+          dotnet tool install wix --version 5.0.2 --tool-path ./artifacts/tools --allow-roll-forward
+          if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
+          ./scripts/Build-Release.ps1 -Wix ./artifacts/tools/wix.exe
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: EduCast-Studio-Windows
-          path: artifacts/*.zip
+          name: EduCast-Studio-Windows-x64
+          path: |
+            artifacts/*.zip
+            artifacts/*.msi
+            artifacts/SHA256SUMS.txt
           if-no-files-found: error
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: classroom
+    runs-on: windows-latest
+    timeout-minutes: 10
+    concurrency: educast-windows-release-${{ github.ref_name }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: EduCast-Studio-Windows-x64
+          path: release
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $version = $tag.Substring(1)
+          $base = "release/EduCast-Studio-$version-win-x64"
+          $assets = @("$base.msi", "$base.zip", 'release/SHA256SUMS.txt')
+          foreach ($asset in $assets) {
+            if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) { throw "Missing release asset $asset." }
+          }
+          $notes = "Use the Windows x64 MSI to install or upgrade, or extract the portable ZIP. Both require the x64 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). The MSI is unsigned. See the [changelog](https://github.com/$env:GITHUB_REPOSITORY/blob/$tag/CHANGELOG.md)."
+          gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --verify-tag --title "EduCast Studio $version" --notes $notes --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed.' }

@@ -1,6 +1,8 @@
 # EduCast Studio
 
-EduCast Studio 0.2 is the Windows classroom preview with progressive ink and board object movement. It runs offline and keeps the teacher workspace separate from the fullscreen or windowed student output.
+EduCast Studio is a Windows classroom preview with progressive ink and board object movement. It runs offline and keeps the teacher workspace separate from the fullscreen or windowed student output.
+
+Get the installer or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). For new-version notifications, choose **Watch → Custom → Releases** on GitHub. The teacher workspace also checks for updates.
 
 ## Start teaching
 
@@ -28,3 +30,4 @@ The test executable returns a nonzero exit code if any check fails. Pass `-- --c
 - [ManyCam 9 audit](docs/MANYCAM_FEATURE_PARITY.md)
 - [Privacy boundary](docs/SECURITY.md)
 - [Verification results and package checksums](docs/VERIFICATION.md)
+- [Versioning and update notifications](docs/RELEASES.md)

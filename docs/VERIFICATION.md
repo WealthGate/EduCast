@@ -1,5 +1,9 @@
 # Classroom milestone verification
 
+## 0.3 update notification
+
+All 14 local checks passed. The release catalog tests covered a newer valid Windows installer, equal and older versions, draft and prerelease rejection, missing or pending installers, malformed tags, and a download URL supplied by the response. The WPF test verified that a newer version offered at startup appears as a **Download v…** button in the teacher workspace. The app constructs the versioned download from the official repository path.
+
 ## 0.2 classroom preview
 
 The Release build and whitespace check passed using SDK 10.0.403. All 13 automated checks passed on x64 Windows build 26300.

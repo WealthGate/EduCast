@@ -1,6 +1,9 @@
 using System.Collections.Immutable;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Ink;
@@ -35,6 +38,10 @@ public partial class TeacherWindow : Window
     ];
 
     private readonly Session session = new();
+    private readonly CancellationTokenSource updateLifetime = new();
+    private readonly Func<CancellationToken, Task<AvailableUpdate?>> checkRelease;
+    private AvailableUpdate? availableUpdate;
+    private bool checkingUpdate;
     private Lesson saved;
     private Page? renderedPage;
     private ProgramFrame? renderedOutput;
@@ -61,11 +68,14 @@ public partial class TeacherWindow : Window
     private bool updating;
     private bool ready;
 
-    public TeacherWindow()
+    public TeacherWindow() : this(ReleaseCatalog.CheckAsync) { }
+
+    internal TeacherWindow(Func<CancellationToken, Task<AvailableUpdate?>> checkRelease)
     {
+        this.checkRelease = checkRelease;
         saved = session.Lesson;
         InitializeComponent();
-        BuildVersion.Text = $"LOCAL LESSON   ·   v{GetType().Assembly.GetName().Version?.ToString(2)}";
+        BuildVersion.Text = $"LOCAL LESSON   ·   v{ReleaseCatalog.InstalledVersion}";
         DrawingInput.NewStroke = NewInk;
         DrawingInput.PreviewChanged += stroke =>
         {
@@ -105,11 +115,14 @@ public partial class TeacherWindow : Window
             SizeBoard();
             Refresh();
             Report("Ready. Connect an extended display or choose windowed output.");
+            _ = RefreshUpdatesAsync(interactive: false);
         };
         PreviewKeyDown += Shortcuts;
         Closing += (_, args) => { if (!ConfirmDiscard()) args.Cancel = true; };
         Closed += (_, _) =>
         {
+            updateLifetime.Cancel();
+            updateLifetime.Dispose();
             DrawingInput.CancelStroke();
             output?.Close();
         };
@@ -131,6 +144,64 @@ public partial class TeacherWindow : Window
     private double ToolWidth => tool == Tool.Highlighter ? Math.Max(12, InkWidth) : InkWidth;
 
     private void Report(string message) => Status.Text = message;
+
+    private async void CheckForUpdates(object sender, RoutedEventArgs args)
+    {
+        if (availableUpdate is not { } update)
+        {
+            await RefreshUpdatesAsync(interactive: true);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(update.Installer.AbsoluteUri) { UseShellExecute = true });
+            Report("The installer download opened in your browser. Save your lesson before running it.");
+        }
+        catch (Win32Exception error)
+        {
+            App.Log(error);
+            Report("Could not open the download. Visit github.com/WealthGate/EduCast/releases.");
+        }
+    }
+
+    private async Task RefreshUpdatesAsync(bool interactive)
+    {
+        if (checkingUpdate)
+            return;
+        checkingUpdate = true;
+        var cancellationToken = updateLifetime.Token;
+        UpdateButton.IsEnabled = false;
+        if (interactive)
+            Report("Checking GitHub for a newer release…");
+
+        try
+        {
+            var update = await checkRelease(cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+                return;
+            availableUpdate = update;
+            if (update is not null)
+            {
+                UpdateButton.Content = $"Download v{update.Version}";
+                UpdateButton.Style = (Style)FindResource("Primary");
+                UpdateButton.ToolTip = "Open the Windows installer download on GitHub";
+            }
+            else if (interactive)
+                Report("No newer EduCast installer is published.");
+        }
+        catch (Exception error) when (error is HttpRequestException or JsonException or OperationCanceledException)
+        {
+            if (interactive && !cancellationToken.IsCancellationRequested)
+                Report("Could not check GitHub for updates. Try again when connected.");
+        }
+        finally
+        {
+            checkingUpdate = false;
+            if (!cancellationToken.IsCancellationRequested)
+                UpdateButton.IsEnabled = true;
+        }
+    }
 
     private void Refresh()
     {

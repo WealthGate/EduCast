@@ -30,6 +30,8 @@
                 <Button Content="_Save" Click="SaveLesson" ToolTip="Save lesson (Ctrl+S)"/>
                 <Button Content="Save as…" Click="SaveAs"/>
                 <Button x:Name="SampleButton" Content="Sample lesson" Click="Sample"/>
+                <Button x:Name="UpdateButton" Content="Check for updates" Click="CheckForUpdates"
+                    ToolTip="Check for a newer EduCast release on GitHub"/>
             </WrapPanel>
         </Grid>
 

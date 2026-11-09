@@ -18,6 +18,6 @@
 | Subject teaching | Curated CSEC/CXC resources and standards mapping, Physics, Chemistry, Biology and Geography tools and simulations |
 | Production | Source capture and import, video compositing and scenes, native camera output, audio DSP, recording, hardware 4K, streaming, effects, integrations, network inputs and concurrent destinations |
 | Accounts and schools | Identity, owner administration, school membership, tenant isolation, dashboard, beta invites, entitlement signing and revocation, audit trails, cloud storage and synchronization |
-| Product and distribution | Mobile companion, optional AI, additional workspace presets and themes, signed deployment, automatic updates and school fleet support |
+| Product and distribution | Mobile companion, optional AI, additional workspace presets and themes, signed deployment, unattended update installation and school fleet support |
 
 The [ManyCam audit](MANYCAM_FEATURE_PARITY.md) tracks the detailed production scope. The [classroom guide](CLASSROOM_DISPLAY.md) lists hardware acceptance steps. The first build is a local classroom milestone. Production acceptance requires the open features and validation above.

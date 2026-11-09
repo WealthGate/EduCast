@@ -28,7 +28,7 @@ $releaseFiles = @(
     'EduCast.Classroom.dll'
 ) | ForEach-Object { Join-Path $publishDirectory $_ }
 Compress-Archive -LiteralPath $releaseFiles -DestinationPath $archive -Force
-Get-FileHash -LiteralPath $archive -Algorithm SHA256
+$packages = @($archive)
 
 if (-not $SkipInstaller) {
     if (-not $Wix) {
@@ -40,5 +40,11 @@ if (-not $SkipInstaller) {
     if ($LASTEXITCODE -ne 0) {
         throw 'The MSI build failed.'
     }
-    Get-FileHash -LiteralPath $installer -Algorithm SHA256
+    $packages += $installer
 }
+
+$hashes = Get-FileHash -LiteralPath $packages -Algorithm SHA256
+$hashes | ForEach-Object {
+    $_.Hash.ToLowerInvariant() + '  ' + (Split-Path -Leaf $_.Path)
+} | Set-Content -LiteralPath (Join-Path $releaseDirectory 'SHA256SUMS.txt') -Encoding utf8
+$hashes

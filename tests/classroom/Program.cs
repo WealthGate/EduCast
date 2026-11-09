@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -33,6 +34,7 @@ internal static class Checks
             ("Structured notation parses scripts, fractions, roots, matrices and chemistry", Notation),
             ("Malformed notation fails safely", InvalidNotation),
             ("Quadratic graph evaluates roots and vertex correctly", Quadratic),
+            ("Release catalog offers only newer published Windows installers", ReleaseUpdates),
             ("WPF teacher window, progressive ink and separate clean output", () => Desktop(args)),
             ("WPF selection overlay and committed move preserve object identity and pressure", SelectionMove),
             ("WPF Program PNG encodes visible content and excludes private objects", Snapshot)
@@ -228,15 +230,48 @@ internal static class Checks
         Assert(MathParser.Evaluate(graph!, 0) == 3);
     }
 
+    private static void ReleaseUpdates()
+    {
+        static JsonElement Release(string tag, string filename, bool draft = false, bool prerelease = false,
+            string state = "uploaded") => JsonSerializer.SerializeToElement(new
+        {
+            tag_name = tag,
+            draft,
+            prerelease,
+            assets = new[] { new { name = filename, state, browser_download_url = "https://example.invalid/installer" } }
+        });
+
+        var installed = new Version(0, 3, 0);
+        const string tag = "v0.3.1";
+        const string installer = "EduCast-Studio-0.3.1-win-x64.msi";
+        var update = ReleaseCatalog.ReadUpdate(Release(tag, installer), installed);
+        Assert(update?.Version == new Version(0, 3, 1));
+        Assert(update!.Installer.AbsoluteUri == $"https://github.com/WealthGate/EduCast/releases/download/{tag}/{installer}");
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer), new Version(0, 3, 1)) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer), new Version(0, 4, 0)) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, draft: true), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, prerelease: true), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, "EduCast-Studio-0.3.1-win-x64.zip"), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release(tag, installer, state: "new"), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release("v0.3.1.1", installer), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(Release("v0.03.1", installer), installed) is null);
+        Assert(ReleaseCatalog.ReadUpdate(JsonSerializer.SerializeToElement(new { }), installed) is null);
+    }
+
     private static void Desktop(string[] args)
     {
         var app = new App();
         app.InitializeComponent();
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-        var teacher = new TeacherWindow { ShowActivated = false };
+        var teacher = new TeacherWindow(_ => Task.FromResult<AvailableUpdate?>(new AvailableUpdate(
+            new Version(0, 3, 1), new Uri("https://github.com/WealthGate/EduCast/releases"))))
+        {
+            ShowActivated = false
+        };
         app.MainWindow = teacher;
         teacher.Show();
         Pump();
+        Assert((string)Find<Button>(teacher, "UpdateButton").Content == "Download v0.3.1");
         var scroller = Find<ScrollViewer>(teacher, "BoardScroller");
         Assert(scroller.ScrollableWidth < 1 && scroller.ScrollableHeight < 1, "teacher board must start fitted");
 
