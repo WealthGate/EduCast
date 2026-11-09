@@ -48,20 +48,36 @@ internal sealed class ProgramRecording
     private readonly PeriodicTimer ticks;
     private readonly Stopwatch time = Stopwatch.StartNew();
 
-    internal ProgramRecording(string ffmpeg, string destination, RecordingProfile profile, Func<Task<byte[]>> capture)
+    internal ProgramRecording(string ffmpeg, string destination, RecordingProfile profile, Func<Task<byte[]>> capture,
+        MicrophoneDevice? microphone = null)
+        : this(ffmpeg, destination, profile, capture, microphone is null ? [] :
+            ["-f", "dshow", "-audio_buffer_size", "50", "-analyzeduration", "1", "-i", $"audio={microphone.Id}"]) { }
+
+    internal ProgramRecording(string ffmpeg, string destination, RecordingProfile profile, Func<Task<byte[]>> capture,
+        string[] audioInput)
     {
         var partial = Path.Combine(Path.GetDirectoryName(destination)!,
             $".{Path.GetFileNameWithoutExtension(destination)}-{Guid.NewGuid():N}.partial.mp4");
+        IncludesAudio = audioInput.Length > 0;
+        string[] videoQueue = IncludesAudio ? ["-xerror", "-thread_queue_size", "2"] : [];
+        string[] inputs = IncludesAudio ? ["-thread_queue_size", "64", .. audioInput] : [];
+        string[] audio = IncludesAudio
+            ? ["-map", "1:a:0", "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "128k",
+                "-af", "aresample=async=1000:first_pts=0", "-shortest", "-abort_on", "empty_output_stream"]
+            : ["-an"];
         var process = FfmpegMedia.Start(ffmpeg,
-            ["-hide_banner", "-loglevel", "error", "-nostdin", "-n", "-f", "rawvideo", "-pixel_format", "bgra",
+            ["-hide_banner", "-loglevel", "error", "-nostdin", "-n", .. videoQueue,
+                "-f", "rawvideo", "-pixel_format", "bgra",
                 "-video_size", $"{profile.Width}x{profile.Height}", "-framerate", RecordingProfile.Fps.ToString(), "-i", "pipe:0",
-                "-an", "-c:v", "libx264", "-threads", "4", "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
+                .. inputs, "-map", "0:v:0", .. audio,
+                "-c:v", "libx264", "-threads", "4", "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
                 "-g", "30", "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", partial], input: true);
         ticks = new PeriodicTimer(TimeSpan.FromSeconds(1d / RecordingProfile.Fps));
         Completion = Task.Run(() => RecordAsync(process, partial, destination, profile, capture));
     }
 
     internal TimeSpan Elapsed => time.Elapsed;
+    internal bool IncludesAudio { get; }
     internal Task<string> Completion { get; }
     internal void Stop() => ticks.Dispose();
 
@@ -83,6 +99,7 @@ internal sealed class ProgramRecording
                 if (repeats > RecordingProfile.Fps * 2)
                     throw new IOException("The encoder fell behind. Try a lower recording resolution.");
                 using var writeTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                using var stopIfStalled = writeTimeout.Token.Register(() => FfmpegMedia.Stop(process));
                 for (var i = 0L; i < repeats; i++)
                 {
                     await input.WriteAsync(frame, writeTimeout.Token).ConfigureAwait(false);

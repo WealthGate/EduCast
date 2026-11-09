@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+
+- Added optional microphone audio to clean Program MP4 recordings. Select an input in Studio before each take. Video-only recording is the default.
+- The teacher workspace indicates when a recording includes a microphone. The student display remains a visual output.
+
 ## 0.6.1
 
 - Added an EduCast Studio logo to the teacher workspace and Windows app icon, including the Start menu, taskbar, and Installed apps.

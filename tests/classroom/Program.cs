@@ -42,7 +42,7 @@ internal static class Checks
             ("Classroom clock follows local time and stopwatch/countdown use monotonic time", ClockControls),
             ("Math instrument scales, edge projection, angles and exact guide geometry", MathGeometry),
             ("Scientific calculator evaluates expressions and rejects undefined results", Calculator),
-            ("DirectShow enumeration separates camera inputs from audio", CameraListing),
+            ("DirectShow enumeration separates cameras and microphones", DeviceListing),
             ("WPF teacher window, progressive ink and separate clean output", () => Desktop(args)),
             ("WPF selection overlay and committed move preserve object identity and pressure", SelectionMove),
             ("WPF Program PNG encodes visible content and excludes private objects", Snapshot),
@@ -367,7 +367,7 @@ internal static class Checks
         Assert(clock.Read().Text == "00:00:03");
     }
 
-    private static void CameraListing()
+    private static void DeviceListing()
     {
         const string listing = """
             [dshow @ 0x1] "USB camera" (video)
@@ -377,8 +377,10 @@ internal static class Checks
             [dshow @ 0x1] "Microphone" (audio)
             [dshow @ 0x1]   Alternative name "@device_sw_mic"
             """;
-        var cameras = FfmpegMedia.ParseCameras(listing);
-        Assert(cameras.Count == 2 && cameras[0].Id == "@device_sw_usb" && cameras[1].Name == "Integrated Camera");
+        var devices = FfmpegMedia.ParseDevices(listing);
+        Assert(devices.Cameras.Count == 2 && devices.Cameras[0].Id == "@device_sw_usb" &&
+            devices.Cameras[1].Name == "Integrated Camera");
+        Assert(devices.Microphones.SequenceEqual([new MicrophoneDevice("Microphone", "@device_sw_mic")]));
     }
 
     private static void MathGeometry()
@@ -807,8 +809,8 @@ internal static class Checks
         var ffmpeg = FfmpegMedia.Find() ?? throw new InvalidOperationException("FFmpeg must be on PATH for --media.");
         var ffprobe = Path.Combine(Path.GetDirectoryName(ffmpeg)!, "ffprobe.exe");
         Assert(File.Exists(ffprobe), "ffprobe.exe must be alongside FFmpeg.");
-        var cameras = FfmpegMedia.CamerasAsync(ffmpeg).GetAwaiter().GetResult();
-        Console.WriteLine($"      FFmpeg enumerated {cameras.Count} DirectShow video inputs.");
+        var devices = FfmpegMedia.DevicesAsync(ffmpeg).GetAwaiter().GetResult();
+        Console.WriteLine($"      FFmpeg enumerated {devices.Cameras.Count} video and {devices.Microphones.Count} audio inputs.");
         using var first = new CameraCapture(ffmpeg, ["-re", "-f", "lavfi", "-i", "color=c=red:s=640x360:r=15"]);
         using var second = new CameraCapture(ffmpeg, ["-re", "-f", "lavfi", "-i", "color=c=blue:s=640x360:r=15"]);
         var cameraOne = first.FirstFrame.WaitAsync(TimeSpan.FromSeconds(8)).GetAwaiter().GetResult();
@@ -842,9 +844,76 @@ internal static class Checks
             var decodedPixel = new byte[12];
             decode.StandardOutput.BaseStream.ReadExactly(decodedPixel);
             Assert(decode.WaitForExit(5000) && decode.ExitCode == 0 && decodedPixel[2] > 220 && decodedPixel[0] < 30);
+            using var silence = FfmpegMedia.Start(ffprobe,
+                ["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_name", "-of", "csv=p=0", destination],
+                output: true);
+            Assert(silence.StandardOutput.ReadToEnd().Length == 0 && silence.WaitForExit(5000) && silence.ExitCode == 0,
+                "A recording without a selected microphone must contain no audio track.");
             Console.WriteLine($"      FFprobe verified H.264 at {profile.Width} × {profile.Height}.");
         }
+        RecordingAudioSmoke(ffmpeg, ffprobe, directory);
     });
+
+    private static void RecordingAudioSmoke(string ffmpeg, string ffprobe, string directory)
+    {
+        var destination = Path.Combine(directory, "check-audio.mp4");
+        var profile = RecordingProfile.Options[0];
+        var renderer = new ProgramVideoRenderer(profile);
+        var black = new StudioFrame(null, null, new ProgramLayers());
+        var darkPixels = renderer.Capture(black).ToArray();
+        var lightPixels = renderer.Capture(black with { Board = ProgramFrame.From(Page.Empty()) });
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        var recording = new ProgramRecording(ffmpeg, destination, profile,
+            () => Task.FromResult(elapsed.ElapsedMilliseconds < 900 ? darkPixels : lightPixels),
+            ["-re", "-f", "lavfi", "-i", "aevalsrc=0.25*sin(2*PI*440*t)*gte(t\\,0.9):s=48000"]);
+        Thread.Sleep(2400);
+        recording.Stop();
+        Assert(recording.Completion.WaitAsync(TimeSpan.FromSeconds(25)).GetAwaiter().GetResult() == destination);
+
+        using var probe = FfmpegMedia.Start(ffprobe,
+            ["-v", "error", "-show_entries", "stream=codec_name,codec_type,sample_rate,duration", "-of", "json", destination],
+            output: true);
+        using var report = JsonDocument.Parse(probe.StandardOutput.ReadToEnd());
+        Assert(probe.WaitForExit(5000) && probe.ExitCode == 0);
+        var streams = report.RootElement.GetProperty("streams").EnumerateArray().ToArray();
+        Assert(streams.Length == 2);
+        var video = streams.Single(stream => stream.GetProperty("codec_type").GetString() == "video");
+        var audio = streams.Single(stream => stream.GetProperty("codec_type").GetString() == "audio");
+        Assert(audio.GetProperty("codec_name").GetString() == "aac" && audio.GetProperty("sample_rate").GetString() == "48000");
+        static double Duration(JsonElement stream) => double.Parse(stream.GetProperty("duration").GetString()!,
+            System.Globalization.CultureInfo.InvariantCulture);
+        Assert(Duration(audio) > 2 && Duration(video) > 2 && Math.Abs(Duration(audio) - Duration(video)) < .2,
+            "The MP4 audio and video tracks must finish together.");
+
+        byte[] Decode(params string[] args)
+        {
+            using var process = FfmpegMedia.Start(ffmpeg, ["-v", "error", "-i", destination, .. args, "pipe:1"], output: true);
+            using var buffer = new MemoryStream();
+            try
+            {
+                process.StandardOutput.BaseStream.CopyToAsync(buffer).WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
+                Assert(process.WaitForExit(5000) && process.ExitCode == 0);
+                return buffer.ToArray();
+            }
+            finally { FfmpegMedia.Stop(process); }
+        }
+
+        var pictures = Decode("-an", "-vf", "crop=2:2:32:32", "-pix_fmt", "bgr24", "-f", "rawvideo");
+        var samples = Decode("-vn", "-ac", "1", "-ar", "48000", "-f", "s16le");
+        var lightFrame = Enumerable.Range(0, pictures.Length / 12).First(i => pictures[i * 12] > 100);
+        var toneSample = Enumerable.Range(0, samples.Length / 2).First(i => Math.Abs((int)BitConverter.ToInt16(samples, i * 2)) > 2000);
+        var lightTime = lightFrame / (double)RecordingProfile.Fps;
+        var toneTime = toneSample / 48000d;
+        Assert(lightTime is > .65 and < 1.2 && toneTime is > .65 and < 1.2 && Math.Abs(lightTime - toneTime) < .2,
+            $"The generated tone and picture transition diverged: {toneTime:F3}s audio, {lightTime:F3}s video.");
+        Console.WriteLine($"      FFprobe verified AAC. Test tone at {toneTime:F3}s and Program transition at {lightTime:F3}s.");
+
+        var saved = File.ReadAllBytes(destination);
+        var unavailable = new ProgramRecording(ffmpeg, destination, profile, () => Task.FromResult(lightPixels),
+            new MicrophoneDevice("Unavailable test microphone", $"EduCast-test-{Guid.NewGuid():N}"));
+        Expect<IOException>(() => unavailable.Completion.WaitAsync(TimeSpan.FromSeconds(20)).GetAwaiter().GetResult());
+        Assert(File.ReadAllBytes(destination).SequenceEqual(saved), "A microphone failure replaced an existing recording.");
+    }
 
     private static void Click(Window window, string name) =>
         Find<Button>(window, name).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

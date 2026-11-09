@@ -31,7 +31,7 @@ Windows enumeration supplies physical monitor coordinates. The app uses a per-mo
 
 ## Multimedia decisions
 
-The 0.4 preview uses a user-provided FFmpeg executable for DirectShow capture and software H.264 recording. Each capture reads a bounded latest frame into a private preview. The teacher explicitly publishes camera and clock layers. A shared Program surface composites the same approved board and published layers for the student window, still export and recorder. The recorder reuses unchanged raster frames and bounds its attempts to catch up under encoder load. See the [Studio guide](STUDIO.md).
+The preview uses a user-provided FFmpeg executable for DirectShow capture and software H.264 recording. Each camera capture reads a bounded latest frame into a private preview. The teacher explicitly publishes camera and clock layers. A shared Program surface composites the same approved board and published layers for the student window, still export and recorder. The recorder reuses unchanged raster frames and bounds its attempts to catch up under encoder load. Version 0.7 can mux one explicitly chosen DirectShow audio input into the MP4. Audio stays in the recorder and never enters the presentation model. See the [Studio guide](STUDIO.md).
 
 | Candidate | Evaluation |
 | --- | --- |
@@ -46,7 +46,7 @@ A media adapter should turn the approved composition into timestamped GPU surfac
 ## Next milestones
 
 1. Validate physical projector hot-plug, mixed DPI, stylus pressure and pen latency on classroom hardware. Progressive clean ink and automated dual-display placement landed in 0.2. Version 0.5 adds movable, publishable on-board instruments and guided construction.
-2. Verify physical camera combinations and sustained recording. Add microphone and system audio capture with measured A/V synchronization, plus local media and slide ingestion.
+2. Verify physical camera and microphone combinations and sustained A/V synchronization. Add local media and slide ingestion, system audio, and audio metering and controls.
 3. Add hardware-accelerated 4K profiles, a real virtual camera, network sources, effects and streaming. Advance the parity matrix only with test evidence.
 4. Add assisted handwriting recognition, broader math interchange and subject modules. Preserve original ink during correction and validate interpretation with educators.
 5. Add owner provisioning, private beta invitations and school isolation. Use server-side tenant checks, scoped audit logs, privileged MFA, and offline entitlement expiry and revocation tests. Add secure mobile pairing and remote controls after desktop production paths are stable.

@@ -1,5 +1,11 @@
 # Classroom milestone verification
 
+## 0.7 microphone recording
+
+The Release build, whitespace check, and all 21 local checks passed with `--media`. FFmpeg enumerated 13 video inputs and 28 audio inputs. FFprobe verified H.264 video at 720p, 1080p and UHD with no audio track when a microphone was omitted. At 720p the generated AAC cue appeared at 0.921 seconds and the matching Program transition at 0.933 seconds. An unavailable DirectShow microphone produced an error and preserved an existing recording at the chosen destination.
+
+The synchronization check used generated signals. Physical microphone selection, device latency, unplug recovery and sustained A/V sync still need hands-on validation. [Studio test instructions](STUDIO.md#repeat-the-media-checks)
+
 ## 0.6 in-app update
 
 The Release build and all 21 local checks passed with `--media`. The update tests checked the published version, asset digest and size, verified a download across the GitHub redirect, rejected an external redirect and corrupted bytes, and checked the Windows Installer command. The WPF test verified that a rejected update leaves EduCast open and makes the update button available again.

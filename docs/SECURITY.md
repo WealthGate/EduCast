@@ -4,6 +4,8 @@ The student window and image exporter receive only an approved Program frame. Te
 
 The project file is local JSON and includes teacher-only information. Store it in a location with appropriate Windows access controls. Export a clean PNG when a recipient only needs the approved visual content. The app validates file size, version, fields, object counts, coordinates and notation before opening a project. Save and export write a new file and replace the chosen destination after writing succeeds. Diagnostic entries contain an exception type and result code.
 
+Recordings use the same approved visual composition. Recording audio is opt-in for each take and goes directly from the selected input into the local MP4. The app does not monitor or play it on the student display. Freeze and blackout affect the picture. Use Stop to end capture.
+
 The desktop checks public GitHub release metadata over HTTPS. When the teacher selects Update, the app validates the version, installer name, published size, SHA-256 digest, and MSI product and upgrade identity. The updater downloads from GitHub, rechecks the staged installer after the teacher workspace exits, and hands it to Windows Installer for a per-user upgrade. Windows Installer runs without forcing a reboot. Authenticode signing remains a release gate for managed school deployment.
 
 Owner roles, school isolation, MFA, beta invitations, cloud data retention and recording/broadcast consent are future implementation gates. See [requirements status](REQUIREMENTS.md).

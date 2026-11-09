@@ -1248,7 +1248,7 @@ public partial class TeacherWindow : Window
             StopRecording();
     }
 
-    private void StartRecording(string executable, RecordingProfile profile)
+    private void StartRecording(string executable, RecordingProfile profile, MicrophoneDevice? microphone)
     {
         if (recording is not null)
             return;
@@ -1263,17 +1263,20 @@ public partial class TeacherWindow : Window
         {
             var renderer = new ProgramVideoRenderer(profile);
             var job = new ProgramRecording(executable, dialog.FileName, profile, () =>
-                Dispatcher.InvokeAsync(() => renderer.Capture(CurrentStudioFrame()), DispatcherPriority.Background).Task);
+                Dispatcher.InvokeAsync(() => renderer.Capture(CurrentStudioFrame()), DispatcherPriority.Background).Task,
+                microphone);
             recording = job;
             recordingClock.Start();
             studio?.SetRecording(active: true);
-            studio?.Report("Recording the clean Program. This recording has no audio.");
-            Report("Recording started.");
+            studio?.Report(microphone is null ? "Recording the clean Program without audio."
+                : $"Recording the clean Program with {microphone.Name}. Freeze and blackout affect video only.");
+            Report(job.IncludesAudio ? "Recording started with microphone audio." : "Recording started without audio.");
             RefreshRecordingStatus();
             _ = ObserveRecordingAsync(job);
         }
         catch (Exception error) when (FileError(error) || error is Win32Exception)
         {
+            studio?.SetRecording(active: false);
             studio?.Report(error.Message);
             Report("Could not start the recording.");
         }
@@ -1292,7 +1295,7 @@ public partial class TeacherWindow : Window
     private void RefreshRecordingStatus()
     {
         RecordingButton.Content = recording is null ? "Record…" : stoppingRecording ? "Finishing…" :
-            $"● REC {recording.Elapsed:hh\\:mm\\:ss} · Stop";
+            $"● REC{(recording.IncludesAudio ? " + mic" : "")} {recording.Elapsed:hh\\:mm\\:ss} · Stop";
         RecordingButton.IsEnabled = !stoppingRecording;
         RecordingButton.Background = recording is null ? (Brush)FindResource("Panel") : Brushes.Firebrick;
     }

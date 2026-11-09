@@ -1,10 +1,10 @@
 # Cameras, classroom clock, and recording
 
-Open **Studio & clock…** in the teacher workspace. The clock works offline with the desktop app. Camera capture and recording use a separately installed Windows FFmpeg build that supports DirectShow and the `libx264` encoder. EduCast looks for `ffmpeg.exe` on PATH. You can also select it with **Choose FFmpeg…**. [FFmpeg downloads](https://ffmpeg.org/download.html) · [FFmpeg licensing](https://www.ffmpeg.org/legal.html)
+Open **Studio & clock…** in the teacher workspace. The clock works offline with the desktop app. Camera capture and recording use a separately installed Windows FFmpeg build that supports DirectShow, `libx264` and AAC. EduCast looks for `ffmpeg.exe` on PATH. You can also select it with **Choose FFmpeg…**. [FFmpeg downloads](https://ffmpeg.org/download.html) · [FFmpeg licensing](https://www.ffmpeg.org/legal.html)
 
 ## Cameras
 
-1. Select **Refresh cameras** and choose an input for **Camera 1** or **Camera 2**.
+1. Select **Refresh devices** and choose an input for **Camera 1** or **Camera 2**.
 2. Select **Start private preview**. If the device cannot start, check Windows camera permissions and whether another app is using it.
 3. Select **Show on Program** when ready. Each camera occupies a separate 16:9 picture-in-picture position on the board. Select a different input for the second camera.
 4. Clear **Show on Program** to remove a camera from the clean output, or select **Stop camera** to end capture. Private previews stay active until stopped or EduCast closes, including while the Studio panel is hidden.
@@ -21,11 +21,12 @@ Select **Show clock on Program** to place the clock in the upper-right corner of
 
 ## Record Program
 
-1. Choose 720p, 1080p, or 4K UHD. The current recorder uses software H.264 at 15 fps and produces video-only MP4.
-2. Select **Record Program…** and choose a destination.
-3. Stop from the Studio panel or the red **REC** button. Wait for the saved-file message before opening the MP4. Closing EduCast while recording also requests finalization.
+1. Choose 720p, 1080p, or 4K UHD. The current recorder uses software H.264 at 15 fps.
+2. For narration, select one **Recording microphone**. **No microphone** is the default for each take. Select **Refresh devices** after connecting a microphone. If your device is absent or busy, check the Windows input device and microphone permissions.
+3. Select **Record Program…** and choose a destination. When a microphone is selected, the teacher toolbar shows **REC + mic** and the MP4 includes a stereo 48 kHz AAC track. The microphone starts with recording. Freeze and blackout affect video only, so use **Stop** to end audio capture.
+4. Stop from the Studio panel or the red **REC** button. Wait for the saved-file message before opening the MP4. Closing EduCast while recording also requests finalization.
 
-The recorder takes its frames from the clean Program composition. That includes approved board content, visible live ink, published cameras and the clock. It follows freeze and blackout. A connected projector is optional.
+The recorder takes its frames from the clean Program composition. That includes approved board content, visible live ink, published cameras and the clock. It follows freeze and blackout. A connected projector is optional. The microphone is written to the MP4 and stays out of the student display and PNG exports. Recording currently uses one selected input at a time.
 
 The UHD profile renders the board at 3840 × 2160. Camera layers still come from the preview-sized feeds. Sustained UHD throughput depends on the computer. If the encoder falls behind, choose a lower resolution. A failure can leave a `.partial.mp4` beside the intended file. The app reports its path when it detects the failure.
 
@@ -37,4 +38,4 @@ With `ffmpeg.exe` on PATH and `ffprobe.exe` beside it, run:
 dotnet run --project tests/classroom/EduCast.Checks.csproj -c Release -- --media
 ```
 
-The checks enumerate DirectShow devices and use two generated inputs for capture and recording. For physical acceptance, run two private previews on different devices, publish both, record for a lesson-length session, unplug one camera, and verify the resulting video and device recovery. Measure sustained UHD performance on the target machine before relying on it for a class.
+The checks enumerate DirectShow devices, use two generated camera feeds, and compare a generated audio cue with a matching Program picture change. For physical acceptance, run two private previews on different cameras, publish both, and record a lesson-length session with the selected microphone. Clap on camera at the beginning and end to check hardware A/V sync. Unplug each device during a test and verify the resulting video and device recovery. Measure sustained UHD performance on the target machine.

@@ -7,6 +7,8 @@ using System.Windows.Media.Imaging;
 namespace EduCast.Studio;
 
 internal sealed record CameraDevice(string Name, string Id);
+internal sealed record MicrophoneDevice(string Name, string Id);
+internal sealed record CaptureDevices(IReadOnlyList<CameraDevice> Cameras, IReadOnlyList<MicrophoneDevice> Microphones);
 
 internal static partial class FfmpegMedia
 {
@@ -33,7 +35,7 @@ internal static partial class FfmpegMedia
         return Process.Start(info) ?? throw new IOException("Could not start FFmpeg.");
     }
 
-    internal static async Task<IReadOnlyList<CameraDevice>> CamerasAsync(string executable)
+    internal static async Task<CaptureDevices> DevicesAsync(string executable)
     {
         using var process = Start(executable, ["-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"]);
         var output = process.StandardError.ReadToEndAsync();
@@ -41,22 +43,26 @@ internal static partial class FfmpegMedia
         try
         {
             await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
-            return ParseCameras(await output.ConfigureAwait(false));
+            return ParseDevices(await output.ConfigureAwait(false));
         }
         finally { Stop(process); }
     }
 
-    internal static IReadOnlyList<CameraDevice> ParseCameras(string listing)
+    internal static CaptureDevices ParseDevices(string listing)
     {
         var cameras = new List<CameraDevice>();
-        foreach (Match match in CameraLine().Matches(listing))
+        var microphones = new List<MicrophoneDevice>();
+        foreach (Match match in DeviceLine().Matches(listing))
         {
             var id = match.Groups["id"].Value;
-            if (match.Groups["kind"].Value == "video" ||
-                (match.Groups["kind"].Value == "none" && id.Contains("{65e8773d-", StringComparison.OrdinalIgnoreCase)))
-                cameras.Add(new CameraDevice(match.Groups["name"].Value, id));
+            var name = match.Groups["name"].Value;
+            var kind = match.Groups["kind"].Value;
+            if (kind == "video" || (kind == "none" && id.Contains("{65e8773d-", StringComparison.OrdinalIgnoreCase)))
+                cameras.Add(new CameraDevice(name, id));
+            else if (kind == "audio")
+                microphones.Add(new MicrophoneDevice(name, id));
         }
-        return cameras;
+        return new CaptureDevices(cameras, microphones);
     }
 
     internal static void Stop(Process process)
@@ -73,7 +79,7 @@ internal static partial class FfmpegMedia
     [GeneratedRegex("""
         \[dshow [^\r\n]+\] "(?<name>.+)" \((?<kind>video|audio|none)\)\r?\n\[dshow [^\r\n]+\]\s+Alternative name "(?<id>.+)"
         """)]
-    private static partial Regex CameraLine();
+    private static partial Regex DeviceLine();
 }
 
 internal sealed class CameraCapture : IDisposable

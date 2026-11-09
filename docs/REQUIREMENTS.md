@@ -1,5 +1,7 @@
 # Requirements status
 
+The desktop is in Phase 6, multimedia integration, of the original roadmap. Earlier classroom phases have working implementations and the remaining scope below. The first Phase 7 capability is software-encoded UHD recording.
+
 ## Working in the classroom preview
 
 - Local Windows teacher workspace with resizable side panels, board, notes, object visibility and Program monitor.
@@ -9,7 +11,8 @@
 - On-board ruler calibration and metric or imperial scales, a compass with preserved radius, 180° and 360° protractors, two set squares, a quadratic French curve and a scientific calculator with optional student display.
 - A bundled quadratic classroom example with CSEC-style factoring practice and optional answer reveal.
 - A classroom clock with digital, analog, stopwatch and countdown modes, with optional clean output.
-- Two private camera previews with explicit Program publishing and video-only Program recording at 720p, 1080p or UHD through an external Windows FFmpeg installation.
+- Two private camera previews with explicit Program publishing. Clean Program MP4 recording at 720p, 1080p or UHD with an optional single DirectShow microphone through an external Windows FFmpeg installation.
+- Versioned Windows releases with in-app updates and replacement of the previous installed version.
 
 ## Open or partially implemented
 
@@ -19,8 +22,8 @@
 | Whiteboard and ink | Infinite canvas, lasso, layer reorder, locking and grouping, copy/paste, image/PDF/media annotation, advanced nibs and stabilization, physical stylus verification, tilt, palm rejection, touch pan and stylus eraser |
 | Mathematics and geometry | Full LaTeX/MathML interchange and exports, symbol/template browser, calculus and advanced notation, recognition and correction, multiple simultaneous instruments, snapping to existing objects, calculator memory and unit conversions, advanced graphs and statistics |
 | Subject teaching | Curated CSEC/CXC resources and standards mapping, Physics, Chemistry, Biology and Geography tools and simulations |
-| Production | Physical camera matrix, media and slide import, scenes, audio capture and synchronization, hardware-accelerated 4K, streaming, native virtual camera, effects, integrations, network inputs and concurrent destinations |
+| Production | Physical camera and audio device matrix, sustained hardware A/V sync, multiple microphones, system audio, media and slide import, scenes, hardware-accelerated 4K, streaming, native virtual camera, effects, integrations, network inputs and concurrent destinations |
 | Accounts and schools | Identity, owner administration, school membership, tenant isolation, dashboard, beta invites, entitlement signing and revocation, audit trails, cloud storage and synchronization |
 | Product and distribution | Mobile companion, optional AI, additional workspace presets and themes, signed deployment and school fleet support |
 
-The [ManyCam audit](MANYCAM_FEATURE_PARITY.md) tracks the detailed production scope. The [classroom guide](CLASSROOM_DISPLAY.md) lists hardware acceptance steps. The first build is a local classroom milestone. Production acceptance requires the open features and validation above.
+The next multimedia increment is local media and slide ingestion alongside physical camera and microphone validation. The [ManyCam audit](MANYCAM_FEATURE_PARITY.md) tracks the detailed production scope. The [classroom guide](CLASSROOM_DISPLAY.md) lists hardware acceptance steps.

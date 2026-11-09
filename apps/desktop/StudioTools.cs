@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
@@ -13,6 +14,13 @@ namespace EduCast.Studio;
 
 internal sealed class StudioTools : Window
 {
+    private sealed record MicrophoneChoice(MicrophoneDevice? Device)
+    {
+        public string Label => Device?.Name ?? "No microphone";
+    }
+
+    private static readonly MicrophoneChoice NoMicrophone = new(Device: null);
+
     private sealed class CameraSlot
     {
         public readonly ComboBox Choice = new() { DisplayMemberPath = nameof(CameraDevice.Name) };
@@ -38,14 +46,21 @@ internal sealed class StudioTools : Window
         ItemsSource = RecordingProfile.Options, DisplayMemberPath = nameof(RecordingProfile.Label), SelectedIndex = 0, Width = 205
     };
     private readonly Button record = new() { Content = "Record Program…" };
-    private readonly Button scan = new() { Content = "Refresh cameras" };
+    private readonly Button scan = new() { Content = "Refresh devices" };
+    private readonly Button browse = new() { Content = "Choose FFmpeg…" };
+    private readonly ComboBox microphones = new()
+    {
+        ItemsSource = new[] { NoMicrophone },
+        DisplayMemberPath = nameof(MicrophoneChoice.Label), SelectedIndex = 0, MaxWidth = 420, MinWidth = 205,
+        ToolTip = "Optional audio for this recording. Freeze and blackout affect video only."
+    };
     private bool closing;
     private bool recording;
     private string? ffmpeg = FfmpegMedia.Find();
     private ProgramLayers previous = new();
 
     public event Action<ProgramLayers>? LayersChanged;
-    public event Action<string, RecordingProfile>? RecordRequested;
+    public event Action<string, RecordingProfile, MicrophoneDevice?>? RecordRequested;
     public event Action? StopRequested;
 
     public StudioTools(Window teacher)
@@ -64,13 +79,13 @@ internal sealed class StudioTools : Window
         var root = new StackPanel { Margin = new Thickness(16) };
         root.Children.Add(Label("CAMERAS  /  PRIVATE PREVIEW"));
         var setup = new WrapPanel();
-        var browse = new Button { Content = "Choose FFmpeg…" };
         browse.Click += async (_, _) =>
         {
             var dialog = new OpenFileDialog { Filter = "FFmpeg (ffmpeg.exe)|ffmpeg.exe", CheckFileExists = true };
             if (dialog.ShowDialog(this) != true)
                 return;
             ffmpeg = dialog.FileName;
+            microphones.SelectedIndex = 0;
             await ScanAsync();
         };
         scan.Click += async (_, _) => await ScanAsync();
@@ -115,12 +130,19 @@ internal sealed class StudioTools : Window
         recordingControls.Children.Add(profiles);
         recordingControls.Children.Add(record);
         root.Children.Add(recordingControls);
+        var audioControls = new WrapPanel();
+        var audioLabel = Label("Recording microphone");
+        audioLabel.Margin = new Thickness(0, 5, 8, 5);
+        AutomationProperties.SetLabeledBy(microphones, audioLabel);
+        audioControls.Children.Add(audioLabel);
+        audioControls.Children.Add(microphones);
+        root.Children.Add(audioControls);
         record.Click += (_, _) =>
         {
             if (recording)
                 StopRequested?.Invoke();
             else if (ffmpeg is not null && profiles.SelectedItem is RecordingProfile profile)
-                RecordRequested?.Invoke(ffmpeg, profile);
+                RecordRequested?.Invoke(ffmpeg, profile, (microphones.SelectedItem as MicrophoneChoice)?.Device);
             else
                 Report("Choose a Windows FFmpeg build with the libx264 encoder.");
         };
@@ -150,6 +172,9 @@ internal sealed class StudioTools : Window
     {
         recording = active;
         profiles.IsEnabled = !active;
+        microphones.IsEnabled = !active;
+        if (!active)
+            microphones.SelectedIndex = 0;
         record.IsEnabled = !finishing;
         record.Content = finishing ? "Finishing…" : active ? "Stop recording" : "Record Program…";
     }
@@ -181,9 +206,10 @@ internal sealed class StudioTools : Window
         if (ffmpeg is not { } executable || !scan.IsEnabled)
             return;
         scan.IsEnabled = false;
+        browse.IsEnabled = false;
         try
         {
-            var devices = await FfmpegMedia.CamerasAsync(executable);
+            var devices = await FfmpegMedia.DevicesAsync(executable);
             if (closing)
                 return;
             foreach (var slot in cameras)
@@ -191,20 +217,24 @@ internal sealed class StudioTools : Window
                 if (slot.Capture is not null)
                     continue;
                 var selected = (slot.Choice.SelectedItem as CameraDevice)?.Id;
-                slot.Choice.ItemsSource = devices;
-                slot.Choice.SelectedItem = devices.FirstOrDefault(device => device.Id == selected);
-                if (slot.Choice.SelectedItem is null && devices.Count > 0)
+                slot.Choice.ItemsSource = devices.Cameras;
+                slot.Choice.SelectedItem = devices.Cameras.FirstOrDefault(device => device.Id == selected);
+                if (slot.Choice.SelectedItem is null && devices.Cameras.Count > 0)
                     slot.Choice.SelectedIndex = 0;
             }
-            Report(devices.Count == 0 ? "No DirectShow cameras were detected. Recording can still use the board."
-                : $"{devices.Count} camera inputs found. Start a private preview to test a device.");
+            var microphoneId = (microphones.SelectedItem as MicrophoneChoice)?.Device?.Id;
+            MicrophoneChoice[] choices = [NoMicrophone, .. devices.Microphones.Select(device => new MicrophoneChoice(device))];
+            microphones.ItemsSource = choices;
+            microphones.SelectedItem = choices.FirstOrDefault(choice => choice.Device?.Id == microphoneId) ?? choices[0];
+            if (!recording)
+                Report($"Found {devices.Cameras.Count} camera inputs and {devices.Microphones.Count} audio inputs.");
         }
         catch (Exception error) when (error is IOException or Win32Exception or OperationCanceledException)
         {
-            if (!closing)
-                Report("Could not enumerate cameras. Check the FFmpeg installation.");
+            if (!closing && !recording)
+                Report("Could not enumerate cameras or microphones. Check the FFmpeg installation.");
         }
-        finally { scan.IsEnabled = true; }
+        finally { scan.IsEnabled = browse.IsEnabled = true; }
     }
 
     private async Task ToggleCameraAsync(CameraSlot slot)
@@ -218,7 +248,7 @@ internal sealed class StudioTools : Window
 
         if (ffmpeg is not { } executable || slot.Choice.SelectedItem is not CameraDevice device)
         {
-            Report("Choose FFmpeg, refresh the camera list and select a device.");
+            Report("Choose FFmpeg, refresh devices and select a camera.");
             return;
         }
         if (cameras.Any(other => other.DeviceId == device.Id))
