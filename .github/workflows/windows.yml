@@ -1,0 +1,28 @@
+name: Windows classroom build
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  classroom:
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: '1'
+      DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet build EduCast.slnx -c Release
+      - run: dotnet format whitespace . --folder --verify-no-changes --include apps/desktop packages/classroom tests/classroom
+      - run: dotnet run --no-build --project tests/classroom/EduCast.Checks.csproj -c Release -- --core-only
+      - run: ./scripts/Build-Release.ps1 -SkipInstaller
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EduCast-Studio-Windows
+          path: artifacts/*.zip
+          if-no-files-found: error

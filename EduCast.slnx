@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/apps/">
+    <Project Path="apps/desktop/EduCast.Studio.csproj" />
+  </Folder>
+  <Folder Name="/packages/">
+    <Project Path="packages/classroom/EduCast.Classroom.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/classroom/EduCast.Checks.csproj" />
+  </Folder>
+</Solution>

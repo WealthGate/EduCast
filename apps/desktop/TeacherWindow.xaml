@@ -1,0 +1,191 @@
+<Window x:Class="EduCast.Studio.TeacherWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:studio="clr-namespace:EduCast.Studio"
+    Title="EduCast Studio" Width="1390" Height="870" MinWidth="860" MinHeight="690"
+    WindowStartupLocation="CenterScreen" Background="{StaticResource Shell}" Foreground="{StaticResource Ink}"
+    FontFamily="Segoe UI" FontSize="13">
+    <Grid Margin="18,12,18,9">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,13">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Background="{StaticResource Accent}" CornerRadius="9" Width="40" Height="40" Margin="0,0,12,0">
+                    <TextBlock Text="E" Foreground="#132923" FontSize="23" FontWeight="Bold"
+                        VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="EduCast Studio" FontSize="21" FontWeight="SemiBold"/>
+                    <TextBlock Text="TEACHER WORKSPACE   /   CLASSROOM" Style="{StaticResource Caption}"/>
+                </StackPanel>
+            </StackPanel>
+            <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                <Button Content="_New" Click="NewLesson" ToolTip="New lesson (Ctrl+N)"/>
+                <Button Content="_Open…" Click="OpenLesson" ToolTip="Open lesson (Ctrl+O)"/>
+                <Button Content="_Save" Click="SaveLesson" ToolTip="Save lesson (Ctrl+S)"/>
+                <Button Content="Save as…" Click="SaveAs"/>
+                <Button x:Name="SampleButton" Content="Sample lesson" Click="Sample"/>
+            </WrapPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="184" MinWidth="145"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*" MinWidth="390"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="300" MinWidth="250"/>
+            </Grid.ColumnDefinitions>
+            <Border Background="{StaticResource Panel}" Padding="12" CornerRadius="9">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Text="LESSON" Style="{StaticResource Caption}"/>
+                        <TextBox x:Name="LessonTitle" MaxLength="120" Margin="0,8,0,16" LostKeyboardFocus="EditTitle"
+                            AutomationProperties.Name="Lesson title"/>
+                        <TextBlock Text="PAGES" Style="{StaticResource Caption}" Margin="0,0,0,7"/>
+                        <Button Content="+  Add page" Click="AddPage" HorizontalContentAlignment="Left"/>
+                        <WrapPanel Margin="0,1,0,6">
+                            <Button x:Name="Prev" Content="‹  Prev" Click="PreviousPage" ToolTip="Previous page (Alt+Left)"/>
+                            <Button x:Name="Next" Content="Next  ›" Click="NextPage" ToolTip="Next page (Alt+Right)"/>
+                        </WrapPanel>
+                    </StackPanel>
+                    <ListBox x:Name="Pages" SelectionChanged="SelectPage" Background="#111B29" Foreground="{StaticResource Ink}"
+                        BorderBrush="{StaticResource Line}" AutomationProperties.Name="Lesson pages"/>
+                </DockPanel>
+            </Border>
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent"/>
+
+            <Grid Grid.Column="2" Margin="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Border Background="{StaticResource Panel}" Padding="10,8,5,3" CornerRadius="9" Margin="0,0,0,8">
+                    <StackPanel>
+                        <WrapPanel>
+                            <Button x:Name="PenButton" Content="Pen" Click="ChooseTool" Tag="Pen" ToolTip="Write with pressure-sensitive vector ink"/>
+                            <Button x:Name="MarkerButton" Content="Highlighter" Click="ChooseTool" Tag="Highlighter"/>
+                            <Button x:Name="EraseButton" Content="Eraser" Click="ChooseTool" Tag="Eraser" ToolTip="Click or drag across whole objects"/>
+                            <Button x:Name="SelectButton" Content="Select" Click="ChooseTool" Tag="Select"
+                                ToolTip="Click to select or drag to reposition a board object"/>
+                            <Button x:Name="LineButton" Content="Ruler line" Click="ChooseTool" Tag="Line" ToolTip="Drag endpoints. Hold Shift for 15° snapping."/>
+                            <Button x:Name="CircleButton" Content="Compass circle" Click="ChooseTool" Tag="Circle" ToolTip="Drag from the center to set a radius"/>
+                            <Button x:Name="ArcButton" Content="Compass arc" Click="ChooseTool" Tag="Arc" ToolTip="Drag from the center to set radius and start. Then move and click the end."/>
+                            <Button x:Name="RectButton" Content="Rectangle" Click="ChooseTool" Tag="Rectangle"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <ComboBox x:Name="Colors" Width="91" SelectionChanged="UpdateInk" AutomationProperties.Name="Ink color"/>
+                            <ComboBox x:Name="Widths" Width="68" SelectionChanged="UpdateInk" AutomationProperties.Name="Ink thickness"/>
+                            <CheckBox x:Name="SmoothInk" Content="Smooth" IsChecked="True" Click="UpdateInk" Margin="2,6,9,4"/>
+                            <Button x:Name="UndoButton" Content="Undo" Click="Undo" ToolTip="Undo (Ctrl+Z)"/>
+                            <Button x:Name="RedoButton" Content="Redo" Click="Redo" ToolTip="Redo (Ctrl+Y)"/>
+                            <Button Content="Clear" Click="ClearPage"/>
+                            <ComboBox x:Name="Paper" Width="81" SelectionChanged="ChangePaper" AutomationProperties.Name="Board paper"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="1" Background="#080C13" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                    CornerRadius="9" Padding="9" ClipToBounds="True">
+                    <ScrollViewer x:Name="BoardScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                        PanningMode="None" Focusable="False" PreviewMouseDown="StartPan" PreviewMouseMove="Pan"
+                        PreviewMouseUp="StopPan" LostMouseCapture="PanCaptureLost" PreviewMouseWheel="WheelZoom">
+                        <Border x:Name="BoardSlot" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Viewbox Stretch="Uniform">
+                                <Grid x:Name="BoardInput" Width="1280" Height="720" ClipToBounds="True"
+                                    PreviewMouseLeftButtonDown="BoardDown" PreviewMouseMove="BoardMove"
+                                    PreviewMouseLeftButtonUp="BoardUp" LostMouseCapture="BoardCaptureLost">
+                                    <studio:BoardSurface x:Name="TeacherBoard"/>
+                                    <studio:LiveInkCanvas x:Name="DrawingInput" Background="Transparent" StrokeCollected="CollectInk"/>
+                                </Grid>
+                            </Viewbox>
+                        </Border>
+                    </ScrollViewer>
+                </Border>
+                <Grid Grid.Row="2" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="ToolHint" Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    <WrapPanel Grid.Column="1">
+                        <Button Content="−" Click="ZoomOut" ToolTip="Zoom teacher board out"/>
+                        <Button x:Name="ZoomButton" Content="Fit" Click="FitBoard" ToolTip="Fit teacher board"/>
+                        <Button Content="+" Click="ZoomIn" ToolTip="Zoom teacher board in"/>
+                    </WrapPanel>
+                </Grid>
+            </Grid>
+
+            <GridSplitter Grid.Column="3" HorizontalAlignment="Stretch" Background="Transparent"/>
+            <Border Grid.Column="4" Background="{StaticResource Panel}" CornerRadius="9">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="12,10,12,12">
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="PROGRAM" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                            <Border Background="{StaticResource AccentDark}" CornerRadius="5" Padding="8,4"
+                                HorizontalAlignment="Right">
+                                <TextBlock x:Name="ProgramState" Foreground="{StaticResource Accent}" FontWeight="SemiBold" FontSize="10"/>
+                            </Border>
+                        </Grid>
+                        <Border Background="Black" Height="120" ClipToBounds="True" Margin="0,0,0,8">
+                            <Viewbox Stretch="Uniform">
+                                <studio:BoardSurface x:Name="ProgramPreview"/>
+                            </Viewbox>
+                        </Border>
+                        <ComboBox x:Name="DisplayChoice" DisplayMemberPath="Label" AutomationProperties.Name="Student display"/>
+                        <WrapPanel>
+                            <Button x:Name="StartButton" Style="{StaticResource Primary}" Content="Start display" Click="StartOutput"
+                                ToolTip="Open a clean student window (F5)"/>
+                            <Button x:Name="StopButton" Content="Stop" Click="StopOutput" ToolTip="Close the student window (Shift+F5)"/>
+                            <ComboBox x:Name="AspectChoice" Width="61" SelectionChanged="ChangeAspect" SelectedIndex="0"
+                                AutomationProperties.Name="Output aspect">
+                                <ComboBoxItem Content="16:9"/><ComboBoxItem Content="4:3"/>
+                            </ComboBox>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <Button x:Name="FreezeButton" Content="Freeze" Click="Freeze" ToolTip="Freeze or resume (F6)"/>
+                            <Button x:Name="BlackButton" Content="Blackout" Click="Blackout" ToolTip="Blackout or restore (F7)"/>
+                            <Button Content="PNG…" Click="ExportProgram" ToolTip="Export only the current Program frame"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <CheckBox x:Name="LiveMode" Content="Live updates" IsChecked="True" Click="SetLive" Margin="0,7,9,4"/>
+                            <Button x:Name="TakeButton" Style="{StaticResource Primary}" Content="Take preview" Click="Take"
+                                ToolTip="Publish the current draft (F8)"/>
+                        </WrapPanel>
+                        <Separator Margin="0,7,0,8" Background="{StaticResource Line}"/>
+
+                        <TextBlock Text="INSERT ON BOARD" Style="{StaticResource Caption}" Margin="0,0,0,6"/>
+                        <WrapPanel>
+                            <Button Content="Equation…" Click="InsertEquation"/>
+                            <Button Content="Graph…" Click="InsertGraph"/>
+                            <Button Content="Text…" Click="InsertText"/>
+                            <Button x:Name="RevealButton" Content="Reveal answers" Click="RevealAnswers"/>
+                        </WrapPanel>
+
+                        <TextBlock Text="OBJECTS  /  VISIBILITY" Style="{StaticResource Caption}" Margin="0,10,0,6"/>
+                        <ListBox x:Name="Objects" Height="77" SelectionChanged="SelectObject" Background="#111B29"
+                            Foreground="{StaticResource Ink}" BorderBrush="{StaticResource Line}" AutomationProperties.Name="Page objects"/>
+                        <WrapPanel Margin="0,6,0,0">
+                            <ComboBox x:Name="VisibilityChoice" Width="116" SelectionChanged="ChangeVisibility"
+                                AutomationProperties.Name="Selected or new object visibility"/>
+                            <CheckBox x:Name="Answer" Content="Answer" Click="ChangeAnswer" Margin="2,6,5,0"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <Button x:Name="EditObjectButton" Content="Edit…" Click="EditSelected"/>
+                            <Button x:Name="DeleteButton" Content="Delete" Click="DeleteSelected"/>
+                        </WrapPanel>
+                        <TextBlock Text="PRIVATE NOTES" Style="{StaticResource Caption}" Margin="0,10,0,6"/>
+                        <TextBox x:Name="Notes" Height="86" AcceptsReturn="True" TextWrapping="Wrap"
+                            VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" MaxLength="16000"
+                            AutomationProperties.Name="Teacher-only page notes" LostKeyboardFocus="EditNotes"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+        <Grid Grid.Row="2" Margin="0,6,0,0">
+            <TextBlock x:Name="Status" Foreground="{StaticResource Muted}" AutomationProperties.LiveSetting="Polite"/>
+            <TextBlock x:Name="BuildVersion" HorizontalAlignment="Right" Style="{StaticResource Caption}"/>
+        </Grid>
+    </Grid>
+</Window>

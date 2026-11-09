@@ -1,0 +1,28 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="EduCast Studio" Manufacturer="EduCast Studio" Version="$(Version)"
+      UpgradeCode="F151A6BA-DCA4-49F6-A887-D19EE89D1F88" Scope="perUser">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of EduCast Studio is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="UserPrograms" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="EduCast Studio" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <Feature Id="Studio" Title="EduCast Studio">
+      <Component Directory="INSTALLFOLDER" Guid="D3011D1B-494B-4F3F-A7E9-387729B3B135">
+        <File Id="StudioExe" Source="$(PublishDirectory)\EduCast.Studio.exe" />
+        <File Source="$(PublishDirectory)\EduCast.Studio.dll" />
+        <File Source="$(PublishDirectory)\EduCast.Studio.deps.json" />
+        <File Source="$(PublishDirectory)\EduCast.Studio.runtimeconfig.json" />
+        <File Source="$(PublishDirectory)\EduCast.Classroom.dll" />
+        <Shortcut Id="StartStudio" Directory="ProgramMenuFolder" Name="EduCast Studio"
+            Target="[#StudioExe]" WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveStudioDirectory" Directory="INSTALLFOLDER" On="uninstall" />
+        <RemoveFolder Id="RemoveEmptyUserPrograms" Directory="UserPrograms" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\EduCast Studio" Name="Installed"
+            Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </Feature>
+  </Package>
+</Wix>
