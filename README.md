@@ -2,6 +2,8 @@
 
 EduCast Studio is a Windows classroom preview with progressive ink and board object movement. It runs offline and keeps the teacher workspace separate from the fullscreen or windowed student output.
 
+Open **Studio & clock…** for an analog or digital classroom clock, stopwatch, or countdown. With a separate Windows FFmpeg installation, Studio also offers two camera previews and clean Program recording.
+
 Get the installer or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). For new-version notifications, choose **Watch → Custom → Releases** on GitHub. The teacher workspace also checks for updates.
 
 ## Start teaching
@@ -25,6 +27,7 @@ The test executable returns a nonzero exit code if any check fails. Pass `-- --c
 
 - [Installation and build](docs/INSTALLATION.md)
 - [Teacher guide and classroom hardware checklist](docs/CLASSROOM_DISPLAY.md)
+- [Cameras, classroom clock, and recording](docs/STUDIO.md)
 - [Architecture and milestone roadmap](docs/ARCHITECTURE.md)
 - [Scope and outstanding requirements](docs/REQUIREMENTS.md)
 - [ManyCam 9 audit](docs/MANYCAM_FEATURE_PARITY.md)

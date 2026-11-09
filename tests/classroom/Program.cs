@@ -35,14 +35,20 @@ internal static class Checks
             ("Malformed notation fails safely", InvalidNotation),
             ("Quadratic graph evaluates roots and vertex correctly", Quadratic),
             ("Release catalog offers only newer published Windows installers", ReleaseUpdates),
+            ("Classroom clock follows local time and stopwatch/countdown use monotonic time", ClockControls),
+            ("DirectShow enumeration separates camera inputs from audio", CameraListing),
             ("WPF teacher window, progressive ink and separate clean output", () => Desktop(args)),
             ("WPF selection overlay and committed move preserve object identity and pressure", SelectionMove),
-            ("WPF Program PNG encodes visible content and excludes private objects", Snapshot)
+            ("WPF Program PNG encodes visible content and excludes private objects", Snapshot),
+            ("WPF clean Program camera and clock composition rasterizes at UHD", StudioComposition),
+            ("WPF optional FFmpeg capture and 720p/1080p/UHD recording smoke test", MediaSmoke)
         ];
         var failures = 0;
         foreach (var (name, check) in tests)
         {
             if (name.StartsWith("WPF", StringComparison.Ordinal) && args.Contains("--core-only"))
+                continue;
+            if (name.Contains("optional FFmpeg", StringComparison.Ordinal) && !args.Contains("--media"))
                 continue;
             try { check(); Console.WriteLine($"PASS  {name}"); }
             catch (Exception error)
@@ -258,6 +264,57 @@ internal static class Checks
         Assert(ReleaseCatalog.ReadUpdate(JsonSerializer.SerializeToElement(new { }), installed) is null);
     }
 
+    private sealed class TestTime : TimeProvider
+    {
+        public DateTimeOffset Wall { get; set; } = new(2026, 11, 9, 10, 20, 30, TimeSpan.Zero);
+        public TimeSpan Monotonic { get; set; }
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => Monotonic.Ticks;
+        public override DateTimeOffset GetUtcNow() => Wall;
+    }
+
+    private static void ClockControls()
+    {
+        var time = new TestTime();
+        var clock = new ClassroomClock(time);
+        Assert(clock.Read().Text == "10:20:30");
+        clock.Select(ClockView.Analog, TimeSpan.FromSeconds(3));
+        Assert(clock.Read().View == ClockView.Analog);
+        clock.Select(ClockView.Stopwatch, TimeSpan.FromSeconds(3));
+        clock.Toggle();
+        time.Monotonic += TimeSpan.FromMilliseconds(2400);
+        time.Wall += TimeSpan.FromHours(4);
+        Assert(clock.Read().Text == "00:00:02");
+        clock.Toggle();
+        time.Monotonic += TimeSpan.FromSeconds(2);
+        Assert(clock.Read().Text == "00:00:02");
+        clock.Select(ClockView.Countdown, TimeSpan.FromSeconds(3));
+        clock.Toggle();
+        time.Monotonic += TimeSpan.FromMilliseconds(1100);
+        Assert(clock.Read().Text == "00:00:02");
+        time.Monotonic += TimeSpan.FromSeconds(4);
+        Assert(clock.Read().Value == TimeSpan.Zero && !clock.Running);
+        clock.Toggle();
+        Assert(!clock.Running);
+        clock.Reset();
+        Assert(clock.Read().Text == "00:00:03");
+    }
+
+    private static void CameraListing()
+    {
+        const string listing = """
+            [dshow @ 0x1] "USB camera" (video)
+            [dshow @ 0x1]   Alternative name "@device_sw_usb"
+            [dshow @ 0x1] "Integrated Camera" (none)
+            [dshow @ 0x1]   Alternative name "@device_pnp_abc{65E8773D-123}"
+            [dshow @ 0x1] "Microphone" (audio)
+            [dshow @ 0x1]   Alternative name "@device_sw_mic"
+            """;
+        var cameras = FfmpegMedia.ParseCameras(listing);
+        Assert(cameras.Count == 2 && cameras[0].Id == "@device_sw_usb" && cameras[1].Name == "Integrated Camera");
+    }
+
     private static void Desktop(string[] args)
     {
         var app = new App();
@@ -336,13 +393,34 @@ internal static class Checks
         drawing.CancelStroke();
         Assert(Pixel(studentBoard, 200, 380).SequenceEqual(clean), "canceled ink remained visible");
 
+        var red = SolidFrame(Colors.Red);
+        var blue = SolidFrame(Colors.Blue);
+        teacher.ApplyStudioLayers(new ProgramLayers(red, Clock: new(ClockView.Digital, TimeSpan.FromHours(10))));
+        Pump();
+        Assert(Pixel(studentBoard, 980, 555)[2] > 220);
+        Click(teacher, "FreezeButton");
+        teacher.ApplyStudioLayers(new ProgramLayers(blue));
+        Pump();
+        Assert(Pixel(studentBoard, 980, 555)[2] > 220, "freeze changed the camera frame");
+        Assert(Pixel(studentBoard, 1100, 80).SequenceEqual(clean), "unpublished clock remained in the hold");
         Click(teacher, "BlackButton");
         Pump();
         Assert(Pixel(studentBoard, 200, 200).SequenceEqual(new byte[] { 0, 0, 0, 255 }));
+        Assert(Pixel(studentBoard, 980, 555).SequenceEqual(new byte[] { 0, 0, 0, 255 }));
         Click(teacher, "BlackButton");
+        teacher.ApplyStudioLayers(new ProgramLayers());
+        Pump();
+        Assert(Pixel(studentBoard, 980, 555).SequenceEqual(clean), "unpublished camera remained in the hold");
+        Click(teacher, "FreezeButton");
         Click(teacher, "StopButton");
         Assert(!app.Windows.Cast<Window>().Contains(student));
         ExtendedDisplay(app, teacher, program);
+        Click(teacher, "StudioButton");
+        Pump();
+        var studio = app.Windows.Cast<Window>().OfType<StudioTools>().Single();
+        Assert(studio.IsVisible && ReferenceEquals(studio.Owner, teacher));
+        studio.Close();
+        Assert(!studio.IsVisible);
 
         // Restore the initial lesson to let the teacher window close without a save prompt.
         for (var i = 0; i < 3; i++)
@@ -476,6 +554,81 @@ internal static class Checks
         Assert(!Pixel(image, 150, 100).SequenceEqual(Pixel(image, 150, 150)));
         Assert(Pixel(image, 150, 200).SequenceEqual(Pixel(image, 150, 150)));
     }
+
+    private static BitmapSource SolidFrame(Color color)
+    {
+        var pixels = new byte[16 * 9 * 3];
+        for (var i = 0; i < pixels.Length; i += 3)
+        {
+            pixels[i] = color.B;
+            pixels[i + 1] = color.G;
+            pixels[i + 2] = color.R;
+        }
+        var image = BitmapSource.Create(16, 9, 96, 96, PixelFormats.Bgr24, null, pixels, 16 * 3);
+        image.Freeze();
+        return image;
+    }
+
+    private static void StudioComposition()
+    {
+        var profile = RecordingProfile.Options[^1];
+        var renderer = new ProgramVideoRenderer(profile);
+        var layers = new ProgramLayers(SolidFrame(Colors.Red), SolidFrame(Colors.Blue),
+            new(ClockView.Analog, TimeSpan.FromHours(10)));
+        var frame = new StudioFrame(ProgramFrame.From(Page.Empty()), null, layers);
+        var pixels = renderer.Capture(frame);
+        Assert(pixels.Length == 3840 * 2160 * 4);
+        int Channel(int x, int y, int c) => pixels[(y * 3 * profile.Width + x * 3) * 4 + c];
+        Assert(Channel(980, 560, 2) > 220 && Channel(980, 560, 0) < 20, "camera one was not rendered at UHD");
+        Assert(Channel(660, 560, 0) > 220 && Channel(660, 560, 2) < 20, "camera two was not rendered at UHD");
+        Assert(Channel(1170, 70, 2) < 80, "clock overlay was not rendered");
+        renderer.Capture(frame with { Board = null });
+        Assert(Channel(980, 560, 2) == 0 && Channel(660, 560, 0) == 0 && Channel(1170, 70, 2) == 0);
+    }
+
+    private static void MediaSmoke() => InTemporaryDirectory(directory =>
+    {
+        var ffmpeg = FfmpegMedia.Find() ?? throw new InvalidOperationException("FFmpeg must be on PATH for --media.");
+        var ffprobe = Path.Combine(Path.GetDirectoryName(ffmpeg)!, "ffprobe.exe");
+        Assert(File.Exists(ffprobe), "ffprobe.exe must be alongside FFmpeg.");
+        var cameras = FfmpegMedia.CamerasAsync(ffmpeg).GetAwaiter().GetResult();
+        Console.WriteLine($"      FFmpeg enumerated {cameras.Count} DirectShow video inputs.");
+        using var first = new CameraCapture(ffmpeg, ["-re", "-f", "lavfi", "-i", "color=c=red:s=640x360:r=15"]);
+        using var second = new CameraCapture(ffmpeg, ["-re", "-f", "lavfi", "-i", "color=c=blue:s=640x360:r=15"]);
+        var cameraOne = first.FirstFrame.WaitAsync(TimeSpan.FromSeconds(8)).GetAwaiter().GetResult();
+        var cameraTwo = second.FirstFrame.WaitAsync(TimeSpan.FromSeconds(8)).GetAwaiter().GetResult();
+        Assert(cameraOne.IsFrozen && cameraTwo.IsFrozen && cameraOne.PixelWidth == 640 && cameraTwo.PixelHeight == 360);
+        var frame = new StudioFrame(ProgramFrame.From(Page.Empty()), null,
+            new ProgramLayers(cameraOne, cameraTwo, new(ClockView.Digital, TimeSpan.FromHours(10))));
+
+        foreach (var profile in RecordingProfile.Options)
+        {
+            var destination = Path.Combine(directory, $"check-{profile.Width}.mp4");
+            var pixels = new ProgramVideoRenderer(profile).Capture(frame);
+            var recording = new ProgramRecording(ffmpeg, destination, profile, () => Task.FromResult(pixels));
+            Thread.Sleep(850);
+            recording.Stop();
+            Assert(recording.Completion.WaitAsync(TimeSpan.FromSeconds(20)).GetAwaiter().GetResult() == destination);
+            using var probe = FfmpegMedia.Start(ffprobe,
+                ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,width,height",
+                    "-of", "json", destination], output: true);
+            using var document = JsonDocument.Parse(probe.StandardOutput.ReadToEnd());
+            Assert(probe.WaitForExit(5000) && probe.ExitCode == 0);
+            var video = document.RootElement.GetProperty("streams")[0];
+            Assert(video.GetProperty("codec_name").GetString() == "h264" &&
+                video.GetProperty("width").GetInt32() == profile.Width &&
+                video.GetProperty("height").GetInt32() == profile.Height);
+            var x = (int)(1000d * profile.Width / BoardSurface.BoardWidth);
+            var y = (int)(560d * profile.Height / BoardSurface.BoardHeight);
+            using var decode = FfmpegMedia.Start(ffmpeg,
+                ["-v", "error", "-i", destination, "-frames:v", "1", "-vf", $"crop=2:2:{x}:{y}",
+                    "-pix_fmt", "bgr24", "-f", "rawvideo", "pipe:1"], output: true);
+            var decodedPixel = new byte[12];
+            decode.StandardOutput.BaseStream.ReadExactly(decodedPixel);
+            Assert(decode.WaitForExit(5000) && decode.ExitCode == 0 && decodedPixel[2] > 220 && decodedPixel[0] < 30);
+            Console.WriteLine($"      FFprobe verified H.264 at {profile.Width} × {profile.Height}.");
+        }
+    });
 
     private static void Click(Window window, string name) =>
         Find<Button>(window, name).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

@@ -1,5 +1,19 @@
 # Classroom milestone verification
 
+## 0.4 studio preview
+
+The Release build passed with no compiler warnings. All 18 local checks passed with `--media` on x64 Windows using the installed FFmpeg 8.0 build.
+
+| Check | Result |
+| --- | --- |
+| Classroom clock | Local time, analog mode, monotonic stopwatch, pause and countdown expiry passed |
+| Device enumeration | FFmpeg reported 13 DirectShow video inputs. The parser excluded audio devices |
+| Concurrent capture | Two generated FFmpeg inputs produced independent 640 × 360 camera frames |
+| Clean media layers | Both camera positions and the analog clock rendered in the UHD Program. Blackout covered all layers, and unpublishing removed layers from a held frame |
+| H.264 MP4 | FFprobe verified 1280 × 720, 1920 × 1080 and 3840 × 2160. The first frame of each file decoded and contained the expected camera pixels |
+
+The recordings were short software-encoded tests with generated video. Physical camera capture, sustained UHD throughput, hardware encoding, audio and A/V sync remain open. [Studio test instructions](STUDIO.md#repeat-the-media-checks)
+
 ## 0.3 update notification
 
 All 14 local checks passed. The release catalog tests covered a newer valid Windows installer, equal and older versions, draft and prerelease rejection, missing or pending installers, malformed tags, and a download URL supplied by the response. The WPF test verified that a newer version offered at startup appears as a **Download v…** button in the teacher workspace. The app constructs the versioned download from the official repository path.

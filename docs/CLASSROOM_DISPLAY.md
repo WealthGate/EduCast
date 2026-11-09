@@ -17,6 +17,7 @@
 - Use **Select** or the object list to change an existing object's visibility. To move a visible object, drag it with **Select**. Program receives the move after release in Live updates or after Take in manual mode. With nothing selected the visibility controls apply to the next object. **Teacher only** keeps an object private, **Student only** shows it only on Program, and **Hidden** excludes it from both rendered views. The object list remains available to the teacher in all four states.
 - Mark objects **Answer** and use **Reveal answers** or **Hide answers** for the page. In manual mode, take the draft after revealing. Hiding an answer removes it from existing Program and held frames immediately.
 - **Save** preserves editable objects and teacher notes. **PNG…** exports only the current clean Program frame, including freeze or blackout state.
+- **Studio & clock…** opens the private controls for digital and analog clocks, stopwatch, countdown, cameras, and recording. [Studio guide](STUDIO.md)
 
 | Shortcut | Action |
 | --- | --- |

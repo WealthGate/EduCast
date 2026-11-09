@@ -47,6 +47,15 @@ public partial class TeacherWindow : Window
     private ProgramFrame? renderedOutput;
     private Ink? liveStroke;
     private bool liveInkShown;
+    private ProgramInk? programInk;
+    private ProgramLayers studioLayers = new();
+    private ProgramLayers visibleLayers = new();
+    private ProgramLayers? frozenLayers;
+    private StudioTools? studio;
+    private ProgramRecording? recording;
+    private readonly DispatcherTimer recordingClock;
+    private bool stoppingRecording;
+    private bool closeAfterRecording;
     private string? projectPath;
     private DisplayWindow? output;
     private Display? activeDisplay;
@@ -75,6 +84,9 @@ public partial class TeacherWindow : Window
         this.checkRelease = checkRelease;
         saved = session.Lesson;
         InitializeComponent();
+        recordingClock = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background,
+            (_, _) => RefreshRecordingStatus(), Dispatcher);
+        recordingClock.Stop();
         BuildVersion.Text = $"LOCAL LESSON   ·   v{ReleaseCatalog.InstalledVersion}";
         DrawingInput.NewStroke = NewInk;
         DrawingInput.PreviewChanged += stroke =>
@@ -118,7 +130,29 @@ public partial class TeacherWindow : Window
             _ = RefreshUpdatesAsync(interactive: false);
         };
         PreviewKeyDown += Shortcuts;
-        Closing += (_, args) => { if (!ConfirmDiscard()) args.Cancel = true; };
+        Closing += (_, args) =>
+        {
+            if (closeAfterRecording)
+            {
+                args.Cancel = recording is not null;
+                if (!args.Cancel)
+                    studio?.Shutdown();
+                return;
+            }
+            if (!ConfirmDiscard())
+            {
+                args.Cancel = true;
+                return;
+            }
+            if (recording is null)
+            {
+                studio?.Shutdown();
+                return;
+            }
+            args.Cancel = true;
+            closeAfterRecording = true;
+            StopRecording();
+        };
         Closed += (_, _) =>
         {
             updateLifetime.Cancel();
@@ -280,6 +314,7 @@ public partial class TeacherWindow : Window
             output?.SetFrame(frame);
         }
         RefreshLiveInk();
+        RefreshStudioLayers();
         ProgramState.Text = session.Blackout ? "BLACKOUT" : session.Frozen ? "FROZEN" :
             session.Live ? "LIVE UPDATES" : "MANUAL TAKE";
         LiveMode.IsChecked = session.Live;
@@ -292,6 +327,7 @@ public partial class TeacherWindow : Window
     private void RefreshLiveInk()
     {
         var projected = session.ProjectLiveInk(liveStroke);
+        programInk = projected;
         if (projected is null && !liveInkShown)
             return;
         liveInkShown = projected is not null;
@@ -430,6 +466,8 @@ public partial class TeacherWindow : Window
     private void Load(Lesson lesson, string? path)
     {
         StopOutput(this, new RoutedEventArgs());
+        studio?.Unpublish();
+        frozenLayers = null;
         CancelGesture();
         ClearSelection();
         session.Reset(lesson);
@@ -1007,6 +1045,7 @@ public partial class TeacherWindow : Window
         try
         {
             window.SetFrame(session.Output);
+            window.SetLayers(visibleLayers);
             window.Show();
             output = window;
             activeDisplay = choice.Display;
@@ -1044,6 +1083,7 @@ public partial class TeacherWindow : Window
 
     private void Freeze(object sender, RoutedEventArgs args)
     {
+        frozenLayers = session.Frozen ? null : studioLayers;
         session.ToggleFreeze();
         RefreshProgram();
     }
@@ -1067,10 +1107,130 @@ public partial class TeacherWindow : Window
             return;
         try
         {
-            AtomicFile.Write(dialog.FileName, stream => ProgramImage.WritePng(session.Output, stream));
+            AtomicFile.Write(dialog.FileName, stream => ProgramImage.WritePng(CurrentStudioFrame(), stream));
             Report("Exported the Program frame as a 1280 × 720 PNG.");
         }
         catch (Exception error) when (FileError(error)) { ShowFileError(error); }
+    }
+
+    private StudioFrame CurrentStudioFrame() => new(session.Output, programInk, visibleLayers);
+
+    private void OpenStudio(object sender, RoutedEventArgs args)
+    {
+        if (studio is null)
+        {
+            studio = new StudioTools(this);
+            studio.LayersChanged += ApplyStudioLayers;
+            studio.RecordRequested += StartRecording;
+            studio.StopRequested += StopRecording;
+        }
+        studio.Show();
+        studio.Activate();
+    }
+
+    internal void ApplyStudioLayers(ProgramLayers layers)
+    {
+        studioLayers = layers;
+        RefreshStudioLayers();
+    }
+
+    private void RefreshStudioLayers()
+    {
+        if (frozenLayers is { } held)
+            frozenLayers = new ProgramLayers(studioLayers.CameraOne is null ? null : held.CameraOne,
+                studioLayers.CameraTwo is null ? null : held.CameraTwo, studioLayers.Clock is null ? null : held.Clock);
+        var next = session.Blackout ? new ProgramLayers() : frozenLayers ?? studioLayers;
+        if (next == visibleLayers)
+            return;
+        visibleLayers = next;
+        ProgramPreview.PresentLayers(next);
+        output?.SetLayers(next);
+    }
+
+    private void RecordingAction(object sender, RoutedEventArgs args)
+    {
+        if (recording is null)
+            OpenStudio(sender, args);
+        else
+            StopRecording();
+    }
+
+    private void StartRecording(string executable, RecordingProfile profile)
+    {
+        if (recording is not null)
+            return;
+        var dialog = new SaveFileDialog
+        {
+            Filter = "MP4 video (*.mp4)|*.mp4", DefaultExt = ".mp4", AddExtension = true,
+            FileName = $"EduCast {DateTime.Now:yyyy-MM-dd HH-mm-ss}.mp4"
+        };
+        if (dialog.ShowDialog((Window?)studio ?? this) != true)
+            return;
+        try
+        {
+            var renderer = new ProgramVideoRenderer(profile);
+            var job = new ProgramRecording(executable, dialog.FileName, profile, () =>
+                Dispatcher.InvokeAsync(() => renderer.Capture(CurrentStudioFrame()), DispatcherPriority.Background).Task);
+            recording = job;
+            recordingClock.Start();
+            studio?.SetRecording(active: true);
+            studio?.Report("Recording the clean Program. This recording has no audio.");
+            Report("Recording started.");
+            RefreshRecordingStatus();
+            _ = ObserveRecordingAsync(job);
+        }
+        catch (Exception error) when (FileError(error) || error is Win32Exception)
+        {
+            studio?.Report(error.Message);
+            Report("Could not start the recording.");
+        }
+    }
+
+    private void StopRecording()
+    {
+        if (recording is null || stoppingRecording)
+            return;
+        stoppingRecording = true;
+        recording.Stop();
+        studio?.SetRecording(active: true, finishing: true);
+        RefreshRecordingStatus();
+    }
+
+    private void RefreshRecordingStatus()
+    {
+        RecordingButton.Content = recording is null ? "Record…" : stoppingRecording ? "Finishing…" :
+            $"● REC {recording.Elapsed:hh\\:mm\\:ss} · Stop";
+        RecordingButton.IsEnabled = !stoppingRecording;
+        RecordingButton.Background = recording is null ? (Brush)FindResource("Panel") : Brushes.Firebrick;
+    }
+
+    private async Task ObserveRecordingAsync(ProgramRecording job)
+    {
+        try
+        {
+            var path = await job.Completion;
+            studio?.Report($"Saved {path}.");
+            Report($"Saved recording {Path.GetFileName(path)}.");
+        }
+        catch (Exception error)
+        {
+            App.Log(error);
+            studio?.Report(error.Message);
+            if (closeAfterRecording)
+                MessageBox.Show(this, error.Message, "Recording could not finish", MessageBoxButton.OK, MessageBoxImage.Warning);
+            else
+                Report("Recording failed. Open Studio for details.");
+        }
+        finally
+        {
+            recording = null;
+            stoppingRecording = false;
+            recordingClock.Stop();
+            studio?.SetRecording(active: false);
+            RefreshRecordingStatus();
+            if (closeAfterRecording)
+                Close();
+        }
     }
 
     private void Shortcuts(object sender, KeyEventArgs args)

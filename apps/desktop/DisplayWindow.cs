@@ -84,7 +84,7 @@ internal static class WindowsDisplays
 
 internal sealed class DisplayWindow : Window
 {
-    private readonly BoardSurface board = new();
+    private readonly ProgramSurface board = new();
     private readonly AspectMatte matte;
 
     public DisplayWindow(Window teacher, Display? display)
@@ -131,6 +131,7 @@ internal sealed class DisplayWindow : Window
     public void SetFrame(Classroom.ProgramFrame? frame) => board.Present(frame);
 
     public void SetLiveInk(Classroom.ProgramInk? ink) => board.PresentInk(ink);
+    public void SetLayers(ProgramLayers layers) => board.PresentLayers(layers);
 
     private sealed class AspectMatte : Grid
     {

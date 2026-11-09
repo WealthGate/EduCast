@@ -8,11 +8,15 @@ namespace EduCast.Studio;
 
 internal static class ProgramImage
 {
-    public static void WritePng(ProgramFrame? frame, Stream destination)
+    public static void WritePng(ProgramFrame? frame, Stream destination) =>
+        WritePng(new StudioFrame(frame, null, new ProgramLayers()), destination);
+
+    public static void WritePng(StudioFrame frame, Stream destination)
     {
-        var renderer = new BoardSurface();
+        var renderer = new ProgramSurface();
         var size = new Size(BoardSurface.BoardWidth, BoardSurface.BoardHeight);
-        renderer.Present(frame);
+        renderer.Present(frame.Board);
+        renderer.PresentLayers(frame.Layers);
         renderer.Measure(size);
         renderer.Arrange(new Rect(size));
         var image = new RenderTargetBitmap((int)size.Width, (int)size.Height, 96, 96, PixelFormats.Pbgra32);

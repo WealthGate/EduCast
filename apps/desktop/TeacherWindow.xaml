@@ -132,7 +132,7 @@
                         </Grid>
                         <Border Background="Black" Height="120" ClipToBounds="True" Margin="0,0,0,8">
                             <Viewbox Stretch="Uniform">
-                                <studio:BoardSurface x:Name="ProgramPreview"/>
+                                <studio:ProgramSurface x:Name="ProgramPreview"/>
                             </Viewbox>
                         </Border>
                         <ComboBox x:Name="DisplayChoice" DisplayMemberPath="Label" AutomationProperties.Name="Student display"/>
@@ -149,6 +149,10 @@
                             <Button x:Name="FreezeButton" Content="Freeze" Click="Freeze" ToolTip="Freeze or resume (F6)"/>
                             <Button x:Name="BlackButton" Content="Blackout" Click="Blackout" ToolTip="Blackout or restore (F7)"/>
                             <Button Content="PNG…" Click="ExportProgram" ToolTip="Export only the current Program frame"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <Button x:Name="StudioButton" Content="Studio &amp; clock…" Click="OpenStudio"/>
+                            <Button x:Name="RecordingButton" Content="Record…" Click="RecordingAction"/>
                         </WrapPanel>
                         <WrapPanel>
                             <CheckBox x:Name="LiveMode" Content="Live updates" IsChecked="True" Click="SetLive" Margin="0,7,9,4"/>
