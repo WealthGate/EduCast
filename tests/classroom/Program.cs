@@ -55,6 +55,9 @@ internal static partial class Checks
             ("Chemistry formats and checks the atom counts and charges of reactions", ChemicalNotation),
             ("Subject pages, backgrounds, privacy and editable diagram files", SubjectPages),
             ("WPF smart ink recognizes supported shapes and keeps object visibility", SmartSketches),
+            ("WPF handwritten notation recognizes fractions, roots, scripts and division", SmartNotation),
+            ("WPF smart ink recognizes multi-sided polygons and solid sketches", SolidSketches),
+            ("WPF instrument controls leave the measuring references uncovered", InstrumentClearance),
             ("WPF subject diagrams render and move as board objects", SubjectDrawing),
             ("Quadratic graph evaluates roots and vertex correctly", Quadratic),
             ("Release catalog offers only newer published Windows installers", ReleaseUpdates),
@@ -660,6 +663,14 @@ internal static partial class Checks
         Click(teacher, "UndoButton");
 
         var choice = Find<ComboBox>(teacher, "InstrumentChoice");
+        choice.SelectedIndex = 1;
+        Assert(teacher.BeginMathDrag(new BoardPoint(581, 376)));
+        teacher.EndMathDrag(new BoardPoint(455, 521), snap: false);
+        Click(teacher, "InstrumentDrawButton");
+        Pump();
+        Assert(!Pixel(student, 455, 521).SequenceEqual(paper), "the compass pencil did not land at the selected point");
+        Click(teacher, "UndoButton");
+        choice.SelectedIndex = 0;
         choice.SelectedIndex = 1;
         Check(teacher, "TraceInstrument", true);
         Assert(teacher.BeginMathDrag(new BoardPoint(581, 376)));

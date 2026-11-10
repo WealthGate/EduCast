@@ -1,6 +1,6 @@
 # On-board math instruments
 
-Choose **Math instruments…** above the board and select a tool. An instrument appears over the lesson. Drag its body or the **+** handle to move it, use **↻** to rotate, and use **↔** to resize. Hold **Shift** while moving for board-grid alignment or while rotating for 15° steps. Switch to **Pen** to write freehand around the instrument. Select **Use tool** to return to manipulation. **Esc** cancels the active adjustment or trace.
+Choose **Math instruments…** above the board and select a tool. An instrument appears over the lesson. The handles sit outside the measuring faces. Drag the instrument body or the **+** handle to move it, use **↻** to rotate, and use **↔** to resize. Hold **Shift** while moving for board-grid alignment or while rotating for 15° steps. Switch to **Pen** to write freehand around the instrument. Select **Use tool** to return to manipulation. **Esc** cancels the active adjustment or trace.
 
 ## Demonstrate to students
 
@@ -12,10 +12,10 @@ The instrument stays on the board while you use it. Completed constructions beco
 
 | Instrument | Classroom workflow |
 | --- | --- |
-| Ruler | Place the scale, enable **Trace**, and drag near its straight edge. Hold **Shift** while tracing to snap to the main scale marks. Select **Label length** to add a measurement to the line. **Inches** switches the scale between metric and imperial units |
+| Ruler | Align the zero tick with the starting point. The small pointer above the ruler marks zero. Enable **Trace** and drag near the straight edge. Hold **Shift** while tracing to snap to the main scale marks. Select **Label length** to add a measurement to the line. **Inches** switches the scale between metric and imperial units |
 | Ruler calibration | Enter a known length in the selected unit, select **Calibrate…**, and drag between the reference endpoints on the board. Calibration applies to the current session. The default scale is one centimetre per 32 board units, which matches the grid spacing. Use **Reset scale** to restore it |
-| Compass | Move the pivot and drag the pencil-tip resize handle to set the radius. **Draw circle** uses that radius. To draw an arc, enable **Trace**, place the pointer on the dashed guide, and sweep around the pivot. Moving the compass keeps its radius, so the same setting can be used at both ends of a segment to demonstrate a perpendicular bisector |
-| 180° or 360° protractor | Rotate the baseline into position and drag the **∠** handle to move the measuring ray. Hold **Shift** for 15° angle steps. **Draw angle** commits both rays, the arc, and the degree label together |
+| Compass | Place the pointed pivot on the starting point. With **Trace** off, drag the pointed pencil tip onto the second point. The pivot stays fixed as the radius and direction change. **Draw circle** uses that radius. To draw an arc, enable **Trace** and sweep from the dashed guide around the pivot. Moving the compass keeps its radius |
+| 180° or 360° protractor | Align the open center with the vertex and rotate the baseline into position. Drag the **∠** handle beyond the scale to move the measuring ray. Hold **Shift** for 15° angle steps. **Draw angle** commits both rays, the arc, and the degree label together |
 | 45° or 30°/60° set square | Move and rotate the triangle to align an edge. Enable **Trace** and drag near any edge for a constrained line. **Draw triangle** commits all three edges together |
 | French curve | Move the vertex, use **↔** to change the span, and use **±** to change or flip the rise. The guide follows a quadratic curve in the instrument's local coordinates. Enable **Trace** to draw part of it or choose **Draw full curve**. Use the separate **Graph…** tool for function plots with axes |
 

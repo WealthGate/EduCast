@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Windows;
 using EduCast.Classroom;
 
@@ -5,6 +6,76 @@ namespace EduCast.Studio;
 
 internal static class SketchRecognition
 {
+    internal static (Shape Shape, int Count)? RecognizeGroup(IReadOnlyList<Ink> strokes, BoardSubject subject)
+    {
+        var current = strokes[^1];
+        for (var count = Math.Min(strokes.Count, 3); count >= 2; count--)
+        {
+            var points = strokes.Skip(strokes.Count - count).Select(Sample).ToArray();
+            if (RecognizeSolid(points, current) is { } solid)
+                return (solid, count);
+        }
+        var previous = strokes.Count > 1 ? strokes[^2] : null;
+        if (Recognize(current, previous, subject) is not { } shape)
+            return null;
+        return (shape, shape.ShapeKind is ShapeKind.Capacitor or ShapeKind.Equal or ShapeKind.DoubleBond ? 2 : 1);
+    }
+
+    private static Shape? RecognizeSolid(Point[][] strokes, Ink ink)
+    {
+        for (var i = 0; i < strokes.Length; i++)
+        {
+            var ellipse = Bounds(strokes[i]);
+            if (ellipse.Width < 36 || ellipse.Height < 9 || !IsEllipse(strokes[i], ellipse))
+                continue;
+            var sides = strokes.Where((_, index) => index != i).ToArray();
+            if (ellipse.Height < ellipse.Width * .66 && ConeApex(sides, ellipse) is { } apex)
+                return new Shape(ink.Id, ink.Visibility, ink.IsAnswer, ink.Argb, ink.Width,
+                    ShapeKind.Cone, new(ellipse.Left, apex.Y), new(ellipse.Right, ellipse.Bottom));
+            if (sides.Length != 1 || ellipse.Height > ellipse.Width * .52)
+                continue;
+            var outline = Bounds(sides[0]);
+            if (outline.Height >= outline.Width * .83 && outline.Height <= outline.Width * 1.2 &&
+                Math.Abs(ellipse.Width - outline.Width) <= outline.Width * .25 &&
+                Math.Abs(ellipse.Left - outline.Left) < outline.Width * .2 &&
+                Math.Abs(ellipse.Top + ellipse.Height / 2 - outline.Top - outline.Height / 2) < outline.Height * .18 &&
+                IsEllipse(sides[0], outline))
+                return new Shape(ink.Id, ink.Visibility, ink.IsAnswer, ink.Argb, ink.Width,
+                    ShapeKind.Sphere, Board(outline.TopLeft), Board(outline.BottomRight));
+        }
+        return null;
+    }
+
+    private static Point? ConeApex(Point[][] strokes, Rect ellipse)
+    {
+        if (strokes.Any(stroke => stroke.Length < 2))
+            return null;
+        var sides = strokes.Select(stroke => Simplify(stroke, ellipse.Width * .045)).ToArray();
+        Point left, right, apex;
+        if (sides is [[var first, var peak, var last]])
+            (left, apex, right) = (first, peak, last);
+        else if (sides is [[var a, var b], [var c, var d]])
+        {
+            if (a.Y < b.Y)
+                (a, b) = (b, a);
+            if (c.Y < d.Y)
+                (c, d) = (d, c);
+            if ((b - d).Length > ellipse.Width * .16)
+                return null;
+            (left, apex, right) = (a, b + (d - b) / 2, c);
+        }
+        else
+            return null;
+        if (left.X > right.X)
+            (left, right) = (right, left);
+        var middle = ellipse.Top + ellipse.Height / 2;
+        var tolerance = ellipse.Width * .18;
+        return (left - new Point(ellipse.Left, middle)).Length <= tolerance &&
+            (right - new Point(ellipse.Right, middle)).Length <= tolerance &&
+            Math.Abs(apex.X - ellipse.Left - ellipse.Width / 2) <= tolerance &&
+            middle - apex.Y > ellipse.Width * .33 ? apex : null;
+    }
+
     internal static Shape? Recognize(Ink ink, Ink? previous, BoardSubject subject)
     {
         var points = Sample(ink);
@@ -69,12 +140,49 @@ internal static class SketchRecognition
             return Make(ShapeKind.Rectangle, loop[0], loop[0] + firstEdge * horizontal,
                 loop[0] + normal * vertical);
         }
+        var detailed = Simplify(points, Math.Max(1.5, size * .022))[..^1].ToList();
+        if (detailed.Count >= 4 && (end - start).Length < size * .13 &&
+            DistanceToSegment(start, detailed[^1], detailed[1]) < size * .026)
+            detailed.RemoveAt(0);
+        if (detailed.Count is >= 4 and <= 12 && PolygonArea(detailed) > bounds.Width * bounds.Height * .26 &&
+            HasSharpCorners(points, detailed, size))
+            return Make(ShapeKind.Polygon, bounds.TopLeft, bounds.BottomRight) with
+            {
+                Vertices = detailed.Select(Board).ToImmutableArray()
+            };
         if (!IsEllipse(points, bounds))
             return null;
         var centerOfBounds = bounds.TopLeft + new Vector(bounds.Width / 2, bounds.Height / 2);
         return Math.Min(bounds.Width, bounds.Height) >= size * .83
             ? Make(ShapeKind.Circle, centerOfBounds, centerOfBounds + new Vector((bounds.Width + bounds.Height) / 4, 0))
             : Make(ShapeKind.Ellipse, bounds.TopLeft, bounds.BottomRight);
+    }
+
+    private static bool HasSharpCorners(Point[] points, IReadOnlyList<Point> corners, double size)
+    {
+        var count = points.Length - 1;
+        var radius = size * .055;
+        foreach (var corner in corners)
+        {
+            var index = Array.IndexOf(points, corner);
+            Point Neighbor(int direction)
+            {
+                for (var i = 1; i < count; i++)
+                {
+                    var next = points[(index + direction * i + count) % count];
+                    if ((next - corner).Length >= radius)
+                        return next;
+                }
+                return corner;
+            }
+            var a = Neighbor(-1) - corner;
+            var b = Neighbor(1) - corner;
+            if (Vector.Multiply(a, b) >= 0)
+                continue;
+            if (Vector.Multiply(a, b) < -a.Length * b.Length * .966)
+                return false;
+        }
+        return true;
     }
 
     private static (bool Horizontal, Point Start, Point End)? Parallel(Point[] prior, Point a, Point b)
@@ -201,7 +309,7 @@ internal static class SketchRecognition
             Math.Abs(rotation) is > 5.5 and < 6.8 && angleTravel - Math.Abs(rotation) < .65;
     }
 
-    private static Point[] Sample(Ink ink)
+    internal static Point[] Sample(Ink ink)
     {
         var count = Math.Min(ink.Points.Length, 256);
         var points = new Point[count];
@@ -213,7 +321,7 @@ internal static class SketchRecognition
         return points;
     }
 
-    private static Rect Bounds(Point[] points) =>
+    internal static Rect Bounds(Point[] points) =>
         new(new Point(points.Min(p => p.X), points.Min(p => p.Y)),
             new Point(points.Max(p => p.X), points.Max(p => p.Y)));
 
@@ -227,7 +335,7 @@ internal static class SketchRecognition
         return length;
     }
 
-    private static Point[] Simplify(Point[] points, double tolerance)
+    internal static Point[] Simplify(Point[] points, double tolerance)
     {
         var corners = new List<Point> { points[0] };
         AddCorners(0, points.Length - 1);

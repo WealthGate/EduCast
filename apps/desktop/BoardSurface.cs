@@ -135,7 +135,8 @@ internal sealed class BoardSurface : FrameworkElement
             Ink ink => ink with { Points = ink.Points.Select(Shift).ToImmutableArray() },
             Shape shape => shape with
             {
-                Start = Shift(shape.Start), End = Shift(shape.End), Corner = shape.Corner is { } corner ? Shift(corner) : null
+                Start = Shift(shape.Start), End = Shift(shape.End), Corner = shape.Corner is { } corner ? Shift(corner) : null,
+                Vertices = shape.Vertices?.Select(Shift).ToImmutableArray()
             },
             Equation equation => equation with { Origin = Shift(equation.Origin) },
             BoardText text => text with { Origin = Shift(text.Origin) },
@@ -257,6 +258,10 @@ internal sealed class BoardSurface : FrameworkElement
             ShapeKind.Rectangle => new RectangleGeometry(new Rect(a, b)),
             ShapeKind.Ellipse => new EllipseGeometry(new Rect(a, b)),
             ShapeKind.Triangle => TriangleGeometry(a, b, shape.Corner),
+            ShapeKind.Polygon when shape.Vertices is { Length: >= 3 } vertices =>
+                Polyline(vertices.Select(ToPoint).ToArray(), close: true),
+            ShapeKind.Cone or ShapeKind.Sphere or ShapeKind.Cube or ShapeKind.Cuboid or ShapeKind.Cylinder =>
+                SolidGeometry.Draw(shape.ShapeKind, new Rect(a, b)),
             ShapeKind.Resistor or ShapeKind.Capacitor or ShapeKind.Equal => SymbolGeometry(shape.ShapeKind, a, b),
             ShapeKind.DoubleBond or ShapeKind.TripleBond => BondGeometry(shape, a, b),
             ShapeKind.Circle => new EllipseGeometry(a, radius, radius),
@@ -295,11 +300,11 @@ internal sealed class BoardSurface : FrameworkElement
         };
     }
 
-    internal static Geometry Polyline(IReadOnlyList<Point> points, bool close = false)
+    internal static Geometry Polyline(IReadOnlyList<Point> points, bool close = false, bool fill = false)
     {
         var line = new StreamGeometry();
         using var geometry = line.Open();
-        geometry.BeginFigure(points[0], false, close);
+        geometry.BeginFigure(points[0], fill, close);
         geometry.PolyLineTo(points.Skip(1).ToArray(), true, false);
         return line;
     }

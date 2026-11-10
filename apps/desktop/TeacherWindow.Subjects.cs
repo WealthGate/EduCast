@@ -10,12 +10,15 @@ namespace EduCast.Studio;
 
 public partial class TeacherWindow
 {
-    private sealed record SubjectTool(string Label, Tool? Shape = null, DiagramKind? Diagram = null, string? Symbol = null);
+    private sealed record SubjectTool(string Label, Tool? Shape = null, DiagramKind? Diagram = null,
+        string? Symbol = null, int Sides = 0);
 
     private static readonly SubjectTool[] Shapes =
     [
         new("Line", Tool.Line), new("Rectangle", Tool.Rectangle), new("Triangle", Tool.Triangle),
-        new("Circle", Tool.Circle), new("Ellipse", Tool.Ellipse), new("Arc", Tool.Arc), new("Arrow", Tool.Arrow)
+        new("Circle", Tool.Circle), new("Ellipse", Tool.Ellipse), new("Arc", Tool.Arc), new("Arrow", Tool.Arrow),
+        new("Cone", Tool.Cone), new("Sphere", Tool.Sphere), new("Cube", Tool.Cube), new("Cuboid", Tool.Cuboid),
+        new("Cylinder", Tool.Cylinder)
     ];
 
     private static readonly ColorChoice[] Backgrounds =
@@ -26,9 +29,9 @@ public partial class TeacherWindow
     ];
 
     private BoardSubject? displayedSubject;
-    private Ink? lastSketch;
+    private readonly List<Ink> sketchStrokes = [];
     private long lastSketchAt;
-    private (Shape Shape, Ink Current, Ink? Previous)? sketchSuggestion;
+    private (Ink[] Strokes, Shape? Shape, MathSketch? Math)? sketchSuggestion;
 
     private static IEnumerable<SubjectTool> ToolsFor(BoardSubject subject)
     {
@@ -76,7 +79,8 @@ public partial class TeacherWindow
             ],
             _ => []
         };
-        return featured.Concat(Shapes);
+        return featured.Concat(Shapes).Concat(Enumerable.Range(4, 9)
+            .Select(sides => new SubjectTool($"{sides}-sided polygon", Tool.Polygon, Sides: sides)));
     }
 
     private static string DiagramLabel(DiagramKind kind) => kind switch
@@ -130,6 +134,8 @@ public partial class TeacherWindow
         {
             CancelGesture();
             ClearSelection();
+            if (choice.Sides > 0)
+                polygonSides = choice.Sides;
             SetTool(shape);
             Refresh();
         }
@@ -238,45 +244,81 @@ public partial class TeacherWindow
 
     private void CollectSketch(Ink ink)
     {
-        var previous = session.Page.Items.Length > 0 && ReferenceEquals(session.Page.Items[^1], lastSketch) &&
-            Environment.TickCount64 - lastSketchAt < 2400 ? lastSketch : null;
-        ClearSketch();
+        var mathMode = tool == Tool.SmartMath;
+        var now = Environment.TickCount64;
+        if (!SketchStillOnPage(sketchStrokes) || !mathMode && now - lastSketchAt > 4500 ||
+            sketchStrokes.Count > 0 && !SameInkStyle(sketchStrokes[^1], ink))
+            sketchStrokes.Clear();
+        HideSketchSuggestion();
         AddItem(ink);
         if (!ReferenceEquals(session.Page.Items[^1], ink))
             return;
-        lastSketch = ink;
-        lastSketchAt = Environment.TickCount64;
-        if (SketchRecognition.Recognize(ink, previous, session.Page.Subject) is not { } shape)
-            return;
-        sketchSuggestion = (shape, ink,
-            shape.ShapeKind is ShapeKind.Capacitor or ShapeKind.Equal or ShapeKind.DoubleBond ? previous : null);
-        var label = shape.ShapeKind switch
+        sketchStrokes.Add(ink);
+        if (sketchStrokes.Count > (mathMode ? 20 : 3))
+            sketchStrokes.RemoveAt(0);
+        lastSketchAt = now;
+        if (mathMode)
         {
-            ShapeKind.Equal => "equals sign",
-            ShapeKind.DoubleBond => "double bond",
-            _ => shape.ShapeKind.ToString().ToLowerInvariant()
-        };
-        AcceptSketchButton.Content = $"Use {label}";
+            KeepSketchButton.Visibility = WpfVisibility.Visible;
+            if (MathInkRecognition.Recognize(sketchStrokes) is { } math)
+            {
+                sketchSuggestion = (sketchStrokes.TakeLast(math.Count).ToArray(), null, math.Math);
+                AcceptSketchButton.Content = math.Math.IsSymbol ? $"Use {math.Math.Label}" : $"Review {math.Math.Label}…";
+            }
+        }
+        else if (SketchRecognition.RecognizeGroup(sketchStrokes, session.Page.Subject) is { } found)
+        {
+            sketchSuggestion = (sketchStrokes.TakeLast(found.Count).ToArray(), found.Shape, null);
+            var label = found.Shape.ShapeKind switch
+            {
+                ShapeKind.Equal => "equals sign",
+                ShapeKind.DoubleBond => "double bond",
+                ShapeKind.Polygon => $"{found.Shape.Vertices!.Value.Length}-sided polygon",
+                _ => found.Shape.ShapeKind.ToString().ToLowerInvariant()
+            };
+            AcceptSketchButton.Content = $"Use {label}";
+        }
+        if (sketchSuggestion is null)
+            return;
         AcceptSketchButton.Visibility = WpfVisibility.Visible;
         KeepSketchButton.Visibility = WpfVisibility.Visible;
     }
 
+    private static bool SameInkStyle(Ink first, Ink last) => first.Visibility == last.Visibility &&
+        first.IsAnswer == last.IsAnswer && first.Argb == last.Argb && first.Width == last.Width;
+
+    private bool SketchStillOnPage(IReadOnlyList<Ink> strokes)
+    {
+        var items = session.Page.Items;
+        var start = items.Length - strokes.Count;
+        return start >= 0 && Enumerable.Range(0, strokes.Count).All(i => ReferenceEquals(items[start + i], strokes[i]));
+    }
+
     private void AcceptSketch(object sender, RoutedEventArgs args)
     {
-        var suggestion = sketchSuggestion;
-        ClearSketch();
-        if (suggestion is not { } item)
+        if (sketchSuggestion is not { } item || !SketchStillOnPage(item.Strokes))
+            return;
+        Classroom.Content? replacement = item.Shape;
+        if (item.Math is { } math)
+        {
+            var style = item.Strokes[^1];
+            var origin = PointOf(math.Bounds.TopLeft);
+            var size = Math.Clamp(math.Bounds.Height * .74, 24, 72);
+            if (math.IsSymbol)
+                replacement = new BoardText(style.Id, style.Visibility, style.IsAnswer, style.Argb, origin, size, math.Source);
+            else
+            {
+                var dialog = new ObjectDialog(this, InsertKind.Equation, math.Source, editing: true, reviewing: true);
+                if (dialog.ShowDialog() != true || !SketchStillOnPage(item.Strokes))
+                    return;
+                replacement = new Equation(style.Id, style.Visibility, style.IsAnswer, style.Argb, origin, size, dialog.Source);
+            }
+        }
+        if (replacement is null)
             return;
         var items = session.Page.Items;
-        if (items.Length == 0 || !ReferenceEquals(items[^1], item.Current))
-            return;
-        if (item.Previous is not null)
-        {
-            if (items.Length < 2 || !ReferenceEquals(items[^2], item.Previous))
-                return;
-            items = items.RemoveAt(items.Length - 2);
-        }
-        session.ChangePage(session.Page with { Items = items.SetItem(items.Length - 1, item.Shape) });
+        ClearSketch();
+        session.ChangePage(session.Page with { Items = items.RemoveRange(items.Length - item.Strokes.Length, item.Strokes.Length).Add(replacement) });
         Refresh();
     }
 
@@ -284,7 +326,12 @@ public partial class TeacherWindow
 
     private void ClearSketch()
     {
-        lastSketch = null;
+        sketchStrokes.Clear();
+        HideSketchSuggestion();
+    }
+
+    private void HideSketchSuggestion()
+    {
         sketchSuggestion = null;
         AcceptSketchButton.Visibility = WpfVisibility.Collapsed;
         KeepSketchButton.Visibility = WpfVisibility.Collapsed;

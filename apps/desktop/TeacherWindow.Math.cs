@@ -233,6 +233,12 @@ public partial class TeacherWindow
                 return true;
             }
         }
+        if (pose.Kind == InstrumentKind.Compass &&
+            InstrumentPose.Distance(local, new BoardPoint(pose.Size, 0)) <= 13)
+        {
+            mathDrag = new MathDrag(display, pointer, InstrumentHandle.CompassTip, null, false, ConstructionInk());
+            return true;
+        }
         if (!InstrumentDrawing.Contains(pose, local))
             return false;
         mathDrag = new MathDrag(display, pointer, InstrumentHandle.Move, null, false, ConstructionInk());
@@ -250,6 +256,7 @@ public partial class TeacherWindow
         else if (drag.Handle is { } handle)
         {
             var min = pose.Kind == InstrumentKind.Calculator ? 215 : pose.IsProtractor ? 90 : 40;
+            var localStart = pose.ToLocal(drag.Start);
             pose = handle switch
             {
                 InstrumentHandle.Move => pose with { Origin = Bound(new BoardPoint(
@@ -258,9 +265,10 @@ public partial class TeacherWindow
                 InstrumentHandle.Rotate => pose with { Rotation = InstrumentPose.Normalize(
                     Snap(pose.Rotation + InstrumentPose.Bearing(pose.Origin, pointer) - drag.StartBearing, snap ? 15 : 0)) },
                 InstrumentHandle.Resize => pose with { Size = Math.Clamp(
-                    pose.Kind == InstrumentKind.FrenchCurve ? local.X * 2 : local.X, min, 600) },
+                    pose.Size + (local.X - localStart.X) * (pose.Kind == InstrumentKind.FrenchCurve ? 2 : 1), min, 600) },
                 InstrumentHandle.Angle => pose with { Angle = Snap(pose.ReadAngle(pointer), snap ? 15 : 1) },
-                _ => pose with { CurveRise = Math.Clamp(-local.Y / Math.Pow(.68, 2), -260, 260) }
+                InstrumentHandle.CompassTip => MoveCompassTip(pose, drag.Start, pointer, snap),
+                _ => pose with { CurveRise = Math.Clamp(pose.CurveRise + localStart.Y - local.Y, -260, 260) }
             };
             instrumentDisplay = drag.Original with { Pose = pose };
         }
@@ -296,6 +304,17 @@ public partial class TeacherWindow
             };
         }
         RefreshMathInstrument();
+    }
+
+    private static InstrumentPose MoveCompassTip(InstrumentPose pose, BoardPoint start, BoardPoint pointer, bool snap)
+    {
+        var tip = pose.ToBoard(new BoardPoint(pose.Size, 0));
+        var target = new BoardPoint(tip.X + pointer.X - start.X, tip.Y + pointer.Y - start.Y);
+        return pose with
+        {
+            Size = Math.Clamp(Snap(InstrumentPose.Distance(pose.Origin, target), snap ? pose.UnitsPerMeasure : 0), 40, 600),
+            Rotation = Snap(InstrumentPose.Bearing(pose.Origin, target), snap ? 15 : 0)
+        };
     }
 
     internal void EndMathDrag(BoardPoint pointer, bool snap)

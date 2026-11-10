@@ -16,11 +16,11 @@ internal sealed class ObjectDialog : Window
     private readonly Button insert;
     private readonly InsertKind kind;
 
-    public ObjectDialog(Window owner, InsertKind kind, string initial, bool editing)
+    public ObjectDialog(Window owner, InsertKind kind, string initial, bool editing, bool reviewing = false)
     {
         this.kind = kind;
         Owner = owner;
-        Title = (editing ? "Edit " : "Insert ") +
+        Title = (reviewing ? "Review handwritten " : editing ? "Edit " : "Insert ") +
             (kind == InsertKind.Chemistry ? "chemical equation" : kind.ToString().ToLowerInvariant());
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Width = 610;
@@ -39,7 +39,11 @@ internal sealed class ObjectDialog : Window
             InsertKind.Chemistry => "Type H2O, Ca(OH)2, or 2H2(g) + O2(g) -> 2H2O(l). Use ^ for charges (Fe^3+, Cl^-) and <=> for equilibrium.",
             _ => "Type the text you want to place on the board."
         };
-        root.Children.Add(new TextBlock { Text = help, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 9) });
+        root.Children.Add(new TextBlock
+        {
+            Text = reviewing ? "Check the suggested equation. Replace any ? with the intended character. " + help : help,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 9)
+        });
         entry = new TextBox
         {
             Text = initial, MaxLength = kind == InsertKind.Text ? 2000 : MathParser.MaxLength,

@@ -6,7 +6,11 @@ namespace EduCast.Classroom;
 public enum Visibility { Both, TeacherOnly, StudentOnly, Hidden }
 public enum BoardPaper { Plain, Grid, Dots, Ruled, Dark, Graph, Isometric, Staff }
 public enum BoardSubject { General, Mathematics, Physics, Chemistry, Biology, Geography }
-public enum ShapeKind { Line, Rectangle, Circle, Arc, Arrow, Ellipse, Triangle, Resistor, Capacitor, Equal, DoubleBond, TripleBond }
+public enum ShapeKind
+{
+    Line, Rectangle, Circle, Arc, Arrow, Ellipse, Triangle, Resistor, Capacitor, Equal, DoubleBond, TripleBond,
+    Polygon, Cone, Sphere, Cube, Cuboid, Cylinder
+}
 public enum InkTip { Round, Square, Chisel }
 public readonly record struct BoardPoint(double X, double Y, float Pressure = 0.5f);
 public sealed record ObjectPlacement(double Scale, double X, double Y)
@@ -40,6 +44,8 @@ public sealed record Shape(Guid Id, Visibility Visibility, bool IsAnswer, uint A
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public BoardPoint? Corner { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableArray<BoardPoint>? Vertices { get; init; }
 }
 
 public sealed record Equation(Guid Id, Visibility Visibility, bool IsAnswer, uint Argb,

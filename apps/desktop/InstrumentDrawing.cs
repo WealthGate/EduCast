@@ -6,7 +6,7 @@ using Matrix = System.Windows.Media.Matrix;
 
 namespace EduCast.Studio;
 
-internal enum InstrumentHandle { Move, Rotate, Resize, Angle, Curve }
+internal enum InstrumentHandle { Move, Rotate, Resize, Angle, Curve, CompassTip }
 internal sealed record InstrumentDisplay(InstrumentPose Pose, string Expression = "", string Result = "");
 
 internal sealed class TeacherInstrumentSurface : FrameworkElement
@@ -50,30 +50,40 @@ internal static class InstrumentDrawing
 
     public static (InstrumentHandle Handle, BoardPoint Position)[] Handles(InstrumentPose pose)
     {
-        var move = pose.Kind == InstrumentKind.Calculator ? new BoardPoint(16, 16) : new BoardPoint(0, 0);
+        var move = pose.Kind switch
+        {
+            InstrumentKind.Ruler => new BoardPoint(pose.Size / 2, pose.RulerHeight + 24),
+            InstrumentKind.Compass => new BoardPoint(pose.Size / 2, 28),
+            InstrumentKind.Protractor360 => new BoardPoint(0, pose.Size + 60),
+            InstrumentKind.FrenchCurve => new BoardPoint(0, Math.Max(0, -pose.CurveRise) + 53),
+            InstrumentKind.Calculator => new BoardPoint(24, -23),
+            _ => new BoardPoint(0, 26)
+        };
         var rotate = pose.Kind switch
         {
             InstrumentKind.Ruler => new BoardPoint(-32, pose.RulerHeight / 2),
-            InstrumentKind.Compass => pose.Hinge,
-            InstrumentKind.Protractor180 => new BoardPoint(0, 32),
-            InstrumentKind.Protractor360 => new BoardPoint(0, pose.Size + 26),
-            InstrumentKind.FrenchCurve => new BoardPoint(0, 37),
+            InstrumentKind.Compass => pose.Hinge with { Y = pose.Hinge.Y - 26 },
+            InstrumentKind.Protractor180 => new BoardPoint(-pose.Size - 25, 25),
+            InstrumentKind.Protractor360 => new BoardPoint(-pose.Size - 60, 0),
+            InstrumentKind.FrenchCurve => new BoardPoint(0, Math.Min(0, -pose.CurveRise) - 25),
             _ => new BoardPoint(-34, -22)
         };
         var resize = pose.Kind switch
         {
-            InstrumentKind.Ruler => new BoardPoint(pose.Size, pose.RulerHeight / 2),
-            InstrumentKind.FrenchCurve => pose.CurveAt(pose.Size / 2),
-            InstrumentKind.Calculator => new BoardPoint(pose.Size, pose.Size * .43),
-            _ => new BoardPoint(pose.Size, 0)
+            InstrumentKind.Ruler => new BoardPoint(pose.Size + 25, pose.RulerHeight / 2),
+            InstrumentKind.Compass => new BoardPoint(pose.Size + 25, 26),
+            InstrumentKind.FrenchCurve => pose.CurveAt(pose.Size / 2) with { X = pose.Size / 2 + 26 },
+            InstrumentKind.Calculator => new BoardPoint(pose.Size + 25, pose.Size * .43),
+            InstrumentKind.Protractor360 => new BoardPoint(pose.Size + 60, 0),
+            _ => new BoardPoint(pose.Size + 25, 25)
         };
         var controls = new List<(InstrumentHandle, BoardPoint)> { (InstrumentHandle.Move, move), (InstrumentHandle.Resize, resize) };
         if (pose.Kind != InstrumentKind.Calculator)
             controls.Add((InstrumentHandle.Rotate, rotate));
         if (pose.IsProtractor)
-            controls.Add((InstrumentHandle.Angle, InstrumentPose.Polar(-pose.Angle, pose.Size * .72)));
+            controls.Add((InstrumentHandle.Angle, InstrumentPose.Polar(-pose.Angle, pose.Size + 26)));
         if (pose.Kind == InstrumentKind.FrenchCurve)
-            controls.Add((InstrumentHandle.Curve, pose.CurveAt(-pose.Size * .34)));
+            controls.Add((InstrumentHandle.Curve, pose.CurveAt(-pose.Size / 2) with { X = -pose.Size / 2 - 26 }));
         return controls.ToArray();
     }
 
@@ -142,6 +152,7 @@ internal static class InstrumentDrawing
                 dc.DrawText(Text((index / divisions).ToString(CultureInfo.InvariantCulture), 13, Ink), new Point(x + 3, 23));
         }
         dc.DrawText(Text(pose.Unit, 13, Ink), new Point(pose.Size - 27, pose.RulerHeight - 18));
+        dc.DrawGeometry(Accent, null, BoardSurface.Polyline([new(-5, -11), new(5, -11), new(0, -2)], close: true, fill: true));
     }
 
     private static void Compass(DrawingContext dc, InstrumentPose pose, bool traceGuide)
@@ -151,13 +162,21 @@ internal static class InstrumentDrawing
         var pivot = new Point();
         if (traceGuide)
             dc.DrawEllipse(null, Dashed, pivot, pose.Size, pose.Size);
-        dc.DrawLine(MakePen(Ink, 15), pivot, hinge);
-        dc.DrawLine(MakePen(Fill, 9), pivot, hinge);
-        dc.DrawLine(MakePen(Ink, 15), hinge, pencil);
-        dc.DrawLine(MakePen(Pencil, 9), hinge, pencil);
+        Leg(pivot, Accent, Fill);
+        Leg(pencil, Pencil, Pencil);
         dc.DrawEllipse(Readout, Border, hinge, 15, 15);
-        dc.DrawEllipse(Ink, null, pivot, 4, 4);
-        dc.DrawEllipse(Ink, null, pencil, 4, 4);
+
+        void Leg(Point tip, Brush pointBrush, Brush armBrush)
+        {
+            var axis = hinge - tip;
+            axis.Normalize();
+            var shoulder = tip + axis * 19;
+            var side = new Vector(-axis.Y, axis.X);
+            dc.DrawLine(MakePen(Ink, 15), shoulder, hinge);
+            dc.DrawLine(MakePen(armBrush, 9), shoulder, hinge);
+            dc.DrawGeometry(pointBrush, null, BoardSurface.Polyline(
+                [tip, shoulder + side * 4, shoulder - side * 4], close: true, fill: true));
+        }
     }
 
     private static void Protractor(DrawingContext dc, InstrumentPose pose)
@@ -178,6 +197,12 @@ internal static class InstrumentDrawing
             }
             dc.DrawGeometry(Fill, Border, shell);
         }
+        dc.DrawLine(Guide, new Point(5, 0), new Point(radius - 46, 0));
+        dc.DrawLine(MakePen(Pencil, 2), PointOf(InstrumentPose.Polar(-pose.Angle, 5)),
+            PointOf(InstrumentPose.Polar(-pose.Angle, radius - 46)));
+        dc.DrawLine(MakePen(Pencil, 2), PointOf(InstrumentPose.Polar(-pose.Angle, radius + 3)),
+            PointOf(InstrumentPose.Polar(-pose.Angle, radius + 10)));
+        dc.DrawEllipse(null, Tick, center, 4, 4);
         for (var degree = 0; degree <= max - (full ? 1 : 0); degree++)
         {
             var outside = PointOf(InstrumentPose.Polar(-degree, radius));
@@ -187,10 +212,9 @@ internal static class InstrumentDrawing
                 Center(dc, degree.ToString(CultureInfo.InvariantCulture),
                     PointOf(InstrumentPose.Polar(-degree, radius - 29)), 12, Ink);
         }
-        dc.DrawLine(Guide, center, new Point(radius - 5, 0));
-        dc.DrawLine(MakePen(Pencil, 3), center, PointOf(InstrumentPose.Polar(-pose.Angle, radius - 5)));
-        dc.DrawEllipse(Ink, null, center, 3, 3);
-        Center(dc, $"{pose.Angle:F0}°", new Point(0, -34), 19, Ink);
+        var reading = new Point(0, full ? radius + 89 : 54);
+        dc.DrawRoundedRectangle(Readout, null, new Rect(reading.X - 27, reading.Y - 12, 54, 24), 4, 4);
+        Center(dc, $"{pose.Angle:F0}°", reading, 17, Ink);
     }
 
     private static void SetSquare(DrawingContext dc, InstrumentPose pose)

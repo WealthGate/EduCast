@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+- Read the ruler’s zero and both protractors’ center and scale with the handles moved off their measuring faces. Compass pins show the exact pivot and pencil positions. Drag the pencil point with Trace off to set its reach and direction.
+- Use **Smart math ink** to review and convert handwritten fractions, square roots, cube roots, superscripts, subscripts, and division signs. Undo restores the original ink.
+- Sketch polygons, cones, and spheres with **Smart ink** or choose a shape from the tool list. The library includes cones, spheres, cubes, cuboids, cylinders, and polygons with up to twelve sides.
+
 ## 0.10.0
 
 - Start and stop direct 720p broadcasts to multiple streaming destinations in EduCast. Each destination has its own connection status, and one disconnected destination leaves the others running.

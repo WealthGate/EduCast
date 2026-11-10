@@ -21,7 +21,8 @@ namespace EduCast.Studio;
 public partial class TeacherWindow : Window
 {
     private enum Tool { Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer, Select, Line, Circle, Arc, Rectangle,
-        Triangle, Ellipse, Resistor, Capacitor, Equal, DoubleBond, TripleBond, Place, Instrument, SmartInk }
+        Triangle, Ellipse, Resistor, Capacitor, Equal, DoubleBond, TripleBond, Polygon, Cone, Sphere, Cube, Cuboid, Cylinder,
+        Place, Instrument, SmartInk, SmartMath }
     private sealed record ColorChoice(string Name, uint Argb);
     private sealed record OutputChoice(Display? Display)
     {
@@ -65,6 +66,7 @@ public partial class TeacherWindow : Window
     private string? preferredDisplay;
     private Guid? selectedId;
     private Tool tool = Tool.Pen;
+    private int polygonSides = 5;
     private Tool toolBeforePlacement;
     private Func<BoardPoint, BoardItem>? placement;
     private Point? anchor;
@@ -791,7 +793,7 @@ public partial class TeacherWindow : Window
         DrawingInput.UseCustomCursor = true;
         DrawingInput.Cursor = choice == Tool.Select ? Cursors.Arrow : Cursors.Cross;
         foreach (var button in new[] { PenButton, SquarePenButton, MarkerButton, EraseButton, ArrowButton, PointerButton,
-            SelectButton, LineButton, CircleButton, ArcButton, RectButton, SmartInkButton })
+            SelectButton, LineButton, CircleButton, ArcButton, RectButton, SmartInkButton, SmartMathButton })
             button.Background = (Brush)FindResource((string)button.Tag == choice.ToString() ? "AccentDark" : "Panel");
         ToolHint.Text = choice switch
         {
@@ -808,9 +810,13 @@ public partial class TeacherWindow : Window
             Tool.Rectangle => "Rectangle · drag opposite corners",
             Tool.Ellipse => "Ellipse · drag opposite corners of its bounds",
             Tool.Triangle => "Triangle · drag opposite corners of its bounds",
+            Tool.Polygon => $"{polygonSides}-sided polygon · drag opposite corners of its bounds",
+            Tool.Cone or Tool.Sphere or Tool.Cube or Tool.Cuboid or Tool.Cylinder =>
+                $"{choice} · drag opposite corners of its bounds",
             Tool.Resistor or Tool.Capacitor or Tool.Equal => "Symbol · drag from one end to the other",
             Tool.DoubleBond or Tool.TripleBond => "Bond · drag between two atom labels",
-            Tool.SmartInk => "Sketch a line, loop, polygon, arrow or symbol. Use the suggestion to clean it up.",
+            Tool.SmartInk => "Sketch a shape. For a cone, draw an ellipse and two sloping sides. Apply or keep the suggestion.",
+            Tool.SmartMath => "Write a fraction, radical, script or division sign as one group, then review the suggestion.",
             Tool.Instrument => "Drag the instrument to move it. Use the handles to adjust it, or enable Trace to draw along it.",
             _ => "Click the board to place your object. Esc cancels."
         };
@@ -832,14 +838,15 @@ public partial class TeacherWindow : Window
     {
         if (DrawingInput.FinishStroke(args.Stroke) is { } ink)
         {
-            if (tool == Tool.SmartInk)
+            if (tool is Tool.SmartInk or Tool.SmartMath)
                 CollectSketch(ink);
             else
                 AddItem(ink);
         }
     }
 
-    private static bool IsInkTool(Tool choice) => choice is Tool.Pen or Tool.SquarePen or Tool.Highlighter or Tool.SmartInk;
+    private static bool IsInkTool(Tool choice) =>
+        choice is Tool.Pen or Tool.SquarePen or Tool.Highlighter or Tool.SmartInk or Tool.SmartMath;
 
     private Ink NewInk(DrawingAttributes attributes) => LiveInkCanvas.Describe(attributes, newVisibility, newAnswer);
 
@@ -1027,10 +1034,25 @@ public partial class TeacherWindow : Window
             Tool.Triangle => ShapeKind.Triangle, Tool.Ellipse => ShapeKind.Ellipse, Tool.Equal => ShapeKind.Equal,
             Tool.Resistor => ShapeKind.Resistor, Tool.Capacitor => ShapeKind.Capacitor,
             Tool.DoubleBond => ShapeKind.DoubleBond, Tool.TripleBond => ShapeKind.TripleBond,
+            Tool.Polygon => ShapeKind.Polygon, Tool.Cone => ShapeKind.Cone, Tool.Sphere => ShapeKind.Sphere,
+            Tool.Cube => ShapeKind.Cube, Tool.Cuboid => ShapeKind.Cuboid, Tool.Cylinder => ShapeKind.Cylinder,
             Tool.Arrow => ShapeKind.Arrow, _ => ShapeKind.Line
         };
-        return new Shape(Guid.NewGuid(), newVisibility, newAnswer, InkColor, InkWidth,
-            kind, PointOf(start), PointOf(end));
+        var first = PointOf(start);
+        var last = PointOf(end);
+        var shape = new Shape(Guid.NewGuid(), newVisibility, newAnswer, InkColor, InkWidth, kind, first, last);
+        if (kind != ShapeKind.Polygon)
+            return shape;
+        var center = new BoardPoint((first.X + last.X) / 2, (first.Y + last.Y) / 2);
+        return shape with
+        {
+            Vertices = Enumerable.Range(0, polygonSides).Select(i =>
+            {
+                var angle = i * Math.Tau / polygonSides - Math.PI / 2;
+                return new BoardPoint(center.X + Math.Cos(angle) * Math.Abs(last.X - first.X) / 2,
+                    center.Y + Math.Sin(angle) * Math.Abs(last.Y - first.Y) / 2);
+            }).ToImmutableArray()
+        };
     }
 
     private static double Sweep(Shape shape, Point end, bool counterclockwise)

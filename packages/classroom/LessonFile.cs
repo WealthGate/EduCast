@@ -73,7 +73,10 @@ public static class LessonFile
             ink.Points.Length <= 30000 && ink.Points.All(Point),
         Shape shape => Enum.IsDefined(shape.ShapeKind) && Range(shape.Width, 1, 60) &&
             Point(shape.Start) && Point(shape.End) && Range(shape.Sweep, -360, 360) &&
-            (shape.Corner is not { } corner || shape.ShapeKind is ShapeKind.Triangle or ShapeKind.Rectangle && Point(corner)),
+            (shape.Corner is not { } corner || shape.ShapeKind is ShapeKind.Triangle or ShapeKind.Rectangle && Point(corner)) &&
+            (shape.ShapeKind == ShapeKind.Polygon
+                ? shape.Vertices is { IsDefault: false, Length: >= 3 and <= 12 } vertices && vertices.All(Point)
+                : shape.Vertices is null),
         Equation eq => Point(eq.Origin) && Range(eq.Size, 12, 96) &&
             Text(eq.Source, MathParser.MaxLength) && MathParser.TryParse(eq.Source, out _, out _),
         BoardText text => Point(text.Origin) && Range(text.Size, 12, 96) && Text(text.Text, 2000),

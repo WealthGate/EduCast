@@ -93,6 +93,8 @@
                             <Button x:Name="RectButton" Content="Rectangle" Click="ChooseTool" Tag="Rectangle"/>
                             <Button x:Name="SmartInkButton" Content="Smart ink" Click="ChooseTool" Tag="SmartInk"
                                 ToolTip="Sketch a supported shape or symbol and choose whether to replace your ink"/>
+                            <Button x:Name="SmartMathButton" Content="Smart math ink" Click="ChooseTool" Tag="SmartMath"
+                                ToolTip="Recognize handwritten fractions, roots, scripts and division signs"/>
                             <Button x:Name="MathToolsButton" Content="Math instruments…" Click="OpenMathTools"
                                 ToolTip="Place a movable teaching instrument on the board"/>
                         </WrapPanel>
