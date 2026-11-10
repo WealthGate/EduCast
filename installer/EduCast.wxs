@@ -34,6 +34,10 @@
         <File Source="$(PublishDirectory)\WebView2Loader.dll" />
         <File Source="$(PublishDirectory)\WinRT.Runtime.dll" />
       </Component>
+      <Component Directory="INSTALLFOLDER" Guid="A3575DA7-8CA4-4ED6-85E0-E24EE948F120">
+        <File Source="$(PublishDirectory)\EduCast.Media.exe" KeyPath="yes" />
+        <File Source="$(PublishDirectory)\EduCast.Media.LICENSE.txt" />
+      </Component>
     </Feature>
   </Package>
 </Wix>

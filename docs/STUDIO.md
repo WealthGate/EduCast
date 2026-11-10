@@ -13,7 +13,7 @@ The browser uses the Microsoft Edge WebView2 Runtime. Local lessons with bundled
 
 ## Studio controls
 
-Open **Studio & clock…** in the teacher workspace. The clock works offline with the desktop app. Camera capture and recording use a separately installed Windows FFmpeg build that supports DirectShow, `libx264` and AAC. EduCast looks for `ffmpeg.exe` on PATH. You can also select it with **Choose FFmpeg…**. [FFmpeg downloads](https://ffmpeg.org/download.html) · [FFmpeg licensing](https://www.ffmpeg.org/legal.html)
+Open **Studio & clock…** in the teacher workspace. The clock works offline. The Windows release bundles EduCast’s FFmpeg-based media engine for DirectShow cameras and microphones, H.264/AAC recording, and live streaming. A developer checkout can use a separate FFmpeg executable for camera and recording checks. [FFmpeg licensing](https://www.ffmpeg.org/legal.html)
 
 ## Cameras
 

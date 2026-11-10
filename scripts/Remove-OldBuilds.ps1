@@ -19,7 +19,8 @@ $portableFiles = @(
     'EduCast.Studio.runtimeconfig.json', 'EduCast.Classroom.dll',
     'EduCast.Studio.pdb', 'EduCast.Classroom.pdb',
     'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'Microsoft.Web.WebView2.Wpf.dll',
-    'Microsoft.Windows.SDK.NET.dll', 'WebView2Loader.dll', 'WinRT.Runtime.dll'
+    'Microsoft.Windows.SDK.NET.dll', 'WebView2Loader.dll', 'WinRT.Runtime.dll',
+    'EduCast.Media.exe', 'EduCast.Media.LICENSE.txt'
 )
 $runningFolders = @(Get-Process -Name 'EduCast.Studio' -ErrorAction SilentlyContinue |
     Where-Object Path | ForEach-Object { Split-Path -Parent $_.Path })
@@ -54,7 +55,7 @@ foreach ($entry in Get-ChildItem -LiteralPath $root.FullName -Force) {
             continue
         }
         $base = "EduCast-Studio-$previous-win-x64"
-        $allowedFiles = @("$base.msi", "$base.zip", 'SHA256SUMS.txt')
+        $allowedFiles = @("$base.msi", "$base.zip", 'SHA256SUMS.txt', 'EduCast-Media-Source.tar.xz')
     }
     else {
         continue

@@ -8,7 +8,7 @@ using Matrix = System.Windows.Media.Matrix;
 namespace EduCast.Studio;
 
 internal sealed record SourceInk(ImmutableArray<Content> Marks, Content? Gesture = null, Point? Pointer = null);
-internal sealed record SourceFrame(BitmapSource Image, SourceInk Ink);
+internal sealed record SourceFrame(BitmapSource Image, SourceInk Ink, Guid? MediaId = null);
 internal sealed record AnnotationSelection(Content Item, Matrix? Transform, double Unit);
 
 internal sealed class SourceSurface : FrameworkElement

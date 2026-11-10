@@ -80,7 +80,7 @@ internal partial class SourceWindow : Window
     }
 
     public SourceFrame? PublishedFrame(bool includeGestures) => Publish.IsChecked == true && image is { } frame
-        ? new SourceFrame(frame, new SourceInk(marks, includeGestures ? gesture : null, includeGestures ? pointer : null)) : null;
+        ? new SourceFrame(frame, new SourceInk(marks, includeGestures ? gesture : null, includeGestures ? pointer : null), mediaId) : null;
 
     internal void DisplayProgramState(string state, bool frozen, bool blackout)
     {
@@ -99,6 +99,7 @@ internal partial class SourceWindow : Window
     public void ShowBrowser()
     {
         WindowBar.Visibility = Visibility.Collapsed;
+        MediaBar.Visibility = Visibility.Collapsed;
         BrowserBar.Visibility = Visibility.Visible;
         if (!browserMode)
         {
@@ -143,6 +144,7 @@ internal partial class SourceWindow : Window
             capture = next;
             browserMode = false;
             BrowserBar.Visibility = Visibility.Collapsed;
+            MediaBar.Visibility = Visibility.Collapsed;
             BrowserSlot.Visibility = Visibility.Hidden;
             SetTool(Tool.Pen);
             Hint.Text = $"Waiting for {selected.Title}. Restore the window if it is minimized.";
@@ -242,6 +244,11 @@ internal partial class SourceWindow : Window
 
     private async void ReadSource(object? sender, EventArgs args)
     {
+        if (mediaPath is not null)
+        {
+            RefreshMedia();
+            return;
+        }
         if (closed || reading)
             return;
         var revision = sourceRevision;
@@ -315,6 +322,7 @@ internal partial class SourceWindow : Window
 
     private void ResetSource()
     {
+        ResetMedia();
         sourceRevision++;
         image = null;
         Unpublish();

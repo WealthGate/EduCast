@@ -151,8 +151,8 @@ internal sealed class StudioTools : Window
         };
         root.Children.Add(message);
         Content = new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        Report(ffmpeg is null ? "Camera and recording require a separately installed Windows FFmpeg build."
-            : "FFmpeg is available. Cameras stay private until you select Show on Program.");
+        Report(ffmpeg is null ? "The media engine is missing. Install the complete EduCast release."
+            : "The media engine is ready. Cameras stay private until you select Show on Program.");
 
         timer = new DispatcherTimer(TimeSpan.FromSeconds(1d / 15), DispatcherPriority.Background,
             (_, _) => Refresh(), Dispatcher);

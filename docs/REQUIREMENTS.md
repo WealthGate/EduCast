@@ -15,7 +15,7 @@ The desktop is in Phase 6, multimedia integration, of the original roadmap. Earl
 - Versioned Windows releases with in-app updates and replacement of the previous installed version.
 - Two-way board and teaching-source switching, page duplication, custom background colors, additional paper patterns, and subject-specific notation and diagrams.
 - Assisted recognition for a bounded set of shapes and symbols, with the original strokes recoverable through Undo.
-- A separate clean Online Program window alongside the projector, with an OBS virtual-camera and multistreaming workflow. [Online teaching guide](ONLINE_TEACHING.md)
+- A separate clean Online Program window alongside the projector, plus direct 720p multistreaming with microphone and local media audio. [Online teaching guide](ONLINE_TEACHING.md)
 
 ## Open or partially implemented
 

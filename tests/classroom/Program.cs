@@ -27,6 +27,20 @@ internal static partial class Checks
     {
         if (args is ["--capture-fixture", var title])
             return CaptureFixture(title);
+        if (args is ["--streaming", var engine])
+        {
+            try
+            {
+                Streaming(engine);
+                Console.WriteLine("PASS  Media files, mixed audio and independent RTMP destinations");
+                return 0;
+            }
+            catch (Exception error)
+            {
+                Console.Error.WriteLine(error);
+                return 1;
+            }
+        }
         (string, Action)[] tests =
         [
             ("Program projection filters private, hidden and unrevealed objects", Projection),
@@ -49,6 +63,7 @@ internal static partial class Checks
             ("Math instrument scales, edge projection, angles and exact guide geometry", MathGeometry),
             ("Scientific calculator evaluates expressions and rejects undefined results", Calculator),
             ("DirectShow enumeration separates cameras and microphones", DeviceListing),
+            ("Streaming destination validation and bounded audio mixing", BroadcastInputs),
             ("WPF teacher window, progressive ink and separate clean output", () => Desktop(args)),
             ("WPF selection overlay and committed move preserve object identity and pressure", SelectionMove),
             ("WPF edge and corner drags resize board objects while preserving their content", SelectionResize),

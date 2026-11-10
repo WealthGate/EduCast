@@ -10,6 +10,7 @@
             <Button Content="← Board" Style="{StaticResource Primary}" Click="ReturnToBoard"
                 ToolTip="Return to the writing board and keep this source and its annotations (Ctrl+Shift+B)"/>
             <Button Content="Browser" Click="SelectBrowser"/>
+            <Button Content="Media file…" Click="SelectMediaFile"/>
             <Button Content="Capture window…" Click="SelectWindow"/>
             <CheckBox x:Name="Publish" Content="Show on Program" IsEnabled="False" Click="ChangePublication"
                 Margin="6,7,12,5" ToolTip="Approve this source for the student output. In manual mode, use Take preview."/>
@@ -26,6 +27,11 @@
             <TextBox x:Name="Address" Margin="0,0,5,5" KeyDown="AddressKey" MaxLength="8192"
                 ToolTip="Enter a web address" AutomationProperties.Name="Web address"/>
         </DockPanel>
+        <WrapPanel x:Name="MediaBar" DockPanel.Dock="Top" Visibility="Collapsed">
+            <Button x:Name="PlayMediaButton" Content="Play" Click="ToggleMedia"/>
+            <Button Content="Restart clip" Click="RestartMedia"/>
+            <TextBlock x:Name="MediaName" VerticalAlignment="Center" Margin="6,0" TextTrimming="CharacterEllipsis"/>
+        </WrapPanel>
         <DockPanel x:Name="WindowBar" DockPanel.Dock="Top" LastChildFill="True" Visibility="Collapsed">
             <Button Content="Refresh list" Click="RefreshWindowList"/>
             <Button x:Name="PreviewWindowButton" DockPanel.Dock="Right" Content="Preview window" Click="StartWindowCapture"/>

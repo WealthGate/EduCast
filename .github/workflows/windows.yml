@@ -9,7 +9,27 @@ permissions:
   contents: read
 
 jobs:
+  media-engine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install the Windows cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64-posix nasm
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+      - run: bash scripts/Build-MediaEngine.sh artifacts/media-engine
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: EduCast-Media-Engine
+          path: artifacts/media-engine/
+          if-no-files-found: error
+
   classroom:
+    needs: media-engine
     runs-on: windows-latest
     timeout-minutes: 15
     env:
@@ -22,6 +42,10 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: EduCast-Media-Engine
+          path: artifacts/media-engine
       - name: Verify release version
         if: github.ref_type == 'tag'
         run: |
@@ -32,6 +56,7 @@ jobs:
       - run: dotnet build EduCast.slnx -c Release
       - run: dotnet format whitespace . --folder --verify-no-changes --include apps/desktop packages/classroom tests/classroom
       - run: dotnet run --no-build --project tests/classroom/EduCast.Checks.csproj -c Release -- --core-only
+      - run: dotnet run --no-build --project tests/classroom/EduCast.Checks.csproj -c Release -- --streaming ./artifacts/media-engine/EduCast.Media.exe
       - name: Build portable preview
         if: github.ref_type != 'tag'
         run: ./scripts/Build-Release.ps1 -SkipInstaller
@@ -48,6 +73,7 @@ jobs:
             artifacts/*.zip
             artifacts/*.msi
             artifacts/SHA256SUMS.txt
+            artifacts/EduCast-Media-Source.tar.xz
           if-no-files-found: error
 
   publish:
@@ -70,10 +96,10 @@ jobs:
           $tag = $env:GITHUB_REF_NAME
           $version = $tag.Substring(1)
           $base = "release/EduCast-Studio-$version-win-x64"
-          $assets = @("$base.msi", "$base.zip", 'release/SHA256SUMS.txt')
+          $assets = @("$base.msi", "$base.zip", 'release/SHA256SUMS.txt', 'release/EduCast-Media-Source.tar.xz')
           foreach ($asset in $assets) {
             if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) { throw "Missing release asset $asset." }
           }
-          $notes = "Use the Windows x64 MSI to install or upgrade, or extract the portable ZIP. Both require the x64 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). The teaching browser uses the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download-section). The MSI is unsigned. See the [changelog](https://github.com/$env:GITHUB_REPOSITORY/blob/$tag/CHANGELOG.md)."
+          $notes = "Use the Windows x64 MSI to install or upgrade, or extract the portable ZIP. Both require the x64 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). The teaching browser uses the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download-section). The MSI is unsigned. The bundled media engine uses [FFmpeg](https://ffmpeg.org/) under [LGPL 2.1 or later](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html). Its corresponding source and build recipe are included as EduCast-Media-Source.tar.xz. See the [changelog](https://github.com/$env:GITHUB_REPOSITORY/blob/$tag/CHANGELOG.md)."
           gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --verify-tag --title "EduCast Studio $version" --notes $notes --generate-notes
           if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed.' }

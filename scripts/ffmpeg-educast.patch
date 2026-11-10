@@ -1,0 +1,19 @@
+--- a/libavformat/rtmpproto.c
++++ b/libavformat/rtmpproto.c
+@@ -25,0 +26,2 @@
++#include <stdlib.h>
++
+@@ -2700,0 +2703,11 @@
++    if (!rt->is_input && rt->playpath && !strcmp(rt->playpath, "__EDUCAST_ENV_KEY__")) {
++        const char *key = getenv("EDUCAST_STREAM_KEY");
++        char *replacement;
++        if (!key || !*key)
++            return AVERROR(EINVAL);
++        replacement = av_strdup(key);
++        if (!replacement)
++            return AVERROR(ENOMEM);
++        av_free(rt->playpath);
++        rt->playpath = replacement;
++    }
+@@ -2738,0 +2752,1 @@
++        av_dict_set(opts, "tls_verify", "1", 0);

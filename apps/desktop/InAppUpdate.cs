@@ -212,7 +212,7 @@ internal static class InAppUpdate
                 !Directory.Exists(folder) || IsReparsePoint(folder) ||
                 ReadAppVersion(folder) != ReleaseCatalog.InstalledVersion)
                 return;
-            foreach (var name in RunnerFiles.Append(WebViewLoader))
+            foreach (var name in RunnerFiles.Concat([WebViewLoader, "EduCast.Media.exe", "EduCast.Media.LICENSE.txt"]))
                 UpdateDownload.TryDelete(Path.Combine(folder, name));
         }
         catch (IOException) { }

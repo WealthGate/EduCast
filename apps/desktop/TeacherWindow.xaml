@@ -220,11 +220,13 @@
                         <WrapPanel>
                             <Button x:Name="StudioButton" Content="Studio &amp; clock…" Click="OpenStudio"/>
                             <Button x:Name="RecordingButton" Content="Record…" Click="RecordingAction"/>
-                            <Button Content="Zoom &amp; streaming…" Click="OpenBroadcastSetup"/>
+                            <Button x:Name="LiveStreamButton" Content="Live stream…" Click="OpenLiveBroadcast"/>
+                            <Button Content="Online window…" Click="OpenBroadcastSetup" ToolTip="Share a clean window in a video meeting"/>
                         </WrapPanel>
                         <WrapPanel>
                             <Button x:Name="BrowserButton" Content="Browser…" Click="OpenBrowser" ToolTip="Open a link or an interactive lesson file"/>
                             <Button x:Name="WindowCaptureButton" Content="Capture window…" Click="OpenWindowCapture" ToolTip="Preview an open app window for the class"/>
+                            <Button Content="Media file…" Click="OpenMediaFromBoard" ToolTip="Play and share a local video or audio clip"/>
                         </WrapPanel>
                         <WrapPanel>
                             <CheckBox x:Name="LiveMode" Content="Live updates" IsChecked="True" Click="SetLive" Margin="0,7,9,4"/>

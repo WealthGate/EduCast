@@ -2,6 +2,7 @@
 param(
     [string]$DotNet = 'dotnet',
     [string]$Wix,
+    [string]$MediaEngine,
     [switch]$SkipInstaller
 )
 
@@ -12,6 +13,14 @@ $releaseDirectory = Join-Path $repository 'artifacts'
 $publishDirectory = Join-Path $releaseDirectory "EduCast-Studio-$version-win-x64"
 $project = Join-Path $repository 'apps/desktop/EduCast.Studio.csproj'
 $archive = $publishDirectory + '.zip'
+if (-not $MediaEngine) { $MediaEngine = Join-Path $releaseDirectory 'media-engine' }
+$engineFiles = @('EduCast.Media.exe', 'EduCast.Media.LICENSE.txt')
+$engineSource = 'EduCast-Media-Source.tar.xz'
+foreach ($file in $engineFiles + $engineSource) {
+    if (-not (Test-Path -LiteralPath (Join-Path $MediaEngine $file) -PathType Leaf)) {
+        throw "The embedded media engine bundle is incomplete. Missing $file in $MediaEngine."
+    }
+}
 
 New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
 $msbuildPublishDirectory = $publishDirectory.Replace('%', '%25').Replace(',', '%2C').Replace(';', '%3B')
@@ -19,6 +28,11 @@ $msbuildPublishDirectory = $publishDirectory.Replace('%', '%25').Replace(',', '%
 if ($LASTEXITCODE -ne 0) {
     throw 'The desktop publish failed.'
 }
+foreach ($file in $engineFiles) {
+    Copy-Item -LiteralPath (Join-Path $MediaEngine $file) -Destination $publishDirectory -Force
+}
+$sourceArchive = Join-Path $releaseDirectory $engineSource
+Copy-Item -LiteralPath (Join-Path $MediaEngine $engineSource) -Destination $sourceArchive -Force
 
 $releaseFiles = @(
     'EduCast.Studio.exe',
@@ -31,10 +45,12 @@ $releaseFiles = @(
     'Microsoft.Web.WebView2.Wpf.dll',
     'Microsoft.Windows.SDK.NET.dll',
     'WebView2Loader.dll',
-    'WinRT.Runtime.dll'
+    'WinRT.Runtime.dll',
+    'EduCast.Media.exe',
+    'EduCast.Media.LICENSE.txt'
 ) | ForEach-Object { Join-Path $publishDirectory $_ }
 Compress-Archive -LiteralPath $releaseFiles -DestinationPath $archive -Force
-$packages = @($archive)
+$packages = @($archive, $sourceArchive)
 
 if (-not $SkipInstaller) {
     if (-not $Wix) {

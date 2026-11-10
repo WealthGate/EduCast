@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0
+
+- Start and stop direct 720p broadcasts to multiple streaming destinations in EduCast. Each destination has its own connection status, and one disconnected destination leaves the others running.
+- Stream approved board content, a teacher camera, and a selected microphone. Play and annotate local video or audio clips and include their sound in the broadcast. Blackout mutes streaming audio.
+- The Windows installer and portable ZIP include EduCast’s media engine for streaming, cameras, media files, and recording.
+
 ## 0.9.0
 
 - Switch between the board and the current file, web lesson or captured app with **Board** and **Resume source**. Use **Ctrl+Shift+B** to return from an external app. The source keeps its place and annotations.

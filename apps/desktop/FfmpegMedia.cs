@@ -14,6 +14,8 @@ internal static partial class FfmpegMedia
 {
     internal static string? Find()
     {
+        if (Bundled() is { } bundled)
+            return bundled;
         foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
         {
             var path = directory.Trim().Trim('"');
@@ -23,7 +25,14 @@ internal static partial class FfmpegMedia
         return null;
     }
 
-    internal static Process Start(string executable, IEnumerable<string> args, bool input = false, bool output = false)
+    internal static string? Bundled()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "EduCast.Media.exe");
+        return File.Exists(path) ? path : null;
+    }
+
+    internal static Process Start(string executable, IEnumerable<string> args, bool input = false, bool output = false,
+        string? streamKey = null)
     {
         var info = new ProcessStartInfo(executable)
         {
@@ -32,6 +41,10 @@ internal static partial class FfmpegMedia
         };
         foreach (var argument in args)
             info.ArgumentList.Add(argument);
+        info.Environment.Remove("FFREPORT");
+        info.Environment.Remove("EDUCAST_STREAM_KEY");
+        if (streamKey is not null)
+            info.Environment["EDUCAST_STREAM_KEY"] = streamKey;
         return Process.Start(info) ?? throw new IOException("Could not start FFmpeg.");
     }
 

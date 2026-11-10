@@ -44,10 +44,13 @@ public partial class TeacherWindow
         if (!IsEnabled)
             return;
         SetSourceStage(false);
+        sourceWindow?.PauseMedia();
         if (sourceWindow?.IsVisible == true)
             sourceWindow.Hide();
         if (studio?.IsVisible == true)
             studio.Hide();
+        if (liveBroadcast?.IsVisible == true)
+            liveBroadcast.Hide();
         if (WindowState == WindowState.Minimized)
             WindowState = WindowState.Normal;
         Activate();
@@ -110,6 +113,12 @@ public partial class TeacherWindow
     {
         ShowSourceWindow().ChooseWindow();
         SetSourceStage(true);
+    }
+
+    internal void OpenMediaSource()
+    {
+        if (ShowSourceWindow().ChooseMediaFile())
+            SetSourceStage(true);
     }
 
     private void SourceChanged(bool revoke)

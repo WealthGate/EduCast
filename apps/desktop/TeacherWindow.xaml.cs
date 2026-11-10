@@ -173,6 +173,7 @@ public partial class TeacherWindow : Window
             updateLifetime.Cancel();
             updateLifetime.Dispose();
             UnregisterBoardShortcut();
+            liveBroadcast?.Shutdown();
             DrawingInput.CancelStroke();
             sourceWindow?.Close();
             output?.Close();
@@ -213,9 +214,9 @@ public partial class TeacherWindow : Window
             return;
         }
 
-        if (recording is not null)
+        if (recording is not null || liveBroadcast?.IsRunning == true)
         {
-            Report("Stop the recording before updating EduCast.");
+            Report("Stop recording and streaming before updating EduCast.");
             return;
         }
 
@@ -229,9 +230,9 @@ public partial class TeacherWindow : Window
             using var staged = await InAppUpdate.StageAsync(update, cancellationToken);
             if (cancellationToken.IsCancellationRequested)
                 return;
-            if (recording is not null)
+            if (recording is not null || liveBroadcast?.IsRunning == true)
             {
-                Report("Stop the recording before updating EduCast.");
+                Report("Stop recording and streaming before updating EduCast.");
                 return;
             }
             if (!PrepareLessonForUpdate())
@@ -1327,7 +1328,9 @@ public partial class TeacherWindow : Window
 
     private StudioFrame CurrentStudioFrame() => new(session.Output, programInk, visibleLayers);
 
-    private void OpenStudio(object sender, RoutedEventArgs args)
+    private void OpenStudio(object sender, RoutedEventArgs args) => ShowStudio();
+
+    internal void ShowStudio()
     {
         if (studio is null)
         {
@@ -1371,7 +1374,8 @@ public partial class TeacherWindow : Window
     private ProgramLayers LiveStudioLayers(bool includeGestures = true) => studioLayers with
     {
         Instrument = publishedInstrument,
-        Source = session.Live ? sourceWindow?.PublishedFrame(includeGestures) : takenSource,
+        Source = session.Live ? sourceWindow?.PublishedFrame(includeGestures) :
+            sourceWindow?.AnimateTakenMedia(takenSource) ?? takenSource,
         Pointer = session.Live && includeGestures ? boardPointer : null
     };
 
@@ -1385,8 +1389,12 @@ public partial class TeacherWindow : Window
 
     private void StartRecording(string executable, RecordingProfile profile, MicrophoneDevice? microphone)
     {
-        if (recording is not null)
+        if (recording is not null || liveBroadcast?.IsRunning == true)
+        {
+            Report("Stop the live stream before starting a recording.");
+            studio?.Report("Stop the live stream before starting a recording.");
             return;
+        }
         var dialog = new SaveFileDialog
         {
             Filter = "MP4 video (*.mp4)|*.mp4", DefaultExt = ".mp4", AddExtension = true,

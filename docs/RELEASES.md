@@ -26,7 +26,7 @@ Use three-part versions such as `0.3.1`. Keep `Directory.Build.props`, the chang
    git push origin v0.3.1
    ```
 
-4. The Windows workflow checks that the tag matches the source version. It builds and tests the project, creates the MSI and ZIP, and publishes them with `SHA256SUMS.txt`. The publish job has write permission for Releases. Ordinary branch and pull-request builds produce a preview artifact for developers.
+4. The Windows workflow checks that the tag matches the source version. It builds the bundled media engine from pinned FFmpeg source and runs the classroom and loopback streaming checks. It publishes the MSI, ZIP, media engine source and build recipe, and `SHA256SUMS.txt`. Ordinary branch and pull-request builds produce a preview artifact for developers.
 5. Confirm the run and the assets on the published release page. If the run fails before publication, diagnose it in GitHub Actions. Fix the issue in a new commit and version when a source change is needed.
 
 The shared classroom release feed follows GitHub's latest published non-prerelease. A complete local release build removes recognized earlier packages and app binaries from the workspace's `artifacts` folder after the new packages are ready. Use `./scripts/Remove-OldBuilds.ps1 -KeepVersion 0.6.0 -WhatIf` to preview the cleanup. A separate tester channel and Authenticode signing are later release work.

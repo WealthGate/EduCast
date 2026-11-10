@@ -65,12 +65,16 @@ internal sealed class ProgramRecording
             ? ["-map", "1:a:0", "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "128k",
                 "-af", "aresample=async=1000:first_pts=0", "-shortest", "-abort_on", "empty_output_stream"]
             : ["-an"];
+        string[] video = string.Equals(Path.GetFileName(ffmpeg), "EduCast.Media.exe", StringComparison.OrdinalIgnoreCase)
+            ? ["-c:v", "h264_mf", "-pix_fmt", "nv12", "-scenario", "archive", "-b:v",
+                profile.Width >= 3840 ? "20M" : profile.Width >= 1920 ? "8M" : "4M"]
+            : ["-c:v", "libx264", "-threads", "4", "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p"];
         var process = FfmpegMedia.Start(ffmpeg,
             ["-hide_banner", "-loglevel", "error", "-nostdin", "-n", .. videoQueue,
                 "-f", "rawvideo", "-pixel_format", "bgra",
                 "-video_size", $"{profile.Width}x{profile.Height}", "-framerate", RecordingProfile.Fps.ToString(), "-i", "pipe:0",
                 .. inputs, "-map", "0:v:0", .. audio,
-                "-c:v", "libx264", "-threads", "4", "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
+                .. video,
                 "-g", "30", "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", partial], input: true);
         ticks = new PeriodicTimer(TimeSpan.FromSeconds(1d / RecordingProfile.Fps));
         Completion = Task.Run(() => RecordAsync(process, partial, destination, profile, capture));

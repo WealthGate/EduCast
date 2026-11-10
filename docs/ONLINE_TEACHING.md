@@ -1,30 +1,20 @@
 # Teach online with EduCast
 
-In EduCast’s Program panel, select **Zoom & streaming… → Open Online Program**. This opens **EduCast · Online Program**, a separate 16:9 view of the same approved content the projector sees. Leave the window open and restored while sharing. You can work in the teacher window and switch between **Board** and **Resume source** while the online audience stays on the same feed.
+## Broadcast directly to streaming platforms
 
-## Share in Zoom, Teams or Meet
+1. Open **Studio & clock…**, start a private camera preview, and select **Show on Program** when you want your camera in the lesson. Teach from the board or share an approved source.
+2. To play a clip, choose **Media file…** in the Program panel or in the source window. EduCast opens supported local MP4, MOV, M4V, WebM, MP3, M4A, WAV, and AAC files. Select **Show on Program** to share the clip, then **Take preview** if you are in manual mode. The broadcast mixes the clip’s audio with the selected microphone. Returning to the board pauses the clip. Use **Resume source** and **Play** to continue it.
+3. Choose **Live stream…**. Select the microphone, enable each destination, and paste the provider’s ingest server URL and stream key into separate fields. Use the RTMPS address when the provider supplies one. EduCast accepts plain RTMP for Twitch’s published ingest hosts and local testing.
+4. Click **Go live** and watch the status next to each destination. Some providers require you to confirm the broadcast in their dashboard after receiving the preview. One failed destination leaves healthy destinations running. Click **Stop streams** in EduCast when you finish.
+5. Check the broadcast on a second device before teaching. You can use a private or test event where the provider supports it. **Mute microphone** silences the mic. **Freeze** holds the picture and pauses the clip’s broadcast audio. **Blackout** sends a black picture and silent audio after any buffered stream data. Stop streaming before starting a local recording or applying an EduCast update.
 
-1. Join the meeting and select your microphone in the meeting app.
-2. Open the app’s screen-share picker. In Zoom Workplace, choose **Share → Screens** and select **EduCast · Online Program** from the individual windows.
-3. Check the shared view from another device or ask a participant to confirm they see the board. Use **Freeze** to hold the approved image or **Blackout** to blank it. Stop sharing in the meeting app when you finish.
+The installer and portable ZIP include the media engine. EduCast sends 720p H.264/AAC at 25 frames per second directly to each enabled destination. Allow about 3–4 Mbps of upload capacity per destination. Stream keys are cleared from the form when a session starts and stay out of lesson files and logs. Keep the provider dashboard for account access, event scheduling, and provider-side confirmation.
 
-[Zoom window sharing](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0060607)
+- **YouTube** — Create an encoder stream in YouTube Studio and copy the RTMPS URL and key. [YouTube encoder setup](https://support.google.com/youtube/answer/2907883)
+- **Facebook** — In Live Producer, choose streaming software and use the supplied server URL and key. [Facebook Live Producer](https://www.facebook.com/live/producer)
+- **X** — In Media Studio Producer, create a source and copy its RTMPS URL and key. [X Media Studio Producer](https://help.x.com/en/using-x/how-to-use-live-producer)
+- **Twitch** — Use the ingest URL and the stream key from your dashboard. [Twitch ingest setup](https://dev.twitch.tv/docs/video-broadcast/) · [Twitch simulcasting guidelines](https://help.twitch.tv/s/article/simulcasting-guidelines?language=en_US)
 
-## Use EduCast as a camera
+## Share the lesson in Zoom, Teams or Meet
 
-1. In OBS Studio, add a **Window Capture** source and select **EduCast · Online Program**. Set **Window Match Priority** to require the exact title and turn off **Capture Cursor**. Fit the source to the OBS canvas and check the preview before connecting it to a meeting.
-2. In OBS, set the virtual camera to **Program** and click **Start Virtual Camera**.
-3. In Zoom, Teams or Meet, choose **OBS Virtual Camera** as the camera and select your microphone separately. The virtual camera carries video. For a board with small writing, Zoom window sharing usually gives students more room to read.
-
-[OBS Window Capture](https://obsproject.com/kb/window-capture-sources) · [OBS Virtual Camera](https://obsproject.com/kb/virtual-camera-guide)
-
-## Broadcast to YouTube, Facebook, X and Twitch at the same time
-
-1. Use the same OBS window-capture scene. Select the teaching microphone in OBS and verify its meter. If you are broadcasting a class that meets on Zoom, confirm whether you are sending only your narration or the meeting audio too.
-2. In Restream, connect the eligible YouTube, Facebook, X and Twitch accounts. Create or open the encoder stream and enable the destinations for this session. Check platform eligibility and your Restream plan’s channel limits before scheduling a class.
-3. In OBS, open **Settings → Stream**, choose **Restream.io**, then connect your account or use the encoder stream key from Restream. Start with the encoder settings shown in Restream. Keep stream keys in the encoder.
-4. Rehearse with a private destination where supported. Check audio and verify that EduCast’s teacher notes and private previews are absent from the feed. Before a public broadcast, confirm you have permission to share any student voices or images. Start streaming from OBS and verify that each enabled destination is live. Stop streaming in OBS when class ends.
-
-OBS supplies the virtual camera and encoding. Restream distributes the encoded stream to the selected destinations. EduCast supplies the approved Program picture. The captured teaching source is video only, and the microphone configured for EduCast’s local MP4 recordings is separate from the microphone configured in OBS or Zoom.
-
-[Connect OBS to Restream](https://support.restream.io/en/articles/111656-connect-obs-to-restream) · [Manage Restream channels](https://support.restream.io/en/articles/10053865-how-to-add-and-enable-your-channels) · [Supported destinations](https://support.restream.io/en/articles/872029-supported-social-platforms) · [Twitch simulcasting rules](https://help.twitch.tv/s/article/simulcasting-guidelines?language=en_US)
+In the EduCast Program panel, choose **Online window… → Open Online Program**. In the meeting app, share the individual **EduCast · Online Program** window and choose your microphone in that app. EduCast can keep the projector on while the meeting sees the same approved picture. Online Program is a window share, and its media audio is carried by EduCast’s direct broadcasts. [Zoom window sharing](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0060607)

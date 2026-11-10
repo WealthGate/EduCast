@@ -2,7 +2,7 @@
 
 EduCast Studio is a Windows classroom preview with progressive ink and board object movement. It runs offline and keeps the teacher workspace separate from the fullscreen or windowed student output.
 
-Open **Studio & clock…** for an analog or digital classroom clock, stopwatch, or countdown. With a separate Windows FFmpeg installation, Studio also offers two camera previews and clean Program recording.
+Open **Studio & clock…** for a classroom clock, two camera previews, and clean Program recording. The EduCast release includes its media engine.
 
 Open **Math instruments…** to put an interactive ruler, compass, protractor, set square, quadratic French curve, or calculator on the board. Select **Show on Program** when you want students to see the tool.
 
@@ -10,7 +10,7 @@ Open **Browser…** for web links and interactive HTML lessons, or choose **Capt
 
 Use **Board** and **Resume source** to switch between the writing board and your current teaching material. Choose a subject above the board for science notation, diagrams and sketch recognition. [Subject board](docs/SUBJECT_BOARD.md)
 
-Choose **Zoom & streaming…** to open the clean Online Program feed. [Teach online with Zoom, OBS or Restream](docs/ONLINE_TEACHING.md)
+Choose **Live stream…** to broadcast from EduCast to multiple destinations, or **Online window…** to share Program in Zoom, Teams or Meet. [Teach online with EduCast](docs/ONLINE_TEACHING.md)
 
 Get the installer or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). The teacher workspace checks for updates and can install newer versions when you click **Update**. For new-version notifications, choose **Watch → Custom → Releases** on GitHub.
 
