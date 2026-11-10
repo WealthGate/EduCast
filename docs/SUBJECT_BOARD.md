@@ -20,7 +20,7 @@ Choose **Chemical equation…** and try `2H2(g) + O2(g) -> 2H2O(l)`. EduCast for
 
 1. Choose **Smart ink**. Draw lines, circles, ellipses, triangles or rectangles in a single stroke. To sketch an arrow, draw from tail to tip, then draw the two wings by returning through the tip.
 2. For an equals sign, draw two nearby horizontal strokes in quick succession. In Physics, sketch a resistor as a zigzag or use two nearby vertical strokes for a capacitor. In Chemistry, two parallel strokes suggest a double bond.
-3. Choose **Use …** to replace the sketch with an editable shape, or **Keep ink**. **Undo** restores the strokes after conversion. The suggestion stays in the teacher toolbar. For exact construction, use the manual tools in the subject menu.
+3. Pause briefly after the last stroke. Recognized sketches become editable shapes. **Undo** restores the strokes after conversion.
 
 Draw polygons as one closed outline. For a cone, draw the base ellipse and two sides meeting at the apex. The sides may be one stroke or two. For a sphere, draw a circular outline and a flatter ellipse through its center. To place a ready-made cone, sphere, cube, cuboid, cylinder, or polygon, select it from the tool list and drag its bounding area.
 
@@ -28,6 +28,6 @@ Draw polygons as one closed outline. For a cone, draw the base ellipse and two s
 
 Choose **Smart math ink**. Write one short expression at a time. For a fraction, place a horizontal bar between the numerator and denominator. For a radical, draw a check with an overbar, then write beneath the bar. Add a small 3 at the upper left for a cube root. Write scripts smaller and to the upper or lower right of the base. Draw a dot above and below a short bar for the division sign.
 
-Select **Review …** to preview or edit the suggested equation before applying it. A question mark marks a glyph the app could not read. **Keep ink** leaves the writing as it is and starts a new group. **Undo** restores the ink after conversion.
+Pause briefly to typeset recognized expressions and equations. EduCast keeps uncertain handwriting as ink. **Undo** restores the original strokes after conversion.
 
 Choose a paper pattern and **Board color…** independently. Use a preset or enter a six-digit hex value. **Auto ink** uses a light or dark color based on the background for new marks. Existing marks keep their selected colors.

@@ -50,9 +50,9 @@ internal static partial class Checks
             Assert(status.StartsWith(GaugeDrawing.Millimetres(hundredths) + " mm ·", StringComparison.Ordinal), status);
         }
 
-        Click(teacher, "MathToolsButton");
         var choice = Find<ComboBox>(teacher, "InstrumentChoice");
         choice.SelectedIndex = 8;
+        Click(teacher, "MathToolsButton");
         ExpectOpening(1542);
         var overlay = Find<FrameworkElement>(teacher, "TeacherInstrument");
         Pump();
@@ -103,7 +103,9 @@ internal static partial class Checks
         ExpectOpening(1000);
         Assert(Find<TextBlock>(teacher, "Status").Text.Contains("beyond", StringComparison.Ordinal));
 
+        Click(teacher, "RemoveInstrumentButton");
         choice.SelectedIndex = 9;
+        Click(teacher, "AddInstrumentButton");
         Assert(!modes.IsEnabled && modes.SelectedIndex == 0, "micrometer offered an unsupported mode");
         Assert(teacher.BeginMathDrag(new BoardPoint(398, 345)), "thimble was not draggable");
         teacher.EndMathDrag(new BoardPoint(398, 281), snap: false);

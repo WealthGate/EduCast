@@ -1,12 +1,12 @@
 # On-board math and physics instruments
 
-Choose **Instruments…** above the board and select a tool. An instrument appears over the lesson. The handles sit outside the measuring faces. Drag the instrument body or its **+** handle to move it, use **↻** to rotate, and use **↔** where available to resize. Hold **Shift** while moving for board-grid alignment or while rotating for 15° steps. Switch to **Pen** to write freehand around the instrument. Select **Use tool** to return to manipulation. **Esc** cancels the active adjustment or trace.
+Choose **Instruments…** on the board or in a teaching resource. Pick a type and choose **Add instrument** to place another tool. Use the active instrument list or click an instrument in instrument mode to switch between tools. Drag the body or **+** handle to move it, **↻** to rotate, and **↔** to resize where available. Hold **Shift** to align to the board grid while moving or to 15° steps while rotating. Press **Esc** for the selection cursor. Double-click an instrument to select and move it.
 
 ## Demonstrate to students
 
-Choose **Show on Program** for the active instrument. The student display, PNG export, and recording use the instrument's clean view. Handles, calibration lines, keypad, and history stay in the teacher workspace. In manual mode, use **Take preview** after adjusting an already published instrument. Freeze holds its current pose. Clearing the checkbox or removing the tool hides it immediately, including while frozen. Blackout covers all Program layers.
+Choose **Show on Program** for each instrument you want students to see. Handles, calibration lines, keypad, and history stay in the teacher workspace. A resource and its instruments appear on Program once the resource is shared. In manual mode, use **Take preview** after adjusting a published instrument. Freeze holds its pose. Clearing **Show on Program** or removing a tool hides it immediately, including while frozen. Blackout covers all Program layers.
 
-The instrument stays on the board while you use it. Completed constructions become editable lesson objects, follow the normal object visibility and answer settings, and can be undone. Use **Remove tool** to clear the temporary instrument.
+Completed constructions become editable lesson objects and can be undone. Board constructions follow the normal visibility and answer settings. **Remove tool** clears the active temporary instrument.
 
 ## Draw and measure
 
@@ -14,7 +14,7 @@ The instrument stays on the board while you use it. Completed constructions beco
 | --- | --- |
 | Ruler | Align the zero tick with the starting point. The small pointer above the ruler marks zero. Enable **Trace** and drag near the straight edge. Hold **Shift** while tracing to snap to the main scale marks. Select **Label length** to add a measurement to the line. **Inches** switches the scale between metric and imperial units |
 | Ruler calibration | Enter a known length in the selected unit, select **Calibrate…**, and drag between the reference endpoints on the board. Calibration applies to the current session. The default scale is one centimetre per 32 board units, which matches the grid spacing. Use **Reset scale** to restore it |
-| Compass | Place the pointed pivot on the starting point. With **Trace** off, drag the pointed pencil tip onto the second point. The pivot stays fixed as the radius and direction change. **Draw circle** uses that radius. To draw an arc, enable **Trace** and sweep from the dashed guide around the pivot. Moving the compass keeps its radius |
+| Compass | Place the pointed pivot on the starting point. With **Trace** off, drag the pointed pencil tip onto the second point. The pivot stays fixed as the radius and direction change. **Draw circle** uses that radius. To draw an arc, enable **Trace** and sweep from the dashed guide in either direction around the pivot. Retracing keeps the arc you already drew. Moving the compass keeps its radius |
 | 180° or 360° protractor | Align the open center with the vertex and rotate the baseline into position. Drag the **∠** handle beyond the scale to move the measuring ray. Hold **Shift** for 15° angle steps. **Draw angle** commits both rays, the arc, and the degree label together |
 | 45° or 30°/60° set square | Move and rotate the triangle to align an edge. Enable **Trace** and drag near any edge for a constrained line. **Draw triangle** commits all three edges together |
 | French curve | Move the vertex, use **↔** to change the span, and use **±** to change or flip the rise. The guide follows a quadratic curve in the instrument's local coordinates. Enable **Trace** to draw part of it or choose **Draw full curve**. Use the separate **Graph…** tool for function plots with axes |

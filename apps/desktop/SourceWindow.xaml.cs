@@ -20,11 +20,13 @@ namespace EduCast.Studio;
 
 internal partial class SourceWindow : Window
 {
-    private enum Tool { Interact, Select, Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer }
+    private enum Tool { Interact, Select, Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer, Instrument, Place, SmartInk, SmartMath }
     private sealed record ColorChoice(string Name, uint Argb);
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(125) };
     private readonly Stack<ImmutableArray<Classroom.Content>> undo = new();
     private readonly TeacherWindow teacher;
+    private readonly SmartInkGroup smartInk;
+    private readonly InkTap inkTap;
     private BrowserLesson? browser;
     private Task? browserInitialization;
     private string? browserFile;
@@ -38,6 +40,9 @@ internal partial class SourceWindow : Window
     private Guid? selectedId;
     private BoardSelection? selectionDrag;
     private Matrix? selectionPreview;
+    private Classroom.Content? selectionReplacement;
+    private Classroom.Content? constructionPreview;
+    private string? readingToPlace;
     private Tool tool;
     private bool browserMode;
     private bool reading;
@@ -61,8 +66,17 @@ internal partial class SourceWindow : Window
         Widths.ItemsSource = new[] { 2, 4, 6, 10, 16 };
         Colors.SelectedIndex = 0;
         Widths.SelectedIndex = 1;
+        smartInk = new SmartInkGroup(() => marks, EditMarks);
+        inkTap = new InkTap(CommitInk);
         Input.NewStroke = attributes => LiveInkCanvas.Describe(attributes);
-        Input.PreviewChanged += next => { gesture = next; RefreshOverlay(); };
+        Input.StrokeStarted += smartInk.Pause;
+        Input.PreviewChanged += next =>
+        {
+            gesture = next;
+            if (next is null)
+                smartInk.Resume();
+            RefreshOverlay();
+        };
         SetTool(Tool.Interact);
         timer.Tick += ReadSource;
         timer.Start();
@@ -74,9 +88,10 @@ internal partial class SourceWindow : Window
                 teacher.ReturnToBoard();
                 args.Handled = true;
             }
-            if (args.Key == Key.Escape && (selectionDrag is not null || arrowStart is not null))
+            if (args.Key == Key.Escape)
             {
-                CancelAnnotation();
+                selectedId = null;
+                SetTool(Tool.Select);
                 args.Handled = true;
             }
         };
@@ -84,7 +99,46 @@ internal partial class SourceWindow : Window
     }
 
     public SourceFrame? PublishedFrame(bool includeGestures) => Publish.IsChecked == true && image is { } frame
-        ? new SourceFrame(frame, new SourceInk(marks, includeGestures ? gesture : null, includeGestures ? pointer : null), mediaId) : null;
+        ? new SourceFrame(frame, new SourceInk(includeGestures ? MovingMarks() : marks,
+            includeGestures ? constructionPreview ?? gesture : null, includeGestures ? pointer : null), mediaId) : null;
+
+    private ImmutableArray<Classroom.Content> MovingMarks() =>
+        selectionDrag is { } drag && selectionReplacement is { } moved && marks.Contains(drag.Item)
+            ? marks.Replace(drag.Item, moved) : marks;
+
+    internal void HostInstruments(UIElement? panel)
+    {
+        InstrumentHost.Children.Clear();
+        if (panel is not null)
+            InstrumentHost.Children.Add(panel);
+    }
+
+    private void OpenInstruments(object sender, RoutedEventArgs args) => teacher.OpenInstruments(source: true);
+
+    internal void UseInstrument() => SetTool(Tool.Instrument);
+
+    internal void PresentInstruments(InstrumentDisplay[] displays, InstrumentDisplay? active, Classroom.Content? preview,
+        bool trace, (ClockReading Reading, Vector Offset)? clock)
+    {
+        SourceInstruments.Present(displays, active, preview, trace, clock);
+        constructionPreview = preview?.Visibility == ItemVisibility.Both ? preview : null;
+    }
+
+    internal void AddConstruction(ImmutableArray<Classroom.Content> items)
+    {
+        if (image is not null && !items.IsEmpty)
+            EditMarks(marks.AddRange(items));
+    }
+
+    internal void PlaceReading(string text)
+    {
+        SetTool(Tool.Place);
+        readingToPlace = text;
+        Hint.Text = "Click the resource to place the reading. Esc cancels.";
+    }
+
+    internal uint AnnotationColor => InkColor;
+    internal int AnnotationWidth => InkWidth;
 
     internal void DisplayProgramState(string state, bool frozen, bool blackout)
     {
@@ -397,10 +451,13 @@ internal partial class SourceWindow : Window
 
     private void ResetAnnotations()
     {
+        inkTap.Clear();
+        smartInk.Clear();
         marks = [];
         selectedId = null;
         undo.Clear();
         CancelAnnotation();
+        teacher.ClearSourceInstruments();
     }
 
     private void SelectTool(object sender, RoutedEventArgs args)
@@ -425,22 +482,31 @@ internal partial class SourceWindow : Window
             : "Return to the original app to use its controls and animations";
     }
 
-    private void SetTool(Tool next)
+    private void SetTool(Tool next, bool cancelGesture = true)
     {
         if (next != Tool.Select)
             selectedId = null;
-        CancelAnnotation();
+        if (cancelGesture)
+            CancelAnnotation();
         tool = next;
         Drawing.IsHitTestVisible = tool != Tool.Interact;
         Drawing.Cursor = tool switch { Tool.Pointer => Cursors.None, Tool.Select => Cursors.Arrow, _ => Cursors.Cross };
-        Input.EditingMode = tool is Tool.Pen or Tool.SquarePen or Tool.Highlighter
+        Input.EditingMode = tool is Tool.Pen or Tool.SquarePen or Tool.Highlighter or Tool.SmartInk or Tool.SmartMath
             ? InkCanvasEditingMode.Ink : InkCanvasEditingMode.None;
         Input.EditingModeInverted = Input.EditingMode;
         Input.UseCustomCursor = true;
         UpdateInteract();
-        foreach (var button in new[] { Interact, SelectAnnotation, RoundPen, SquarePen, Marker, Eraser, Arrow, Pointer })
-            button.Background = (Brush)FindResource((string)button.Tag == tool.ToString() ? "AccentDark" : "Panel");
+        foreach (var button in new[] { Interact, SelectAnnotation, RoundPen, SquarePen, Marker, Eraser, Arrow, Pointer, SmartInk, SmartMath })
+            button.Background = (Brush)FindResource((string)button.Tag == tool.ToString() ? "AccentDark" : "Control");
         ChangeInk(null, null);
+        if (tool is Tool.Select or Tool.Instrument or Tool.SmartInk or Tool.SmartMath)
+            Hint.Text = tool switch
+            {
+                Tool.Instrument => "Drag an instrument to move it, or enable Trace to draw along it.",
+                Tool.Select => "Drag an annotation to move it. Double-click an instrument to move it.",
+                Tool.SmartInk => "Sketch a shape and pause to clean it up.",
+                _ => "Write a math expression and pause to typeset it."
+            };
     }
 
     private uint InkColor => ((ColorChoice)Colors.SelectedItem).Argb;
@@ -471,8 +537,16 @@ internal partial class SourceWindow : Window
 
     private void CollectAnnotation(object sender, InkCanvasStrokeCollectedEventArgs args)
     {
-        if (Input.FinishStroke(args.Stroke) is { } stroke && image is not null)
-            EditMarks(marks.Add(stroke));
+        if (Input.FinishStroke(args.Stroke) is { Points.IsEmpty: false } stroke && image is not null)
+            inkTap.Collect(stroke, point => teacher.OverClock(new Point(point.X, point.Y)) ||
+                teacher.OverInstrument(point, source: true) || BoardSelection.Hit(marks, new Point(point.X, point.Y)) is not null);
+    }
+
+    private void CommitInk(Ink stroke)
+    {
+        EditMarks(marks.Add(stroke));
+        if (tool is Tool.SmartInk or Tool.SmartMath)
+            smartInk.Add(stroke, tool == Tool.SmartMath, BoardSubject.General);
     }
 
     private void AnnotationDown(object sender, MouseButtonEventArgs args)
@@ -483,6 +557,46 @@ internal partial class SourceWindow : Window
             return;
         }
         var position = args.GetPosition(Drawing);
+        teacher.SetMathSurface(source: true);
+        if (args.ClickCount == 2)
+            inkTap.Clear();
+        else
+            inkTap.Flush();
+        if (tool == Tool.Place && readingToPlace is { } text)
+        {
+            SetTool(Tool.Select);
+            EditMarks(marks.Add(new BoardText(Guid.NewGuid(), ItemVisibility.Both, false, InkColor, ToBoardPoint(position), 26, text)));
+            args.Handled = true;
+            return;
+        }
+        if ((tool == Tool.Select || args.ClickCount == 2) && teacher.BeginClockDrag(position, source: true))
+        {
+            if (tool != Tool.Select)
+            {
+                selectedId = null;
+                SetTool(Tool.Select, cancelGesture: false);
+            }
+            if (!Drawing.CaptureMouse())
+                teacher.CancelClockDrag(source: true);
+            args.Handled = true;
+            return;
+        }
+        if ((tool == Tool.Instrument || args.ClickCount == 2) &&
+            teacher.BeginMathDrag(ToBoardPoint(position), source: true, selectOnly: tool != Tool.Instrument))
+        {
+            if (tool != Tool.Instrument)
+            {
+                Input.CancelStroke();
+                SetTool(Tool.Instrument, cancelGesture: false);
+                RefreshOverlay();
+            }
+            if (!Drawing.CaptureMouse())
+                teacher.CancelSourceInstrumentDrag();
+            args.Handled = true;
+            return;
+        }
+        if (args.ClickCount == 2 && BoardSelection.Hit(marks, position) is not null)
+            SetTool(Tool.Select);
         if (tool == Tool.Select)
         {
             var selection = BoardSelection.Begin(marks, Selected, position, SelectionUnit);
@@ -500,7 +614,7 @@ internal partial class SourceWindow : Window
             arrowStart = position;
         if (tool == Tool.Eraser && BoardSurface.Hit(marks, position) is { } item)
             EditMarks(marks.Remove(item));
-        args.Handled = tool is Tool.Arrow or Tool.Eraser or Tool.Pointer;
+        args.Handled = tool is Tool.Arrow or Tool.Eraser or Tool.Pointer or Tool.Instrument;
     }
 
     private void AnnotationMove(object sender, MouseEventArgs args)
@@ -508,6 +622,16 @@ internal partial class SourceWindow : Window
         if (image is null)
             return;
         var position = args.GetPosition(Drawing);
+        if (teacher.ClockDragging(source: true) && Drawing.IsMouseCaptured)
+        {
+            teacher.MoveClock(position);
+            return;
+        }
+        if (teacher.InstrumentDragging(source: true) && Drawing.IsMouseCaptured)
+        {
+            teacher.UpdateMathDrag(new BoardPoint(position.X, position.Y), Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+            return;
+        }
         if (tool == Tool.Select)
         {
             if (selectionDrag is not { } drag || !Drawing.IsMouseCaptured)
@@ -517,6 +641,7 @@ internal partial class SourceWindow : Window
             }
             var transform = drag.Preview(position);
             selectionPreview = transform.IsIdentity ? null : transform;
+            selectionReplacement = transform.IsIdentity ? null : drag.Commit(position);
         }
         else if (tool == Tool.Pointer)
             pointer = position;
@@ -529,13 +654,33 @@ internal partial class SourceWindow : Window
 
     private void AnnotationUp(object sender, MouseButtonEventArgs args)
     {
+        var pointerPosition = args.GetPosition(Drawing);
+        if (teacher.ClockDragging(source: true))
+        {
+            teacher.MoveClock(pointerPosition);
+            teacher.FinishClockDrag();
+            Drawing.ReleaseMouseCapture();
+            args.Handled = true;
+            return;
+        }
+        if (teacher.InstrumentDragging(source: true))
+        {
+            teacher.EndMathDrag(new BoardPoint(pointerPosition.X, pointerPosition.Y),
+                Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+            Drawing.ReleaseMouseCapture();
+            args.Handled = true;
+            return;
+        }
         if (selectionDrag is { } drag)
         {
             var position = args.GetPosition(Drawing);
-            CancelAnnotation();
+            (selectionDrag, selectionPreview, selectionReplacement) = (null, null, null);
+            Drawing.ReleaseMouseCapture();
             var replacement = drag.Commit(position);
             if (replacement != drag.Item && marks.Contains(drag.Item))
                 EditMarks(marks.Replace(drag.Item, replacement));
+            else
+                RefreshOverlay();
             Drawing.Cursor = BoardSelection.Hover(Selected, position, SelectionUnit);
             args.Handled = true;
             return;
@@ -563,17 +708,30 @@ internal partial class SourceWindow : Window
         RefreshOverlay();
     }
 
+    private void AnnotationWheel(object sender, MouseWheelEventArgs args)
+    {
+        if (tool == Tool.Instrument)
+            args.Handled = teacher.SourceGaugeWheel(args.GetPosition(Drawing), args.Delta,
+                Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+    }
+
     private void AnnotationCaptureLost(object sender, MouseEventArgs args)
     {
-        if ((arrowStart is not null || selectionDrag is not null) && !Drawing.IsMouseCaptured)
+        if ((arrowStart is not null || selectionDrag is not null || teacher.ClockDragging(source: true) ||
+            teacher.InstrumentDragging(source: true)) && !Drawing.IsMouseCaptured)
             CancelAnnotation();
     }
 
     private void CancelAnnotation()
     {
+        inkTap.Flush();
+        smartInk.Complete();
+        teacher.CancelClockDrag(source: true);
+        teacher.CancelSourceInstrumentDrag();
+        readingToPlace = null;
         Input.CancelStroke();
         (arrowStart, gesture, pointer) = (null, null, null);
-        (selectionDrag, selectionPreview) = (null, null);
+        (selectionDrag, selectionPreview, selectionReplacement) = (null, null, null);
         if (Drawing.IsMouseCaptured)
             Drawing.ReleaseMouseCapture();
         RefreshOverlay();
@@ -590,6 +748,8 @@ internal partial class SourceWindow : Window
 
     private void UndoAnnotation(object sender, RoutedEventArgs args)
     {
+        inkTap.Flush();
+        smartInk.Clear();
         if (undo.TryPop(out var previous))
         {
             marks = previous;
@@ -597,7 +757,12 @@ internal partial class SourceWindow : Window
         }
     }
 
-    private void ClearAnnotations(object sender, RoutedEventArgs args) => EditMarks([]);
+    private void ClearAnnotations(object sender, RoutedEventArgs args)
+    {
+        inkTap.Clear();
+        smartInk.Clear();
+        EditMarks([]);
+    }
 
     private void RefreshOverlay()
     {

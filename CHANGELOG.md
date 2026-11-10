@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0
+
+- Keep several rulers, compasses, protractors, set squares and other instruments on the board or a teaching resource. Select and share each instrument separately.
+- Compass arcs follow the pointer clockwise or counterclockwise and retain ink when you retrace a sweep.
+- Students see shapes and objects move as you drag in Live mode. Move the published clock on the board or teaching resource. Press **Esc** for the selection cursor, or double-click an object to select it.
+- **Smart ink** and **Smart math ink** automatically clean up recognized shapes and notation after a short pause. Use **Undo** to restore the original ink.
+- Refreshed the workspace with a violet palette, mint action buttons, and distinct colors for creative tools and instruments.
+
 ## 0.12.1
 
 - Fixed browser preview scaling so clicks and drags line up with local HTML lesson controls as the window is resized. Both **Open…** and **Open file…** use the same file routing, and the browser accepts pasted local paths.

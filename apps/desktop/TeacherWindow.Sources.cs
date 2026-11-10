@@ -74,7 +74,10 @@ public partial class TeacherWindow
 
     private void SetSourceStage(bool onStage)
     {
+        if (onStage && !sourceOnStage)
+            CancelGesture();
         sourceOnStage = onStage;
+        SetMathSurface(onStage);
         ResumeSourceButton.Content = sourceWindow is null ? "Teaching source" : "Resume source";
         RefreshStudioLayers();
     }

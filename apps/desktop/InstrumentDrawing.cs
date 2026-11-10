@@ -12,26 +12,37 @@ internal sealed record InstrumentDisplay(InstrumentPose Pose, string Expression 
 
 internal sealed class TeacherInstrumentSurface : FrameworkElement
 {
-    private InstrumentDisplay? display;
-    private Ink? trace;
+    private InstrumentDisplay[] instruments = [];
+    private InstrumentDisplay? active;
+    private Content? trace;
     private bool tracing;
+    private (ClockReading Reading, Vector Offset)? clock;
 
     public TeacherInstrumentSurface() => IsHitTestVisible = false;
 
-    public void Present(InstrumentDisplay? next, Ink? pending, bool traceMode)
+    public void Present(InstrumentDisplay[] next, InstrumentDisplay? selected, Content? pending,
+        bool traceMode, (ClockReading Reading, Vector Offset)? nextClock)
     {
-        if (next == display && ReferenceEquals(pending, trace) && traceMode == tracing)
+        if (next.SequenceEqual(instruments) && ReferenceEquals(selected, active) && Equals(pending, trace) &&
+            traceMode == tracing && nextClock == clock)
             return;
-        (display, trace, tracing) = (next, pending, traceMode);
+        (instruments, active, trace, tracing, clock) = (next, selected, pending, traceMode, nextClock);
         InvalidateVisual();
     }
 
     protected override void OnRender(DrawingContext dc)
     {
-        if (display is not null)
-            InstrumentDrawing.Draw(dc, display, controls: true, tracing);
+        foreach (var display in instruments)
+        {
+            if (!ReferenceEquals(display, active))
+                InstrumentDrawing.Draw(dc, display);
+        }
+        if (active is not null)
+            InstrumentDrawing.Draw(dc, active, controls: true, tracing);
         if (trace is not null)
-            BoardSurface.DrawInk(dc, trace);
+            BoardSurface.DrawItems(dc, [trace]);
+        if (clock is { } visible)
+            ProgramSurface.DrawClock(dc, visible.Reading, visible.Offset);
     }
 }
 

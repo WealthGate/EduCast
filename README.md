@@ -4,7 +4,7 @@ EduCast Studio is a Windows classroom preview with progressive ink and board obj
 
 Open **Studio & clock…** for a classroom clock, two camera previews, and clean Program recording. The EduCast release includes its media engine.
 
-Open **Instruments…** to put an interactive ruler, compass, protractor, set square, quadratic French curve, calculator, vernier caliper, or micrometer on the board. Select **Show on Program** when you want students to see the tool.
+Open **Instruments…** to put an interactive ruler, compass, protractor, set square, quadratic French curve, calculator, vernier caliper, or micrometer on the board or a teaching resource. Use **Add instrument** to combine tools and **Show on Program** to share them individually.
 
 Open **Browser…** for web links and interactive HTML lessons, or choose **Capture window…** to preview another Windows app. Both support pen, highlighter, arrow, and pointer annotations before or during sharing. [Teaching sources](docs/STUDIO.md#teach-from-a-web-page-file-or-app-window)
 

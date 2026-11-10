@@ -35,6 +35,7 @@ internal static class MathInkRecognition
         ('x', Template("00 99 / 90 09")), ('x', Template("01 98 / 90 19")),
         ('y', Template("00 55 90 / 55 29")), ('y', Template("00 55 80 59 39")),
         ('z', Template("00 90 09 99")),
+        ('(', Template("71 42 24 26 48 79")), (')', Template("21 52 74 76 58 29")),
         ('+', Template("05 95 / 50 59")), ('-', Template("05 95"))
     ];
 
@@ -48,10 +49,49 @@ internal static class MathInkRecognition
         for (var start = 0; start < marks.Length; start++)
         {
             var group = marks[start..];
-            if (Read(group) is { } result)
+            if ((ReadEquation(group) ?? Read(group) ?? ReadInline(group)) is { } result)
                 return (result, group.Length);
         }
         return null;
+    }
+
+    private static MathSketch? ReadEquation(Mark[] marks)
+    {
+        foreach (var first in marks.Where(IsHorizontal))
+        {
+            var second = marks.FirstOrDefault(mark => mark != first && IsHorizontal(mark) &&
+                Math.Abs(mark.X - first.X) <= first.Bounds.Width * .18 &&
+                Math.Abs(mark.Bounds.Width - first.Bounds.Width) <= first.Bounds.Width * .28 &&
+                Math.Abs(mark.Y - first.Y) is >= 4 && Math.Abs(mark.Y - first.Y) <= first.Bounds.Width * .7);
+            if (second is null)
+                continue;
+
+            var equals = Bounds([first, second]);
+            var left = marks.Where(mark => mark.X < equals.Left).ToArray();
+            var right = marks.Where(mark => mark.X > equals.Right).ToArray();
+            if (left.Length + right.Length + 2 != marks.Length)
+                continue;
+            if (marks.Length == 2)
+                return new MathSketch("equals sign", "=", equals, IsSymbol: true);
+            if (left.Length == 0 || right.Length == 0)
+                continue;
+
+            var lhs = Read(left)?.Source ?? ReadTerm(left);
+            var rhs = Read(right)?.Source ?? ReadTerm(right);
+            var source = $"{lhs} = {rhs}";
+            if (!source.Contains('?') && MathParser.TryParse(source, out _, out _))
+                return new MathSketch("equation", source, Bounds(marks));
+        }
+        return null;
+    }
+
+    private static MathSketch? ReadInline(Mark[] marks)
+    {
+        if (marks.Length < 2)
+            return null;
+        var source = ReadTerm(marks);
+        return source.Length > 1 && !source.Contains('?') && MathParser.TryParse(source, out _, out _)
+            ? new MathSketch("expression", source, Bounds(marks)) : null;
     }
 
     private static MathSketch? Read(Mark[] marks)
@@ -126,7 +166,9 @@ internal static class MathInkRecognition
         return new MathSketch(above.Length == 0 ? "subscript" : below.Length == 0 ? "superscript" : "scripts", expression, bounds);
     }
 
-    private static bool IsBar(Mark mark) => mark.Bounds.Width >= 24 && mark.Bounds.Height <= mark.Bounds.Width * .13 &&
+    private static bool IsBar(Mark mark) => mark.Bounds.Width >= 24 && IsHorizontal(mark);
+
+    private static bool IsHorizontal(Mark mark) => mark.Bounds.Width >= 12 && mark.Bounds.Height <= mark.Bounds.Width * .13 &&
         Math.Abs(mark.Points[0].X - mark.Points[^1].X) > mark.Bounds.Width * .8;
 
     private static bool IsDot(Mark mark) => Math.Max(mark.Bounds.Width, mark.Bounds.Height) <= 11;
@@ -180,7 +222,7 @@ internal static class MathInkRecognition
         var box = Bounds(marks);
         if (box.Height >= 10 && box.Width < box.Height * .19)
             return '1';
-        if (marks.Count == 1 && IsBar(marks[0]))
+        if (marks.Count == 1 && IsHorizontal(marks[0]))
             return '-';
         if (box.Height < 8 || marks.Count > 3)
             return '?';

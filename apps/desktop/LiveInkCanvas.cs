@@ -21,6 +21,7 @@ internal sealed class LiveInkCanvas : InkCanvas
 
     internal Func<DrawingAttributes, Ink> NewStroke { private get; set; } = null!;
     internal event Action<Ink?>? PreviewChanged;
+    internal event Action? StrokeStarted;
 
     public LiveInkCanvas()
     {
@@ -66,7 +67,11 @@ internal sealed class LiveInkCanvas : InkCanvas
         AddSample(ToBoardPoint(point.X, point.Y, .5f));
     }
 
-    internal void BeginPreview() => template = NewStroke(DefaultDrawingAttributes);
+    internal void BeginPreview()
+    {
+        template = NewStroke(DefaultDrawingAttributes);
+        StrokeStarted?.Invoke();
+    }
 
     internal void AddPreview(StylusPointCollection points)
     {

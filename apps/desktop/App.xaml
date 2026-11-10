@@ -3,13 +3,18 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
-        <SolidColorBrush x:Key="Shell" Color="#10151F"/>
-        <SolidColorBrush x:Key="Panel" Color="#18212F"/>
-        <SolidColorBrush x:Key="Line" Color="#354458"/>
-        <SolidColorBrush x:Key="Ink" Color="#EFF5FC"/>
-        <SolidColorBrush x:Key="Muted" Color="#AABBD0"/>
-        <SolidColorBrush x:Key="Accent" Color="#86E4CD"/>
-        <SolidColorBrush x:Key="AccentDark" Color="#153C38"/>
+        <SolidColorBrush x:Key="Shell" Color="#201735"/>
+        <SolidColorBrush x:Key="Panel" Color="#322449"/>
+        <SolidColorBrush x:Key="Line" Color="#624887"/>
+        <SolidColorBrush x:Key="Ink" Color="#FFF7FF"/>
+        <SolidColorBrush x:Key="Muted" Color="#DBCDF0"/>
+        <SolidColorBrush x:Key="Accent" Color="#78F0D0"/>
+        <SolidColorBrush x:Key="AccentDark" Color="#206452"/>
+        <SolidColorBrush x:Key="Field" Color="#241A3A"/>
+        <SolidColorBrush x:Key="Control" Color="#4C3671"/>
+        <SolidColorBrush x:Key="ControlHover" Color="#694A96"/>
+        <SolidColorBrush x:Key="Lilac" Color="#DCC4FF"/>
+        <SolidColorBrush x:Key="Sunshine" Color="#FFDC88"/>
         <Style x:Key="Caption" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Muted}"/>
             <Setter Property="FontSize" Value="11"/>
@@ -23,7 +28,8 @@
         <Geometry x:Key="PointerIcon">M4,3 L8,21 L12,14 L20,12 Z M12,14 L18,22</Geometry>
         <Style TargetType="Button">
             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-            <Setter Property="Background" Value="#243248"/>
+            <Setter Property="Background" Value="{StaticResource Control}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="11,7"/>
@@ -34,11 +40,13 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Chrome" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
-                            Padding="{TemplateBinding Padding}" CornerRadius="6">
+                            Padding="{TemplateBinding Padding}" CornerRadius="9">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Lilac}"/>
+                            </Trigger>
                             <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.75"/></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Opacity" Value="0.40"/></Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
@@ -49,11 +57,19 @@
         </Style>
         <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Background" Value="{StaticResource Accent}"/>
-            <Setter Property="Foreground" Value="#132923"/>
+            <Setter Property="Foreground" Value="#142C2A"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        <Style x:Key="CreativeTool" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Foreground" Value="{StaticResource Lilac}"/>
+            <Setter Property="BorderBrush" Value="#936AC0"/>
+        </Style>
+        <Style x:Key="InstrumentTool" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Foreground" Value="{StaticResource Sunshine}"/>
+            <Setter Property="BorderBrush" Value="#AD8346"/>
+        </Style>
         <Style TargetType="TextBox">
-            <Setter Property="Background" Value="#111B29"/>
+            <Setter Property="Background" Value="{StaticResource Field}"/>
             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
             <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
@@ -77,7 +93,7 @@
                                 IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="ToggleButton">
-                                        <Border x:Name="Box" Background="#111B29" BorderBrush="{StaticResource Line}"
+                                        <Border x:Name="Box" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}"
                                             BorderThickness="1" CornerRadius="5">
                                             <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{StaticResource Muted}" StrokeThickness="1.4"
                                                 HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -98,7 +114,7 @@
                                 ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"/>
                             <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}"
                                 Placement="Bottom" AllowsTransparency="True" Focusable="False">
-                                <Border Background="#111B29" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1"
                                     Padding="2" CornerRadius="5" MinWidth="{TemplateBinding ActualWidth}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                     <ScrollViewer CanContentScroll="True">
@@ -130,7 +146,7 @@
                                             <Setter TargetName="Option" Property="Background" Value="{StaticResource AccentDark}"/>
                                         </Trigger>
                                         <Trigger Property="IsHighlighted" Value="True">
-                                            <Setter TargetName="Option" Property="Background" Value="#304960"/>
+                                            <Setter TargetName="Option" Property="Background" Value="{StaticResource ControlHover}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

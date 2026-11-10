@@ -56,7 +56,7 @@
                             <Button x:Name="Next" Content="Next  ›" Click="NextPage" ToolTip="Next page (Alt+Right)"/>
                         </WrapPanel>
                     </StackPanel>
-                    <ListBox x:Name="Pages" SelectionChanged="SelectPage" Background="#111B29" Foreground="{StaticResource Ink}"
+                    <ListBox x:Name="Pages" SelectionChanged="SelectPage" Background="{StaticResource Field}" Foreground="{StaticResource Ink}"
                         BorderBrush="{StaticResource Line}" AutomationProperties.Name="Lesson pages"/>
                 </DockPanel>
             </Border>
@@ -91,11 +91,11 @@
                             <Button x:Name="CircleButton" Content="Compass circle" Click="ChooseTool" Tag="Circle" ToolTip="Drag from the center to set a radius"/>
                             <Button x:Name="ArcButton" Content="Compass arc" Click="ChooseTool" Tag="Arc" ToolTip="Drag from the center to set radius and start. Then move and click the end."/>
                             <Button x:Name="RectButton" Content="Rectangle" Click="ChooseTool" Tag="Rectangle"/>
-                            <Button x:Name="SmartInkButton" Content="Smart ink" Click="ChooseTool" Tag="SmartInk"
-                                ToolTip="Sketch a supported shape or symbol and choose whether to replace your ink"/>
-                            <Button x:Name="SmartMathButton" Content="Smart math ink" Click="ChooseTool" Tag="SmartMath"
-                                ToolTip="Recognize handwritten fractions, roots, scripts and division signs"/>
-                            <Button x:Name="MathToolsButton" Content="Instruments…" Click="OpenMathTools"
+                            <Button x:Name="SmartInkButton" Content="Smart ink" Style="{StaticResource CreativeTool}" Click="ChooseTool" Tag="SmartInk"
+                                ToolTip="Automatically tidy recognized shapes after you pause"/>
+                            <Button x:Name="SmartMathButton" Content="Smart math ink" Style="{StaticResource CreativeTool}" Click="ChooseTool" Tag="SmartMath"
+                                ToolTip="Automatically typeset recognized equations, fractions, roots, and scripts"/>
+                            <Button x:Name="MathToolsButton" Content="Instruments…" Style="{StaticResource InstrumentTool}" Click="OpenMathTools"
                                 ToolTip="Place a movable teaching instrument on the board"/>
                         </WrapPanel>
                         <WrapPanel>
@@ -116,68 +116,72 @@
                             <ComboBox x:Name="SubjectTools" Width="157" DisplayMemberPath="Label"
                                 AutomationProperties.Name="Subject tools and shapes"/>
                             <Button Content="Use tool" Click="UseSubjectTool"/>
-                            <Button x:Name="AcceptSketchButton" Click="AcceptSketch" Visibility="Collapsed"
-                                Style="{StaticResource Primary}"/>
-                            <Button x:Name="KeepSketchButton" Content="Keep ink" Click="KeepSketch" Visibility="Collapsed"/>
                         </WrapPanel>
-                        <StackPanel x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,4,0,0">
-                            <WrapPanel>
-                                <ComboBox x:Name="InstrumentChoice" Width="195" DisplayMemberPath="Label"
-                                    SelectionChanged="ChangeInstrument" AutomationProperties.Name="On-board instrument"/>
-                                <Button Content="Use tool" Click="UseMathInstrument"/>
-                                <CheckBox x:Name="TraceInstrument" Content="Trace" Click="ChangeTraceMode"
-                                    Margin="4,6,8,0" ToolTip="Drag along an edge, curve, or compass path to draw"/>
-                                <CheckBox x:Name="PublishInstrument" Content="Show on Program" Click="ChangeInstrumentPublication"
-                                    Margin="4,6,8,0"/>
-                                <Button x:Name="RemoveInstrumentButton" Content="Remove tool" Click="RemoveMathInstrument"/>
-                            </WrapPanel>
-                            <WrapPanel>
-                                <Button x:Name="InstrumentDrawButton" Click="DrawFromInstrument"/>
-                                <WrapPanel x:Name="RulerControls" Visibility="Collapsed">
-                                    <CheckBox x:Name="RulerInches" Content="Inches" Click="ChangeRulerUnits" Margin="4,6,8,0"/>
-                                    <CheckBox x:Name="RulerLabels" Content="Label length" Margin="4,6,8,0"/>
-                                    <TextBox x:Name="ReferenceLength" Width="53" Text="5" MaxLength="12" Margin="0,0,5,5"
-                                        AutomationProperties.Name="Known ruler reference length in selected units"/>
-                                    <Button x:Name="CalibrateButton" Content="Calibrate…" Click="CalibrateRuler"
-                                        ToolTip="Drag along a known reference length on the board"/>
-                                    <Button Content="Reset scale" Click="ResetRulerScale"/>
-                                </WrapPanel>
-                                <TextBlock x:Name="InstrumentStatus" Margin="5,5,8,5" Foreground="{StaticResource Muted}"/>
-                            </WrapPanel>
-                            <StackPanel x:Name="GaugeControls" Visibility="Collapsed">
+                        <StackPanel x:Name="BoardInstrumentHost">
+                            <StackPanel x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,4,0,0">
                                 <WrapPanel>
-                                    <ComboBox x:Name="GaugeModeChoice" Width="92" DisplayMemberPath="Label"
-                                        SelectionChanged="ChangeGaugeMode" AutomationProperties.Name="Measurement mode"/>
-                                    <ComboBox x:Name="GaugeSampleChoice" Width="130" DisplayMemberPath="Label"
-                                        SelectionChanged="ChangeGaugeSample" AutomationProperties.Name="Practice specimen"/>
-                                    <Button x:Name="GaugeAlignButton" Content="Measure board points…" Click="AlignGauge"
-                                        ToolTip="Drag between two board points using the ruler calibration"/>
-                                    <Button x:Name="GaugeContactButton" Content="Close to zero" Click="GaugeContact"/>
+                                    <ComboBox x:Name="InstrumentChoice" Width="195" DisplayMemberPath="Label"
+                                        AutomationProperties.Name="Instrument type"/>
+                                    <Button x:Name="AddInstrumentButton" Content="Add instrument" Click="PlaceInstrument" Style="{StaticResource Primary}"/>
+                                    <ComboBox x:Name="PlacedInstruments" Width="150" DisplayMemberPath="Label"
+                                        SelectionChanged="ChoosePlacedInstrument" AutomationProperties.Name="Active instrument"/>
                                 </WrapPanel>
-                                <WrapPanel>
-                                    <Button Content="−" Tag="-1" Click="NudgeGauge" AutomationProperties.Name="Decrease one graduation"/>
-                                    <Button Content="+" Tag="1" Click="NudgeGauge" AutomationProperties.Name="Increase one graduation"/>
-                                    <CheckBox x:Name="GaugeCloseUp" Content="Scale close-up" Click="ChangeGaugeReadout" Margin="4,6,8,0"/>
-                                    <CheckBox x:Name="GaugeShowReading" Content="Show reading" Click="ChangeGaugeReadout" Margin="4,6,8,0"/>
-                                    <Button x:Name="GaugeWriteButton" Content="Add reading…" Click="WriteGaugeReading"/>
+                                <WrapPanel x:Name="InstrumentActions">
+                                    <Button Content="Use instrument" Click="UseMathInstrument"/>
+                                    <CheckBox x:Name="TraceInstrument" Content="Trace" Click="ChangeTraceMode"
+                                        Margin="4,6,8,0" ToolTip="Drag along an edge, curve, or compass path to draw"/>
+                                    <CheckBox x:Name="PublishInstrument" Content="Show on Program" Click="ChangeInstrumentPublication"
+                                        Margin="4,6,8,0"/>
+                                    <Button x:Name="RemoveInstrumentButton" Content="Remove tool" Click="RemoveMathInstrument"/>
                                 </WrapPanel>
+                                <WrapPanel x:Name="InstrumentOptions">
+                                    <Button x:Name="InstrumentDrawButton" Click="DrawFromInstrument"/>
+                                    <WrapPanel x:Name="RulerControls" Visibility="Collapsed">
+                                        <CheckBox x:Name="RulerInches" Content="Inches" Click="ChangeRulerUnits" Margin="4,6,8,0"/>
+                                        <CheckBox x:Name="RulerLabels" Content="Label length" Click="ChangeRulerLabels" Margin="4,6,8,0"/>
+                                        <TextBox x:Name="ReferenceLength" Width="53" Text="5" MaxLength="12" Margin="0,0,5,5"
+                                            AutomationProperties.Name="Known ruler reference length in selected units"/>
+                                        <Button x:Name="CalibrateButton" Content="Calibrate…" Click="CalibrateRuler"
+                                            ToolTip="Drag along a known reference length on the board"/>
+                                        <Button Content="Reset scale" Click="ResetRulerScale"/>
+                                    </WrapPanel>
+                                    <TextBlock x:Name="InstrumentStatus" Margin="5,5,8,5" Foreground="{StaticResource Muted}"/>
+                                </WrapPanel>
+                                <StackPanel x:Name="GaugeControls" Visibility="Collapsed">
+                                    <WrapPanel>
+                                        <ComboBox x:Name="GaugeModeChoice" Width="92" DisplayMemberPath="Label"
+                                            SelectionChanged="ChangeGaugeMode" AutomationProperties.Name="Measurement mode"/>
+                                        <ComboBox x:Name="GaugeSampleChoice" Width="130" DisplayMemberPath="Label"
+                                            SelectionChanged="ChangeGaugeSample" AutomationProperties.Name="Practice specimen"/>
+                                        <Button x:Name="GaugeAlignButton" Content="Measure board points…" Click="AlignGauge"
+                                            ToolTip="Drag between two board points using the ruler calibration"/>
+                                        <Button x:Name="GaugeContactButton" Content="Close to zero" Click="GaugeContact"/>
+                                    </WrapPanel>
+                                    <WrapPanel>
+                                        <Button Content="−" Tag="-1" Click="NudgeGauge" AutomationProperties.Name="Decrease one graduation"/>
+                                        <Button Content="+" Tag="1" Click="NudgeGauge" AutomationProperties.Name="Increase one graduation"/>
+                                        <CheckBox x:Name="GaugeCloseUp" Content="Scale close-up" Click="ChangeGaugeReadout" Margin="4,6,8,0"/>
+                                        <CheckBox x:Name="GaugeShowReading" Content="Show reading" Click="ChangeGaugeReadout" Margin="4,6,8,0"/>
+                                        <Button x:Name="GaugeWriteButton" Content="Add reading…" Click="WriteGaugeReading"/>
+                                    </WrapPanel>
+                                </StackPanel>
+                                <WrapPanel x:Name="CalculatorControls" Visibility="Collapsed">
+                                    <TextBox x:Name="CalculatorEntry" Width="185" MaxLength="280" Margin="0,0,5,5"
+                                        KeyDown="CalculatorKeyDown" ToolTip="Try (3/4)^2, sqrt(81) or sin(30)"
+                                        AutomationProperties.Name="Calculator expression"/>
+                                    <CheckBox x:Name="CalculatorDegrees" Content="Degrees" IsChecked="True" Margin="4,6,8,0"/>
+                                    <Button x:Name="CalculatorEvaluateButton" Content="Evaluate" Click="CalculateOnBoard"/>
+                                    <ComboBox x:Name="CalculatorHistory" Width="130" SelectionChanged="RestoreCalculation"
+                                        AutomationProperties.Name="Calculation history"/>
+                                    <CheckBox x:Name="ShowCalculatorKeys" Content="Keypad" Click="ToggleCalculatorKeys" Margin="4,6,8,0"/>
+                                </WrapPanel>
+                                <WrapPanel x:Name="CalculatorKeys" Visibility="Collapsed"/>
                             </StackPanel>
-                            <WrapPanel x:Name="CalculatorControls" Visibility="Collapsed">
-                                <TextBox x:Name="CalculatorEntry" Width="185" MaxLength="280" Margin="0,0,5,5"
-                                    KeyDown="CalculatorKeyDown" ToolTip="Try (3/4)^2, sqrt(81) or sin(30)"
-                                    AutomationProperties.Name="Calculator expression"/>
-                                <CheckBox x:Name="CalculatorDegrees" Content="Degrees" IsChecked="True" Margin="4,6,8,0"/>
-                                <Button x:Name="CalculatorEvaluateButton" Content="Evaluate" Click="CalculateOnBoard"/>
-                                <ComboBox x:Name="CalculatorHistory" Width="130" SelectionChanged="RestoreCalculation"
-                                    AutomationProperties.Name="Calculation history"/>
-                                <CheckBox x:Name="ShowCalculatorKeys" Content="Keypad" Click="ToggleCalculatorKeys" Margin="4,6,8,0"/>
-                            </WrapPanel>
-                            <WrapPanel x:Name="CalculatorKeys" Visibility="Collapsed"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Row="1" Background="#080C13" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                <Border Grid.Row="1" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1"
                     CornerRadius="9" Padding="9" ClipToBounds="True">
                     <ScrollViewer x:Name="BoardScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                         PanningMode="None" Focusable="False" PreviewMouseDown="StartPan" PreviewMouseMove="Pan"
@@ -264,7 +268,7 @@
                         </WrapPanel>
 
                         <TextBlock Text="OBJECTS  /  VISIBILITY" Style="{StaticResource Caption}" Margin="0,10,0,6"/>
-                        <ListBox x:Name="Objects" Height="77" SelectionChanged="SelectObject" Background="#111B29"
+                        <ListBox x:Name="Objects" Height="77" SelectionChanged="SelectObject" Background="{StaticResource Field}"
                             Foreground="{StaticResource Ink}" BorderBrush="{StaticResource Line}" AutomationProperties.Name="Page objects"/>
                         <WrapPanel Margin="0,6,0,0">
                             <ComboBox x:Name="VisibilityChoice" Width="116" SelectionChanged="ChangeVisibility"

@@ -12,6 +12,17 @@ namespace EduCast.Studio;
 public partial class TeacherWindow
 {
     private sealed record InstrumentOption(InstrumentKind Kind, string Label);
+    private sealed class PlacedInstrument(InstrumentDisplay display, bool source, string label)
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+        public string Label { get; } = label;
+        public bool Source { get; } = source;
+        public InstrumentDisplay Display { get; set; } = display;
+        public InstrumentDisplay? Published { get; set; }
+        public bool Trace { get; set; }
+        public bool LabelLength { get; set; }
+    }
+
     private sealed record Calculation(string Source, string Result)
     {
         public override string ToString() => $"{Source} = {Result}";
@@ -27,14 +38,24 @@ public partial class TeacherWindow
         public bool Calibration { get; } = calibration;
         public Ink Stroke { get; } = stroke;
         public double StartBearing { get; } = InstrumentPose.Bearing(original.Pose.Origin, start);
-        public double Sweep { get; set; }
-        public double PreviousBearing { get; set; } = InstrumentPose.Bearing(original.Pose.Origin, start);
+        public ArcGesture? Arc { get; } = handle is null && !calibration && original.Pose.Kind == InstrumentKind.Compass
+            ? new ArcGesture(original.Pose.Origin, original.Pose.ToBoard(
+                InstrumentPose.Polar(InstrumentPose.Bearing(original.Pose.Origin, start) - original.Pose.Rotation, original.Pose.Size)))
+            : null;
     }
 
-    private InstrumentDisplay? instrumentDisplay;
-    private InstrumentDisplay? publishedInstrument;
+    private readonly List<PlacedInstrument> instruments = [];
+    private PlacedInstrument? activeInstrument;
+    private bool mathOnSource;
+    private bool changingInstrument;
+    private InstrumentDisplay? instrumentDisplay
+    {
+        get => activeInstrument?.Display;
+        set => activeInstrument!.Display = value!;
+    }
+
     private MathDrag? mathDrag;
-    private Ink? instrumentTrace;
+    private BoardItem? instrumentTrace;
     private double unitsPerCentimetre = InstrumentPose.DefaultUnitsPerCentimetre;
     private double? calibrationLength;
     private readonly List<Calculation> calculationHistory = [];
@@ -49,6 +70,7 @@ public partial class TeacherWindow
             new(InstrumentKind.FrenchCurve, "French curve"), new(InstrumentKind.Calculator, "Calculator"),
             new(InstrumentKind.VernierCaliper, "Vernier caliper"), new(InstrumentKind.Micrometer, "Micrometer screw gauge")
         };
+        InstrumentChoice.SelectedIndex = 0;
         foreach (var value in new[] { "7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "−",
             "0", ".", "+", "^", "(", ")", "⌫", "Clear" })
         {
@@ -58,34 +80,95 @@ public partial class TeacherWindow
         }
     }
 
-    private void OpenMathTools(object sender, RoutedEventArgs args)
+    private void OpenMathTools(object sender, RoutedEventArgs args) => OpenInstruments(source: false);
+
+    internal void OpenInstruments(bool source)
     {
+        SetMathSurface(source);
         InstrumentBar.Visibility = System.Windows.Visibility.Visible;
-        if (InstrumentChoice.SelectedIndex < 0)
-            InstrumentChoice.SelectedIndex = 0;
+        if (activeInstrument is null && InstrumentChoice.SelectedItem is InstrumentOption selected)
+            AddInstrument(selected.Kind);
         else
-            UseMathInstrument(sender, args);
+            UseMathInstrument(this, new RoutedEventArgs());
     }
 
-    private void ChangeInstrument(object sender, SelectionChangedEventArgs args)
+    internal void SetMathSurface(bool source)
     {
-        if (!ready || InstrumentChoice.SelectedItem is not InstrumentOption selected)
+        if (mathOnSource == source)
             return;
-        CancelGesture();
-        ClearSelection();
-        PublishInstrument.IsChecked = false;
-        var pose = InstrumentPose.Create(selected.Kind, unitsPerCentimetre, RulerInches.IsChecked == true);
-        instrumentDisplay = new InstrumentDisplay(pose, Gauge: pose.IsGauge ? MeasurementGauge.Create(pose.Kind) : null);
+        CancelMathDrag();
+        mathOnSource = source;
+        if (source)
+        {
+            BoardInstrumentHost.Children.Clear();
+            sourceWindow?.HostInstruments(InstrumentBar);
+        }
+        else
+        {
+            sourceWindow?.HostInstruments(null);
+            if (InstrumentBar.Parent is System.Windows.Controls.Panel parent)
+                parent.Children.Remove(InstrumentBar);
+            BoardInstrumentHost.Children.Add(InstrumentBar);
+        }
+        SelectInstrument(instruments.LastOrDefault(item => item.Source == source));
+        RefreshMathInstrument();
+    }
+
+    private void PlaceInstrument(object sender, RoutedEventArgs args)
+    {
+        if (InstrumentChoice.SelectedItem is InstrumentOption selected)
+            AddInstrument(selected.Kind);
+    }
+
+    private void AddInstrument(InstrumentKind kind)
+    {
+        CancelMathDrag();
+        var offset = instruments.Count(item => item.Source == mathOnSource) % 7 * 32;
+        var pose = InstrumentPose.Create(kind, unitsPerCentimetre);
+        pose = pose with { Origin = new BoardPoint(pose.Origin.X + offset, pose.Origin.Y + offset) };
+        var label = InstrumentChoice.Items.OfType<InstrumentOption>().Single(option => option.Kind == kind).Label;
+        var item = new PlacedInstrument(new InstrumentDisplay(pose,
+            Gauge: pose.IsGauge ? MeasurementGauge.Create(pose.Kind) : null), mathOnSource, label);
+        instruments.Add(item);
+        SelectInstrument(item);
+        UseMathInstrument(this, new RoutedEventArgs());
+        RefreshMathInstrument();
+    }
+
+    private void ChoosePlacedInstrument(object sender, SelectionChangedEventArgs args)
+    {
+        if (changingInstrument || PlacedInstruments.SelectedItem is not PlacedInstrument item)
+            return;
+        CancelMathDrag();
+        SelectInstrument(item);
+        UseMathInstrument(sender, args);
+        RefreshMathInstrument();
+    }
+
+    private void SelectInstrument(PlacedInstrument? item)
+    {
+        activeInstrument = item;
+        changingInstrument = true;
+        PlacedInstruments.ItemsSource = instruments.Where(candidate => candidate.Source == mathOnSource).ToArray();
+        PlacedInstruments.SelectedItem = item;
+        changingInstrument = false;
+        var pose = item?.Display.Pose;
+        var shown = System.Windows.Visibility.Visible;
+        var hidden = System.Windows.Visibility.Collapsed;
+        InstrumentActions.Visibility = pose is null ? hidden : shown;
+        InstrumentOptions.Visibility = InstrumentActions.Visibility;
         ConfigureGaugeControls();
-        TraceInstrument.IsEnabled = pose.CanTrace;
-        TraceInstrument.IsChecked = false;
-        RulerControls.Visibility = pose.Kind == InstrumentKind.Ruler
-            ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-        CalculatorControls.Visibility = pose.Kind == InstrumentKind.Calculator
-            ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-        ToggleCalculatorKeys(sender, args);
-        InstrumentDrawButton.Visibility = pose.Kind == InstrumentKind.Calculator || pose.IsGauge
-            ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+        TraceInstrument.IsEnabled = pose?.CanTrace == true;
+        TraceInstrument.IsChecked = item?.Trace == true;
+        PublishInstrument.IsChecked = item?.Published is not null;
+        RulerInches.IsChecked = pose?.Inches == true;
+        RulerLabels.IsChecked = item?.LabelLength == true;
+        RulerControls.Visibility = pose?.Kind == InstrumentKind.Ruler ? shown : hidden;
+        CalculatorControls.Visibility = pose?.Kind == InstrumentKind.Calculator ? shown : hidden;
+        ToggleCalculatorKeys(this, new RoutedEventArgs());
+        if (pose is null)
+            return;
+        InstrumentDrawButton.Visibility = pose.Kind == InstrumentKind.Calculator || pose.IsGauge ? hidden : shown;
         InstrumentDrawButton.Content = pose.Kind switch
         {
             InstrumentKind.Compass => "Draw circle",
@@ -94,57 +177,89 @@ public partial class TeacherWindow
             InstrumentKind.FrenchCurve => "Draw full curve",
             _ => "Draw ruler edge"
         };
-        SetTool(Tool.Instrument);
-        RefreshMathInstrument();
-        Refresh();
     }
 
     private void UseMathInstrument(object sender, RoutedEventArgs args)
     {
         if (instrumentDisplay is null)
             return;
-        CancelGesture();
-        ClearSelection();
-        SetTool(Tool.Instrument);
-        Refresh();
+        if (mathOnSource)
+            sourceWindow?.UseInstrument();
+        else
+        {
+            CancelGesture();
+            ClearSelection();
+            SetTool(Tool.Instrument);
+            Refresh();
+        }
     }
 
-    private void RemoveMathInstrument(object sender, RoutedEventArgs args) => CloseMathTools();
+    private void RemoveMathInstrument(object sender, RoutedEventArgs args)
+    {
+        CancelMathDrag();
+        if (activeInstrument is not null)
+            instruments.Remove(activeInstrument);
+        SelectInstrument(instruments.LastOrDefault(item => item.Source == mathOnSource));
+        if (activeInstrument is null && !mathOnSource && tool == Tool.Instrument)
+            SetTool(Tool.Select);
+        RefreshMathInstrument();
+    }
 
     private void CloseMathTools()
     {
-        if (instrumentDisplay is null)
-            return;
-        CancelGesture();
-        instrumentDisplay = null;
-        ConfigureGaugeControls();
-        PublishInstrument.IsChecked = false;
-        InstrumentChoice.SelectedIndex = -1;
-        InstrumentBar.Visibility = System.Windows.Visibility.Collapsed;
-        if (tool == Tool.Instrument)
-            SetTool(Tool.Pen);
+        CancelMathDrag();
+        instruments.RemoveAll(item => !item.Source);
+        SelectInstrument(instruments.LastOrDefault(item => item.Source == mathOnSource));
+        if (!mathOnSource)
+        {
+            InstrumentBar.Visibility = System.Windows.Visibility.Collapsed;
+            if (tool == Tool.Instrument)
+                SetTool(Tool.Select);
+        }
+        RefreshMathInstrument();
+    }
+
+    internal void ClearSourceInstruments()
+    {
+        if (mathOnSource)
+            CancelMathDrag();
+        instruments.RemoveAll(item => item.Source);
+        if (mathOnSource)
+            SelectInstrument(null);
         RefreshMathInstrument();
     }
 
     private void ChangeTraceMode(object sender, RoutedEventArgs args)
     {
+        if (activeInstrument is null)
+            return;
+        activeInstrument.Trace = TraceInstrument.IsChecked == true;
         UseMathInstrument(sender, args);
         RefreshMathInstrument();
     }
 
-    private void ChangeInstrumentPublication(object sender, RoutedEventArgs args) => RefreshMathInstrument(publish: true);
+    private void ChangeRulerLabels(object sender, RoutedEventArgs args)
+    {
+        if (activeInstrument is not null)
+            activeInstrument.LabelLength = RulerLabels.IsChecked == true;
+    }
+
+    private void ChangeInstrumentPublication(object sender, RoutedEventArgs args)
+    {
+        if (activeInstrument is not null)
+            activeInstrument.Published = PublishInstrument.IsChecked == true ? activeInstrument.Display : null;
+        RefreshMathInstrument();
+    }
 
     private void RefreshMathInstrument(bool publish = false)
     {
-        TeacherInstrument.Present(instrumentDisplay, instrumentTrace, TraceInstrument.IsChecked == true);
-        if (PublishInstrument.IsChecked != true || instrumentDisplay is null)
-            publishedInstrument = null;
-        else if (session.Live || publish)
-            publishedInstrument = instrumentDisplay;
-        else
-            publishedInstrument = ConcealGaugeReading(publishedInstrument, instrumentDisplay);
+        foreach (var item in instruments.Where(item => item.Published is not null))
+            item.Published = session.Live || publish ? item.Display : ConcealGaugeReading(item.Published, item.Display);
+
+        RefreshTeacherOverlays();
         RefreshStudioLayers();
         RefreshLiveInk();
+        RefreshProgramBoard();
 
         if (calibrationLength is not null || instrumentDisplay is not { Pose: var pose })
             return;
@@ -162,6 +277,16 @@ public partial class TeacherWindow
             InstrumentKind.FrenchCurve => $"Span {pose.Size:0} · rise {pose.CurveRise:0} board units",
             _ => "Enter an expression and select Evaluate"
         };
+    }
+
+    private void RefreshTeacherOverlays()
+    {
+        TeacherInstrument.Present(instruments.Where(item => !item.Source).Select(item => item.Display).ToArray(),
+            !mathOnSource ? instrumentDisplay : null, !mathOnSource ? instrumentTrace : null,
+            !mathOnSource && activeInstrument?.Trace == true, TeacherClock);
+        sourceWindow?.PresentInstruments(instruments.Where(item => item.Source).Select(item => item.Display).ToArray(),
+            mathOnSource ? instrumentDisplay : null, mathOnSource ? instrumentTrace : null,
+            mathOnSource && activeInstrument?.Trace == true, TeacherClock);
     }
 
     private void ChangeRulerUnits(object sender, RoutedEventArgs args)
@@ -195,18 +320,40 @@ public partial class TeacherWindow
     private void SetCalibration(double units)
     {
         unitsPerCentimetre = units;
-        if (instrumentDisplay is { Pose: var pose })
-            instrumentDisplay = instrumentDisplay with { Pose = pose with { UnitsPerCentimetre = units } };
+        foreach (var item in instruments)
+            item.Display = item.Display with { Pose = item.Display.Pose with { UnitsPerCentimetre = units } };
         RefreshMathInstrument();
     }
 
     private Ink ConstructionInk(ItemVisibility? visibility = null) =>
-        new(Guid.NewGuid(), visibility ?? newVisibility, visibility is null && newAnswer, InkColor, InkWidth, false, false, []);
+        new(Guid.NewGuid(), visibility ?? (mathOnSource ? ItemVisibility.Both : newVisibility),
+            !mathOnSource && visibility is null && newAnswer,
+            mathOnSource && sourceWindow is { } source ? source.AnnotationColor : InkColor,
+            mathOnSource && sourceWindow is { } window ? window.AnnotationWidth : InkWidth, false, false, []);
 
     private static BoardPoint Pointer(Point point) => new(point.X, point.Y);
 
-    internal bool BeginMathDrag(BoardPoint pointer)
+    internal bool BeginMathDrag(BoardPoint pointer, bool source = false, bool selectOnly = false)
     {
+        if (mathOnSource != source)
+            return false;
+        if (selectOnly || !alignGauge && calibrationLength is null)
+        {
+            var hit = instruments.Where(item => item.Source == source && item != activeInstrument)
+                .Reverse().FirstOrDefault(item => OverInstrument(item.Display, pointer));
+            if (activeInstrument is { } current && OverInstrument(current.Display, pointer))
+                hit = current;
+            if (hit is not null && hit != activeInstrument)
+                SelectInstrument(hit);
+            if (selectOnly)
+            {
+                if (hit is null)
+                    return false;
+                mathDrag = new MathDrag(hit.Display, pointer, InstrumentHandle.Move, null, false, ConstructionInk());
+                RefreshMathInstrument();
+                return true;
+            }
+        }
         if (instrumentDisplay is not { Pose: var pose } display)
             return false;
         if (display.Gauge is { } gauge)
@@ -263,6 +410,31 @@ public partial class TeacherWindow
         return true;
     }
 
+    internal bool OverInstrument(BoardPoint pointer, bool source) =>
+        instruments.Any(item => item.Source == source && OverInstrument(item.Display, pointer));
+
+    private static bool OverInstrument(InstrumentDisplay display, BoardPoint pointer)
+    {
+        var pose = display.Pose;
+        var local = pose.ToLocal(pointer);
+        if (display.Gauge is { } gauge)
+            return GaugeDrawing.Hit(pose, gauge, local) is not null;
+        return InstrumentDrawing.Contains(pose, local) ||
+            InstrumentDrawing.Handles(pose).Any(handle => InstrumentPose.Distance(local, handle.Position) <= 15) ||
+            pose.Kind == InstrumentKind.Compass && InstrumentPose.Distance(local, new BoardPoint(pose.Size, 0)) <= 13;
+    }
+
+    internal bool SourceGaugeWheel(Point pointer, int delta, bool coarse) =>
+        mathOnSource && TryGaugeWheel(Pointer(pointer), delta, coarse);
+
+    internal bool InstrumentDragging(bool source) => mathOnSource == source && mathDrag is not null;
+
+    internal void CancelSourceInstrumentDrag()
+    {
+        if (mathOnSource)
+            CancelMathDrag();
+    }
+
     internal void UpdateMathDrag(BoardPoint pointer, bool snap)
     {
         if (mathDrag is not { } drag)
@@ -308,20 +480,13 @@ public partial class TeacherWindow
         }
         else if (pose.Kind == InstrumentKind.FrenchCurve)
             instrumentTrace = drag.Stroke with { Points = pose.TraceCurve(pose.ToLocal(drag.Start).X, local.X) };
-        else if (InstrumentPose.Distance(default, local) > 8)
+        else if (drag.Arc is { } arc)
         {
-            var bearing = InstrumentPose.Bearing(pose.Origin, pointer);
-            drag.Sweep = Math.Clamp(drag.Sweep + InstrumentPose.SweepStep(drag.PreviousBearing, bearing), -360, 360);
-            drag.PreviousBearing = bearing;
-            instrumentDisplay = drag.Original with { Pose = pose with { Rotation = drag.StartBearing + drag.Sweep } };
-            var count = Math.Max(1, (int)Math.Ceiling(Math.Abs(drag.Sweep) / 2));
-            var compass = pose with { Rotation = drag.StartBearing };
-            instrumentTrace = drag.Stroke with
-            {
-                Points = Enumerable.Range(0, count + 1)
-                    .Select(index => compass.ToBoard(InstrumentPose.Polar(drag.Sweep * index / count, pose.Size)))
-                    .ToImmutableArray()
-            };
+            arc.Follow(pointer);
+            instrumentDisplay = drag.Original with { Pose = pose with { Rotation = arc.Bearing } };
+            var traced = arc.Apply(AsShape(drag.Stroke, ShapeKind.Arc, pose.Origin,
+                pose.ToBoard(new BoardPoint(pose.Size, 0))));
+            instrumentTrace = Math.Abs(traced.Sweep) >= 1 ? traced : null;
         }
         RefreshMathInstrument();
     }
@@ -366,21 +531,22 @@ public partial class TeacherWindow
                 Report("Reference is too short or too long for the ruler scale.");
             return;
         }
-        if (drag.Handle is not null || completed is not { Points.Length: > 1 })
+        if (drag.Handle is not null)
             return;
-        var pose = drag.Original.Pose;
-        if (pose.Kind == InstrumentKind.Compass)
-        {
-            if (Math.Abs(drag.Sweep) >= 1)
-                AddItem(AsShape(completed, ShapeKind.Arc, pose.Origin, completed.Points[0], drag.Sweep));
-        }
-        else if (InstrumentPose.Distance(completed.Points[0], completed.Points[^1]) >= 2)
-        {
-            if (drag.Edge is not null)
-                AddItems(LineWithOptionalLabel(completed, pose, completed.Points[0], completed.Points[^1]));
-            else
-                AddItem(completed);
-        }
+        if (completed is Shape arc)
+            AddConstruction([arc]);
+        else if (completed is Ink { Points.Length: > 1 } ink &&
+            InstrumentPose.Distance(ink.Points[0], ink.Points[^1]) >= 2)
+            AddConstruction(drag.Edge is not null
+                ? LineWithOptionalLabel(ink, drag.Original.Pose, ink.Points[0], ink.Points[^1]) : [ink]);
+    }
+
+    private void AddConstruction(ImmutableArray<BoardItem> items)
+    {
+        if (mathOnSource)
+            sourceWindow?.AddConstruction(items);
+        else
+            AddItems(items);
     }
 
     private void CancelMathDrag()
@@ -402,14 +568,14 @@ public partial class TeacherWindow
             return;
         var style = ConstructionInk();
         if (pose.Kind == InstrumentKind.Compass)
-            AddItem(AsShape(style, ShapeKind.Circle, pose.Origin, pose.ToBoard(new BoardPoint(pose.Size, 0))));
+            AddConstruction([AsShape(style, ShapeKind.Circle, pose.Origin, pose.ToBoard(new BoardPoint(pose.Size, 0)))]);
         else if (pose.IsProtractor && pose.Angle > 0)
         {
             var first = pose.ToBoard(new BoardPoint(pose.Size, 0));
             var second = pose.ToBoard(InstrumentPose.Polar(-pose.Angle, pose.Size));
             var arc = pose.ToBoard(new BoardPoint(pose.Size * .35, 0));
             var label = pose.ToBoard(InstrumentPose.Polar(-pose.Angle / 2, pose.Size * .49));
-            AddItems([
+            AddConstruction([
                 AsShape(style, ShapeKind.Line, pose.Origin, first),
                 AsShape(style with { Id = Guid.NewGuid() }, ShapeKind.Line, pose.Origin, second),
                 AsShape(style with { Id = Guid.NewGuid() }, ShapeKind.Arc, pose.Origin, arc, -pose.Angle),
@@ -417,12 +583,12 @@ public partial class TeacherWindow
             ]);
         }
         else if (pose.Kind == InstrumentKind.Ruler)
-            AddItems(LineWithOptionalLabel(style, pose, pose.Origin, pose.ToBoard(new BoardPoint(pose.Size, 0))));
+            AddConstruction(LineWithOptionalLabel(style, pose, pose.Origin, pose.ToBoard(new BoardPoint(pose.Size, 0))));
         else if (pose.IsSetSquare)
-            AddItems(pose.Edges().Select(edge => (BoardItem)AsShape(style with { Id = Guid.NewGuid() },
+            AddConstruction(pose.Edges().Select(edge => (BoardItem)AsShape(style with { Id = Guid.NewGuid() },
                 ShapeKind.Line, pose.ToBoard(edge.Start), pose.ToBoard(edge.End))).ToImmutableArray());
         else if (pose.Kind == InstrumentKind.FrenchCurve)
-            AddItem(style with { Points = pose.TraceCurve(-pose.Size / 2, pose.Size / 2) });
+            AddConstruction([style with { Points = pose.TraceCurve(-pose.Size / 2, pose.Size / 2) }]);
     }
 
     private ImmutableArray<BoardItem> LineWithOptionalLabel(Ink style, InstrumentPose pose, BoardPoint start, BoardPoint end)

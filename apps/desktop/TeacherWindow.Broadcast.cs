@@ -76,7 +76,7 @@ public partial class TeacherWindow
         if (broadcastOutput is null)
         {
             var window = new DisplayWindow(this, null, online: true);
-            window.SetFrame(session.Output);
+            window.SetFrame(renderedOutput);
             window.SetLiveInk(programInk);
             window.SetLayers(visibleLayers);
             window.Closed += (_, _) => broadcastOutput = null;

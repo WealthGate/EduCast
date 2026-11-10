@@ -57,12 +57,16 @@
                 Tag="Arrow" ToolTip="Draw an arrow from tail to tip" AutomationProperties.Name="Draw arrow"/>
             <Button x:Name="Pointer" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}" Click="SelectTool"
                 Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
+            <Button x:Name="SmartInk" Content="Smart ink" Style="{StaticResource CreativeTool}" Click="SelectTool" Tag="SmartInk"/>
+            <Button x:Name="SmartMath" Content="Smart math ink" Style="{StaticResource CreativeTool}" Click="SelectTool" Tag="SmartMath"/>
+            <Button Content="Instruments…" Style="{StaticResource InstrumentTool}" Click="OpenInstruments"/>
             <ComboBox x:Name="Colors" Width="90" DisplayMemberPath="Name" SelectionChanged="ChangeInk"
                 AutomationProperties.Name="Annotation color"/>
             <ComboBox x:Name="Widths" Width="58" SelectionChanged="ChangeInk" AutomationProperties.Name="Annotation width"/>
             <Button x:Name="UndoButton" Content="Undo" Click="UndoAnnotation" IsEnabled="False"/>
             <Button x:Name="ClearButton" Content="Clear ink" Click="ClearAnnotations" IsEnabled="False"/>
         </WrapPanel>
+        <StackPanel x:Name="InstrumentHost" DockPanel.Dock="Top"/>
         <TextBlock x:Name="Hint" DockPanel.Dock="Bottom" Margin="0,7,0,0" Foreground="{StaticResource Muted}"
             TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
         <Border Background="Black" BorderBrush="{StaticResource Line}" BorderThickness="1" ClipToBounds="True">
@@ -74,9 +78,10 @@
                             <studio:SourceSurface x:Name="Surface"/>
                             <Grid x:Name="Drawing" Background="Transparent" PreviewMouseLeftButtonDown="AnnotationDown"
                                   PreviewMouseMove="AnnotationMove" PreviewMouseLeftButtonUp="AnnotationUp" MouseLeave="AnnotationLeave"
-                                  LostMouseCapture="AnnotationCaptureLost">
+                                  LostMouseCapture="AnnotationCaptureLost" PreviewMouseWheel="AnnotationWheel">
                                 <studio:LiveInkCanvas x:Name="Input" Background="Transparent" StrokeCollected="CollectAnnotation"/>
                             </Grid>
+                            <studio:TeacherInstrumentSurface x:Name="SourceInstruments"/>
                         </Grid>
                     </Viewbox>
                 </Grid>

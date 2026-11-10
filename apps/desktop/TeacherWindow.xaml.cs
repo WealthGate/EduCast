@@ -72,7 +72,12 @@ public partial class TeacherWindow : Window
     private Point? anchor;
     private BoardSelection? selectionDrag;
     private bool selectionPreview;
+    private readonly SmartInkGroup smartInk;
+    private readonly InkTap inkTap;
     private Shape? pendingArc;
+    private ArcGesture? arcGesture;
+    private BoardItem? boardGesture;
+    private BoardItem? originalGesture;
     private HashSet<Guid>? erasing;
     private Point? previousErase;
     private Point? panStart;
@@ -96,10 +101,19 @@ public partial class TeacherWindow : Window
             (_, _) => RefreshRecordingStatus(), Dispatcher);
         recordingClock.Stop();
         BuildVersion.Text = $"LOCAL LESSON   ·   v{ReleaseCatalog.InstalledVersion}";
+        smartInk = new SmartInkGroup(() => session.Page.Items, items =>
+        {
+            session.ChangePage(session.Page with { Items = items });
+            Refresh();
+        });
+        inkTap = new InkTap(CommitInk);
         DrawingInput.NewStroke = NewInk;
+        DrawingInput.StrokeStarted += smartInk.Pause;
         DrawingInput.PreviewChanged += stroke =>
         {
             liveStroke = stroke;
+            if (stroke is null)
+                smartInk.Resume();
             RefreshLiveInk();
         };
         Width = Math.Clamp(SystemParameters.WorkArea.Width - 24, MinWidth, Width);
@@ -384,14 +398,7 @@ public partial class TeacherWindow : Window
 
     private void RefreshProgram()
     {
-        var frame = session.Output;
-        if (!ReferenceEquals(renderedOutput, frame))
-        {
-            renderedOutput = frame;
-            ProgramPreview.Present(frame);
-            output?.SetFrame(frame);
-            broadcastOutput?.SetFrame(frame);
-        }
+        RefreshProgramBoard();
         RefreshLiveInk();
         RefreshStudioLayers();
         ProgramState.Text = session.Blackout ? "BLACKOUT" : session.Frozen ? "FROZEN" :
@@ -404,9 +411,29 @@ public partial class TeacherWindow : Window
         StopButton.IsEnabled = output is not null;
     }
 
+    private void SetBoardGesture(BoardItem? item, BoardItem? original = null)
+    {
+        (boardGesture, originalGesture) = (item, original);
+        RefreshProgramBoard();
+    }
+
+    private void RefreshProgramBoard()
+    {
+        var frame = !mathOnSource && instrumentTrace is Shape arc
+            ? session.ProjectGesture(arc) : session.ProjectGesture(boardGesture, originalGesture);
+        if (!ReferenceEquals(renderedOutput, frame))
+        {
+            renderedOutput = frame;
+            ProgramPreview.Present(frame);
+            output?.SetFrame(frame);
+            broadcastOutput?.SetFrame(frame);
+        }
+    }
+
     private void RefreshLiveInk()
     {
-        var projected = session.ProjectLiveInk(mathDrag?.Calibration == true ? liveStroke : instrumentTrace ?? liveStroke);
+        var trace = !mathOnSource && mathDrag?.Calibration != true ? instrumentTrace as Ink : null;
+        var projected = session.ProjectLiveInk(trace ?? liveStroke);
         programInk = projected;
         if (projected is null && !liveInkShown)
             return;
@@ -808,7 +835,7 @@ public partial class TeacherWindow : Window
         DrawingInput.Cursor = choice == Tool.Select ? Cursors.Arrow : Cursors.Cross;
         foreach (var button in new[] { PenButton, SquarePenButton, MarkerButton, EraseButton, ArrowButton, PointerButton,
             SelectButton, LineButton, CircleButton, ArcButton, RectButton, SmartInkButton, SmartMathButton })
-            button.Background = (Brush)FindResource((string)button.Tag == choice.ToString() ? "AccentDark" : "Panel");
+            button.Background = (Brush)FindResource((string)button.Tag == choice.ToString() ? "AccentDark" : "Control");
         ToolHint.Text = choice switch
         {
             Tool.Pen => "Round pen · mouse, touch or stylus",
@@ -820,7 +847,7 @@ public partial class TeacherWindow : Window
             Tool.Select => "Select · drag an object to move it, or drag its edge or corner to resize",
             Tool.Line => "Ruler line · drag endpoints, Shift snaps to 15°",
             Tool.Circle => "Compass circle · drag from the center",
-            Tool.Arc => "Compass arc · drag center to start, then click its end",
+            Tool.Arc => "Arc · drag out the radius, sweep, then click to finish",
             Tool.Rectangle => "Rectangle · drag opposite corners",
             Tool.Ellipse => "Ellipse · drag opposite corners of its bounds",
             Tool.Triangle => "Triangle · drag opposite corners of its bounds",
@@ -829,8 +856,8 @@ public partial class TeacherWindow : Window
                 $"{choice} · drag opposite corners of its bounds",
             Tool.Resistor or Tool.Capacitor or Tool.Equal => "Symbol · drag from one end to the other",
             Tool.DoubleBond or Tool.TripleBond => "Bond · drag between two atom labels",
-            Tool.SmartInk => "Sketch a shape. For a cone, draw an ellipse and two sloping sides. Apply or keep the suggestion.",
-            Tool.SmartMath => "Write a fraction, radical, script or division sign as one group, then review the suggestion.",
+            Tool.SmartInk => "Sketch a shape and pause to clean it up. Undo restores the original strokes.",
+            Tool.SmartMath => "Write a math expression and pause to typeset it. Undo restores the original strokes.",
             Tool.Instrument when instrumentDisplay?.Gauge is not null =>
                 "Drag the body to move it. Drag or scroll over the carriage or thimble to adjust the reading.",
             Tool.Instrument => "Drag the instrument to move it. Use the handles to adjust it, or enable Trace to draw along it.",
@@ -852,13 +879,17 @@ public partial class TeacherWindow : Window
 
     private void CollectInk(object sender, InkCanvasStrokeCollectedEventArgs args)
     {
-        if (DrawingInput.FinishStroke(args.Stroke) is { } ink)
-        {
-            if (tool is Tool.SmartInk or Tool.SmartMath)
-                CollectSketch(ink);
-            else
-                AddItem(ink);
-        }
+        if (DrawingInput.FinishStroke(args.Stroke) is { Points.IsEmpty: false } ink)
+            inkTap.Collect(ink, point => OverClock(new Point(point.X, point.Y)) || OverInstrument(point, source: false) ||
+                BoardSelection.Hit(session.Page.Items, new Point(point.X, point.Y)) is not null);
+    }
+
+    private void CommitInk(Ink ink)
+    {
+        if (tool is Tool.SmartInk or Tool.SmartMath)
+            CollectSketch(ink);
+        else
+            AddItem(ink);
     }
 
     private static bool IsInkTool(Tool choice) =>
@@ -871,11 +902,37 @@ public partial class TeacherWindow : Window
 
     private void BoardDown(object sender, MouseButtonEventArgs args)
     {
+        var position = args.GetPosition(BoardInput);
+        SetMathSurface(source: false);
+        if (args.ClickCount == 2)
+            inkTap.Clear();
+        else
+            inkTap.Flush();
+        if ((tool == Tool.Select || args.ClickCount == 2) && BeginClockDrag(position, source: false) ||
+            (tool == Tool.Instrument || args.ClickCount == 2 && tool != Tool.Place && pendingArc is null) &&
+            BeginMathDrag(Pointer(position), source: false, selectOnly: tool != Tool.Instrument))
+        {
+            args.Handled = true;
+            if (tool != Tool.Instrument || ClockDragging(source: false))
+            {
+                DrawingInput.CancelStroke();
+                ClearSelection();
+                SetTool(ClockDragging(source: false) ? Tool.Select : Tool.Instrument);
+                Refresh();
+            }
+            if (!BoardInput.CaptureMouse())
+                CancelGesture();
+            return;
+        }
+        if (args.ClickCount == 2 && tool != Tool.Place && pendingArc is null &&
+            BoardSelection.Hit(session.Page.Items, position) is not null)
+        {
+            CancelGesture();
+            SetTool(Tool.Select);
+        }
         if (tool == Tool.Instrument)
         {
             args.Handled = true;
-            if (BeginMathDrag(Pointer(args.GetPosition(BoardInput))) && !BoardInput.CaptureMouse())
-                CancelMathDrag();
             return;
         }
         if (IsInkTool(tool))
@@ -890,7 +947,6 @@ public partial class TeacherWindow : Window
         args.Handled = true;
         if (tool == Tool.Pointer)
             return;
-        var position = args.GetPosition(BoardInput);
         if (tool == Tool.Place && placement is { } value)
         {
             placement = null;
@@ -913,9 +969,13 @@ public partial class TeacherWindow : Window
         }
         if (tool == Tool.Arc && pendingArc is { } arc)
         {
-            pendingArc = null;
-            AddItem(arc with { Sweep = Sweep(arc, position, Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) });
-            ToolHint.Text = "Compass arc · drag center to start, then click its end";
+            arcGesture!.Follow(PointOf(position));
+            var completed = arcGesture.Apply(arc);
+            (pendingArc, arcGesture, boardGesture, originalGesture) = (null, null, null, null);
+            if (Math.Abs(completed.Sweep) >= 1)
+                AddItem(completed);
+            Refresh();
+            ToolHint.Text = "Arc · drag out the radius, sweep, then click to finish";
             return;
         }
 
@@ -932,19 +992,27 @@ public partial class TeacherWindow : Window
     private void BoardMove(object sender, MouseEventArgs args)
     {
         var position = args.GetPosition(BoardInput);
+        if (ClockDragging(source: false) && BoardInput.IsMouseCaptured)
+        {
+            MoveClock(position);
+            return;
+        }
         if (tool == Tool.Pointer)
         {
             SetBoardPointer(position);
             return;
         }
-        if (mathDrag is not null && BoardInput.IsMouseCaptured)
+        if (InstrumentDragging(source: false) && BoardInput.IsMouseCaptured)
         {
             UpdateMathDrag(Pointer(position), Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
             return;
         }
         if (pendingArc is { } arc)
         {
-            TeacherBoard.Mark(null, arc with { Sweep = Sweep(arc, position, Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) });
+            arcGesture!.Follow(PointOf(position));
+            var preview = arcGesture.Apply(arc);
+            TeacherBoard.Mark(null, preview);
+            SetBoardGesture(Math.Abs(preview.Sweep) >= 1 ? preview : null);
             return;
         }
         if (tool == Tool.Select)
@@ -957,7 +1025,12 @@ public partial class TeacherWindow : Window
         if (tool == Tool.Eraser)
             EraseAt(position);
         else
-            TeacherBoard.Mark(null, MakeShape(start, position));
+        {
+            var preview = MakeShape(start, position);
+            TeacherBoard.Mark(null, tool == Tool.Arc ? preview with { ShapeKind = ShapeKind.Circle } : preview);
+            if (tool != Tool.Arc)
+                SetBoardGesture(preview);
+        }
     }
 
     private void PreviewSelection(Point position)
@@ -977,11 +1050,20 @@ public partial class TeacherWindow : Window
             renderedPage = null;
         }
         TeacherBoard.MarkManipulation(drag.Item, transform, SelectionUnit);
+        SetBoardGesture(transform.IsIdentity ? null : drag.Commit(position), drag.Item);
     }
 
     private void BoardUp(object sender, MouseButtonEventArgs args)
     {
-        if (mathDrag is not null)
+        if (ClockDragging(source: false))
+        {
+            MoveClock(args.GetPosition(BoardInput));
+            FinishClockDrag();
+            BoardInput.ReleaseMouseCapture();
+            args.Handled = true;
+            return;
+        }
+        if (InstrumentDragging(source: false))
         {
             args.Handled = true;
             EndMathDrag(Pointer(args.GetPosition(BoardInput)), Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
@@ -993,6 +1075,7 @@ public partial class TeacherWindow : Window
         args.Handled = true;
         var position = args.GetPosition(BoardInput);
         anchor = null;
+        (boardGesture, originalGesture) = (null, null);
         BoardInput.ReleaseMouseCapture();
         if (tool == Tool.Select)
         {
@@ -1029,8 +1112,9 @@ public partial class TeacherWindow : Window
         if (tool == Tool.Arc)
         {
             pendingArc = shape;
+            arcGesture = new ArcGesture(shape.Start, shape.End);
             TeacherBoard.Mark(null, shape with { ShapeKind = ShapeKind.Circle });
-            ToolHint.Text = "Click the arc endpoint. Shift selects the counterclockwise sweep. Esc cancels.";
+            ToolHint.Text = "Sweep around the pivot in either direction, then click to finish.";
             return;
         }
         AddItem(shape);
@@ -1071,14 +1155,6 @@ public partial class TeacherWindow : Window
         };
     }
 
-    private static double Sweep(Shape shape, Point end, bool counterclockwise)
-    {
-        var startAngle = Math.Atan2(shape.End.Y - shape.Start.Y, shape.End.X - shape.Start.X);
-        var endAngle = Math.Atan2(end.Y - shape.Start.Y, end.X - shape.Start.X);
-        var clockwise = ((endAngle - startAngle) * 180 / Math.PI + 360) % 360;
-        return counterclockwise ? clockwise - 360 : clockwise;
-    }
-
     private void EraseAt(Point position)
     {
         if (erasing is null)
@@ -1102,7 +1178,7 @@ public partial class TeacherWindow : Window
 
     private void BoardCaptureLost(object sender, MouseEventArgs args)
     {
-        if (anchor is not null || mathDrag is not null)
+        if (anchor is not null || InstrumentDragging(source: false) || ClockDragging(source: false))
         {
             CancelGesture();
             Refresh();
@@ -1111,14 +1187,18 @@ public partial class TeacherWindow : Window
 
     private void CancelGesture()
     {
-        ClearSketch();
+        inkTap.Flush();
+        smartInk.Complete();
+        CancelClockDrag(source: false);
         SetBoardPointer(null);
-        CancelMathDrag();
+        if (!mathOnSource)
+            CancelMathDrag();
         DrawingInput.CancelStroke();
         anchor = null;
         selectionDrag = null;
         selectionPreview = false;
-        pendingArc = null;
+        (pendingArc, arcGesture) = (null, null);
+        SetBoardGesture(null);
         if (erasing is not null)
             renderedPage = null;
         erasing = null;
@@ -1131,7 +1211,7 @@ public partial class TeacherWindow : Window
             SetTool(toolBeforePlacement);
         }
         if (tool == Tool.Arc)
-            ToolHint.Text = "Compass arc · drag center to start, then click its end";
+            ToolHint.Text = "Arc · drag out the radius, sweep, then click to finish";
         TeacherBoard.Mark(null);
     }
 
@@ -1200,7 +1280,7 @@ public partial class TeacherWindow : Window
     {
         if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
-            args.Handled = TryGaugeWheel(Pointer(args.GetPosition(BoardInput)), args.Delta,
+            args.Handled = tool == Tool.Instrument && !mathOnSource && TryGaugeWheel(Pointer(args.GetPosition(BoardInput)), args.Delta,
                 Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
             return;
         }
@@ -1290,7 +1370,7 @@ public partial class TeacherWindow : Window
         };
         try
         {
-            window.SetFrame(session.Output);
+            window.SetFrame(renderedOutput);
             window.SetLiveInk(programInk);
             window.SetLayers(visibleLayers);
             window.Show();
@@ -1325,7 +1405,10 @@ public partial class TeacherWindow : Window
     private void SetLive(object sender, RoutedEventArgs args)
     {
         if (session.Live)
+        {
             TakeSource();
+            takenClockOffset = clockOffset;
+        }
         session.Live = LiveMode.IsChecked == true;
         if (session.Live)
             RefreshMathInstrument(publish: true);
@@ -1351,6 +1434,7 @@ public partial class TeacherWindow : Window
     {
         session.Take();
         TakeSource();
+        takenClockOffset = clockOffset;
         RefreshMathInstrument(publish: true);
         RefreshProgram();
     }
@@ -1368,7 +1452,7 @@ public partial class TeacherWindow : Window
         catch (Exception error) when (FileError(error)) { ShowFileError(error); }
     }
 
-    private StudioFrame CurrentStudioFrame() => new(session.Output, programInk, visibleLayers);
+    private StudioFrame CurrentStudioFrame() => new(renderedOutput, programInk, visibleLayers);
 
     private void OpenStudio(object sender, RoutedEventArgs args) => ShowStudio();
 
@@ -1388,6 +1472,7 @@ public partial class TeacherWindow : Window
     internal void ApplyStudioLayers(ProgramLayers layers)
     {
         studioLayers = layers;
+        RefreshTeacherOverlays();
         RefreshStudioLayers();
     }
 
@@ -1400,7 +1485,7 @@ public partial class TeacherWindow : Window
                 CameraOne = live.CameraOne is null ? null : held.CameraOne,
                 CameraTwo = live.CameraTwo is null ? null : held.CameraTwo,
                 Clock = live.Clock is null ? null : held.Clock,
-                Instrument = live.Instrument is null ? null : ConcealGaugeReading(held.Instrument, live.Instrument)
+                Instruments = FilterHeldInstruments(held.Instruments)
             };
         var next = session.Blackout ? new ProgramLayers() : frozenLayers ?? live;
         if (!sourceOnStage && next.Source is not null)
@@ -1415,7 +1500,9 @@ public partial class TeacherWindow : Window
 
     private ProgramLayers LiveStudioLayers(bool includeGestures = true) => studioLayers with
     {
-        Instrument = publishedInstrument,
+        Instruments = CurrentInstruments(),
+        ClockOffset = session.Live
+            ? includeGestures ? clockOffset : clockDrag?.Original ?? clockOffset : takenClockOffset,
         Source = session.Live ? sourceWindow?.PublishedFrame(includeGestures) :
             sourceWindow?.AnimateTakenMedia(takenSource) ?? takenSource,
         Pointer = session.Live && includeGestures ? boardPointer : null
@@ -1541,6 +1628,8 @@ public partial class TeacherWindow : Window
         if (key == Key.Escape)
         {
             CancelGesture();
+            ClearSelection();
+            SetTool(Tool.Select);
             Refresh();
             args.Handled = true;
         }

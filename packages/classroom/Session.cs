@@ -22,6 +22,20 @@ public sealed class ProgramFrame
             ? item : item with { Visibility = Visibility.Both, IsAnswer = false })
         .ToImmutableArray());
 
+    internal ProgramFrame WithGesture(Content item, Content? original)
+    {
+        var projected = item.Visibility == Visibility.Both && !item.IsAnswer
+            ? item : item with { Visibility = Visibility.Both, IsAnswer = false };
+        if (original is null)
+            return new ProgramFrame(Paper, Background, Items.Add(projected));
+        for (var i = 0; i < Items.Length; i++)
+        {
+            if (Items[i].Id == original.Id)
+                return new ProgramFrame(Paper, Background, Items.SetItem(i, projected));
+        }
+        return this;
+    }
+
     internal ProgramFrame Without(HashSet<Guid> ids) => Items.Any(item => ids.Contains(item.Id))
         ? new ProgramFrame(Paper, Background, Items.Where(item => !ids.Contains(item.Id)).ToImmutableArray())
         : this;
@@ -53,6 +67,17 @@ public sealed class Session
     public bool Blackout { get; set; }
     public ProgramFrame Preview => lastProjection!;
     public ProgramFrame? Output => Blackout ? null : held ?? program;
+
+    public ProgramFrame? ProjectGesture(Content? item, Content? original = null)
+    {
+        var frame = Output;
+        if (item is null || frame is null || !Live || Frozen || !ProgramFrame.IsApproved(Page, item))
+            return frame;
+        if (original is not null && (original.Id != item.Id || !Page.Items.Contains(original) ||
+            !ProgramFrame.IsApproved(Page, original)))
+            return frame;
+        return frame.WithGesture(item, original);
+    }
 
     public ProgramInk? ProjectLiveInk(Ink? stroke) =>
         stroke is not null && !stroke.Points.IsDefaultOrEmpty && Live && !Frozen && !Blackout &&

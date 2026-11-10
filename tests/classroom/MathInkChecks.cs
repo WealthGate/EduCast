@@ -51,6 +51,16 @@ internal static partial class Checks
         Assert(cube is { Count: 3, Math.Source: "root(3,2)" }, $"cube root recognized as {cube?.Math.Source}");
         Assert(MathInkRecognition.Recognize([hook]) is { Math.Source: "sqrt(?)" });
         Assert(MathInkRecognition.Recognize([x, cross]) is null);
+
+        var plusBar = SketchInk(new(90, 39), new(107, 39));
+        var plusStem = SketchInk(new(99, 28), new(99, 50));
+        var addend = GlyphInk("02 20 60 81 83 65 29 89", 116, 20, 3);
+        var equalsTop = SketchInk(new(154, 35), new(174, 35));
+        var equalsBottom = SketchInk(new(154, 44), new(174, 44));
+        var four = SketchInk(new(207, 20), new(189, 35), new(213, 35));
+        var fourStem = SketchInk(new(207, 20), new(207, 47));
+        var equation = MathInkRecognition.Recognize([two, plusBar, plusStem, addend, equalsTop, equalsBottom, four, fourStem]);
+        Assert(equation is { Count: 8, Math.Source: "2+2 = 4" }, $"equation recognized as {equation?.Math.Source}");
     }
 
     private static void SolidSketches()

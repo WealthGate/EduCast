@@ -47,6 +47,7 @@ internal static partial class Checks
             ("Manual take, live mode, hold and blackout preserve intended frames", ProgramStates),
             ("Privacy revocation reaches the frozen and published frames immediately", Revocation),
             ("Live ink obeys visibility, answer and Program state without editing the lesson", LiveInkProjection),
+            ("Transient object movement respects Program privacy and state", ObjectGestureProjection),
             ("Page navigation, history and notes retain editable state", History),
             ("Editable project round trip and failed save preservation", Files),
             ("Invalid project content is rejected", BadFiles),
@@ -557,6 +558,12 @@ internal static partial class Checks
         teacher.ApplyStudioLayers(new ProgramLayers(red, Clock: new(ClockView.Digital, TimeSpan.FromHours(10))));
         Pump();
         Assert(Pixel(studentBoard, 980, 555)[2] > 220);
+        Assert(teacher.BeginClockDrag(new Point(1100, 80), source: false));
+        teacher.MoveClock(new Point(800, 240));
+        Pump();
+        Assert(!Pixel(studentBoard, 800, 240).SequenceEqual(clean) &&
+            Pixel(studentBoard, 1100, 80).SequenceEqual(clean), "clock did not move live");
+        teacher.CancelClockDrag(source: false);
         Click(teacher, "FreezeButton");
         teacher.ApplyStudioLayers(new ProgramLayers(blue));
         Pump();
@@ -574,6 +581,7 @@ internal static partial class Checks
         Click(teacher, "FreezeButton");
         InstrumentDemonstration(teacher, studentBoard, clean);
         GaugeDemonstration(teacher, studentBoard, clean);
+        SourceInstruments(app, teacher);
         Click(teacher, "StopButton");
         Assert(!app.Windows.Cast<Window>().Contains(student));
         Assert(online.IsVisible);
@@ -613,6 +621,28 @@ internal static partial class Checks
         }
         teacher.Close();
         app.Shutdown();
+    }
+
+    private static void SourceInstruments(App app, TeacherWindow teacher)
+    {
+        var choices = Find<ComboBox>(teacher, "InstrumentChoice");
+        var placed = Find<ComboBox>(teacher, "PlacedInstruments");
+        choices.SelectedIndex = 0;
+        Click(teacher, "AddInstrumentButton");
+        Click(teacher, "ResumeSourceButton");
+        var source = app.Windows.OfType<SourceWindow>().Single();
+        teacher.OpenInstruments(source: true);
+        choices.SelectedIndex = 1;
+        Click(teacher, "AddInstrumentButton");
+        Pump();
+        Assert(placed.Items.Count == 2 && Find<StackPanel>(source, "InstrumentHost").Children.Count == 1);
+        Assert(teacher.BeginMathDrag(new BoardPoint(700, 412), source: true));
+        teacher.EndMathDrag(new BoardPoint(750, 412), snap: false);
+        teacher.ReturnToBoard();
+        Pump();
+        Assert(placed.Items.Count == 1 && Find<StackPanel>(teacher, "BoardInstrumentHost").Children.Count == 1);
+        source.Close();
+        Click(teacher, "RemoveInstrumentButton");
     }
 
     private static void InstrumentDemonstration(TeacherWindow teacher, FrameworkElement student, byte[] paper)
@@ -665,35 +695,51 @@ internal static partial class Checks
         Click(teacher, "UndoButton");
 
         var choice = Find<ComboBox>(teacher, "InstrumentChoice");
+        var placed = Find<ComboBox>(teacher, "PlacedInstruments");
         choice.SelectedIndex = 1;
+        Click(teacher, "AddInstrumentButton");
+        Assert(placed.Items.Count == 2, "adding a compass replaced the ruler");
+        placed.SelectedIndex = 0;
+        Click(teacher, "RemoveInstrumentButton");
+        Click(teacher, "RemoveInstrumentButton");
+        Click(teacher, "AddInstrumentButton");
         Assert(teacher.BeginMathDrag(new BoardPoint(581, 376)));
         teacher.EndMathDrag(new BoardPoint(455, 521), snap: false);
         Click(teacher, "InstrumentDrawButton");
         Pump();
         Assert(!Pixel(student, 455, 521).SequenceEqual(paper), "the compass pencil did not land at the selected point");
         Click(teacher, "UndoButton");
-        choice.SelectedIndex = 0;
-        choice.SelectedIndex = 1;
+        Click(teacher, "RemoveInstrumentButton");
+        Click(teacher, "AddInstrumentButton");
         Check(teacher, "TraceInstrument", true);
         Assert(teacher.BeginMathDrag(new BoardPoint(581, 376)));
-        teacher.EndMathDrag(new BoardPoint(455, 502), snap: false);
+        teacher.UpdateMathDrag(new BoardPoint(455, 502), snap: false);
         Pump();
-        Assert(!Pixel(student, 544, 465).SequenceEqual(paper), "committed compass arc missing");
+        Assert(!Pixel(student, 544, 465).SequenceEqual(paper), "live compass arc missing");
+        teacher.EndMathDrag(new BoardPoint(581, 376), snap: false);
+        Pump();
+        Assert(!Pixel(student, 544, 465).SequenceEqual(paper), "reversing erased the drawn arc");
         Click(teacher, "UndoButton");
 
+        Click(teacher, "RemoveInstrumentButton");
         choice.SelectedIndex = 2;
+        Click(teacher, "AddInstrumentButton");
         Click(teacher, "InstrumentDrawButton");
         Pump();
         Assert(!Pixel(student, 530, 376).SequenceEqual(paper), "protractor baseline missing");
         Click(teacher, "UndoButton");
 
+        Click(teacher, "RemoveInstrumentButton");
         choice.SelectedIndex = 5;
+        Click(teacher, "AddInstrumentButton");
         Click(teacher, "InstrumentDrawButton");
         Pump();
         Assert(!Pixel(student, 455, 315).SequenceEqual(paper), "set-square leg missing");
         Click(teacher, "UndoButton");
 
+        Click(teacher, "RemoveInstrumentButton");
         choice.SelectedIndex = 6;
+        Click(teacher, "AddInstrumentButton");
         Check(teacher, "TraceInstrument", true);
         Assert(teacher.BeginMathDrag(new BoardPoint(265, 244)));
         teacher.EndMathDrag(new BoardPoint(645, 244), snap: false);
@@ -701,7 +747,9 @@ internal static partial class Checks
         Assert(!Pixel(student, 455, 376).SequenceEqual(paper), "French-curve vertex missing");
         Click(teacher, "UndoButton");
 
+        Click(teacher, "RemoveInstrumentButton");
         choice.SelectedIndex = 7;
+        Click(teacher, "AddInstrumentButton");
         Check(teacher, "ShowCalculatorKeys", true);
         var keys = Find<WrapPanel>(teacher, "CalculatorKeys").Children.OfType<Button>().ToArray();
         foreach (var value in new[] { "7", "+", "2" })
@@ -852,7 +900,8 @@ internal static partial class Checks
         var profile = RecordingProfile.Options[^1];
         var renderer = new ProgramVideoRenderer(profile);
         var layers = new ProgramLayers(SolidFrame(Colors.Red), SolidFrame(Colors.Blue),
-            new(ClockView.Analog, TimeSpan.FromHours(10)), new(InstrumentPose.Create(InstrumentKind.Ruler)));
+            new(ClockView.Analog, TimeSpan.FromHours(10)),
+            [new(Guid.NewGuid(), false, new(InstrumentPose.Create(InstrumentKind.Ruler)))]);
         var frame = new StudioFrame(ProgramFrame.From(Page.Empty()), null, layers);
         var pixels = renderer.Capture(frame);
         Assert(pixels.Length == 3840 * 2160 * 4);

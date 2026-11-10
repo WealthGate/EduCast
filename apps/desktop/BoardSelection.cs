@@ -47,10 +47,15 @@ internal sealed class BoardSelection
         var hit = BoardSurface.Hit(items, point);
         if (hit is null && selected is not null && Outline(BoardSurface.BoundsOf(selected), unit).Contains(point))
             hit = selected;
-        hit ??= items.Reverse().FirstOrDefault(item =>
-            item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly && BoardSurface.BoundsOf(item).Contains(point));
+        hit ??= HitBounds(items, point);
         return hit is null ? null : new BoardSelection(hit, point, unit, default);
     }
+
+    internal static Content? Hit(IEnumerable<Content> items, Point point) =>
+        BoardSurface.Hit(items, point) ?? HitBounds(items, point);
+
+    private static Content? HitBounds(IEnumerable<Content> items, Point point) => items.Reverse().FirstOrDefault(item =>
+        item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly && BoardSurface.BoundsOf(item).Contains(point));
 
     internal static Cursor Hover(Content? selected, Point point, double unit)
     {

@@ -56,4 +56,26 @@ internal static partial class Checks
         session.Undo();
         Assert(session.Output!.Items.Single() == shape);
     }
+
+    private static void ObjectGestureProjection()
+    {
+        var session = new Session();
+        var shape = new Shape(Guid.NewGuid(), Visibility.Both, false, InkColor, 4, ShapeKind.Line, new(10, 20), new(50, 20));
+        var hidden = shape with { Id = Guid.NewGuid(), Visibility = Visibility.TeacherOnly };
+        var answer = shape with { Id = Guid.NewGuid(), IsAnswer = true };
+        session.ChangePage(session.Page with { Items = [shape, hidden, answer] });
+        var frame = session.Output;
+        var moving = shape with { Start = new BoardPoint(80, 20) };
+        Assert(session.ProjectGesture(moving, shape)?.Items.Single() == moving);
+        Assert(ReferenceEquals(session.Output, frame) && session.Page.Items[0] == shape);
+        Assert(ReferenceEquals(session.ProjectGesture(hidden with { Visibility = Visibility.Both }, hidden), frame));
+        Assert(ReferenceEquals(session.ProjectGesture(answer, answer), frame));
+        session.Live = false;
+        Assert(ReferenceEquals(session.ProjectGesture(moving, shape), frame));
+        session.Live = true;
+        session.ToggleFreeze();
+        Assert(ReferenceEquals(session.ProjectGesture(moving, shape), frame));
+        session.Blackout = true;
+        Assert(session.ProjectGesture(moving, shape) is null);
+    }
 }

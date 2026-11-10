@@ -59,11 +59,9 @@ public partial class TeacherWindow
     private void OpenGauge(InstrumentKind kind, object sender, RoutedEventArgs args)
     {
         InstrumentBar.Visibility = System.Windows.Visibility.Visible;
-        var option = InstrumentChoice.Items.OfType<InstrumentOption>().Single(item => item.Kind == kind);
-        if (Equals(InstrumentChoice.SelectedItem, option))
-            UseMathInstrument(sender, args);
-        else
-            InstrumentChoice.SelectedItem = option;
+        SetMathSurface(source: false);
+        InstrumentChoice.SelectedItem = InstrumentChoice.Items.OfType<InstrumentOption>().Single(item => item.Kind == kind);
+        AddInstrument(kind);
     }
 
     private void ChangeGaugeMode(object sender, SelectionChangedEventArgs args)
@@ -177,7 +175,7 @@ public partial class TeacherWindow
 
     private bool TryGaugeWheel(BoardPoint pointer, int delta, bool coarse)
     {
-        if (delta == 0 || tool != Tool.Instrument || mathDrag is not null || alignGauge ||
+        if (delta == 0 || mathDrag is not null || alignGauge ||
             instrumentDisplay is not { Gauge: { } gauge, Pose: var pose } ||
             !GaugeDrawing.OverAdjuster(pose, gauge, pose.ToLocal(pointer)))
             return false;
@@ -210,6 +208,9 @@ public partial class TeacherWindow
         if (instrumentDisplay?.Gauge is not { } gauge || gauge.Sample != GaugeSample.None && !gauge.AtContact)
             return;
         var text = GaugeDrawing.Reading(gauge);
-        BeginPlacement(origin => new BoardText(Guid.NewGuid(), newVisibility, newAnswer, InkColor, origin, 26, text));
+        if (mathOnSource && sourceWindow is { } source)
+            source.PlaceReading(text);
+        else
+            BeginPlacement(origin => new BoardText(Guid.NewGuid(), newVisibility, newAnswer, InkColor, origin, 26, text));
     }
 }
