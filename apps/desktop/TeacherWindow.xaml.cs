@@ -546,18 +546,32 @@ public partial class TeacherWindow : Window
 
     private void OpenLesson(object sender, RoutedEventArgs args)
     {
-        var dialog = new OpenFileDialog { Filter = $"EduCast lesson (*.educast)|*.educast|{BrowserLesson.FileFilter}", CheckFileExists = true };
-        if (dialog.ShowDialog(this) != true)
-            return;
-        if (dialog.FilterIndex == 2 || BrowserLesson.IsSupportedFile(dialog.FileName))
+        var dialog = new OpenFileDialog { Filter = TeachingFile.Filter, CheckFileExists = true };
+        if (dialog.ShowDialog(this) == true)
+            OpenSelectedFile(dialog.FileName);
+    }
+
+    internal void OpenSelectedFile(string path)
+    {
+        var kind = TeachingFile.Classify(path);
+        if (kind != TeachingFileKind.Board)
         {
-            ShowSourceWindow().OpenFile(dialog.FileName);
+            var source = ShowSourceWindow();
+            switch (kind)
+            {
+                case TeachingFileKind.Browser: source.OpenFile(path); break;
+                case TeachingFileKind.Media: source.OpenMediaFile(path); break;
+                case TeachingFileKind.DesktopApp:
+                    if (!source.OpenDesktopFile(path))
+                        return;
+                    break;
+            }
             SetSourceStage(true);
             return;
         }
         if (!ConfirmDiscard())
             return;
-        try { Load(LessonFile.Load(dialog.FileName), dialog.FileName); }
+        try { Load(LessonFile.Load(path), path); }
         catch (Exception error) when (FileError(error)) { ShowFileError(error); }
     }
 

@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -25,6 +27,8 @@ internal partial class SourceWindow : Window
     private readonly TeacherWindow teacher;
     private BrowserLesson? browser;
     private Task? browserInitialization;
+    private string? browserFile;
+    private string? desktopFile;
     private WindowCapture? capture;
     private BitmapSource? image;
     private ImmutableArray<Classroom.Content> marks = [];
@@ -127,7 +131,17 @@ internal partial class SourceWindow : Window
         var windows = CaptureWindow.List();
         Windows.ItemsSource = windows;
         Windows.SelectedItem = windows.FirstOrDefault(window => window.Handle == selected?.Handle);
-        if (windows.Count == 0)
+        if (Windows.SelectedItem is null && desktopFile is { } path)
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            var matches = windows.Where(window => name.Length > 0 &&
+                window.Title.Contains(name, StringComparison.OrdinalIgnoreCase)).Take(2).ToArray();
+            if (matches.Length == 1)
+                Windows.SelectedItem = matches[0];
+        }
+        if (desktopFile is not null)
+            Hint.Text = "Start the lesson or slide show in its app. Refresh the list if needed, then select its window and choose Preview window.";
+        else if (windows.Count == 0)
             Hint.Text = "No open app windows found. Open a window and refresh the list.";
     }
 
@@ -143,6 +157,7 @@ internal partial class SourceWindow : Window
             var next = new WindowCapture(selected);
             ResetSource();
             capture = next;
+            timer.Interval = TimeSpan.FromMilliseconds(40);
             browserMode = false;
             BrowserBar.Visibility = Visibility.Collapsed;
             MediaBar.Visibility = Visibility.Collapsed;
@@ -156,20 +171,58 @@ internal partial class SourceWindow : Window
         }
     }
 
-    public void OpenFile(string path) => OpenPage(page => page.OpenFile(path));
+    public void OpenFile(string path) => OpenPage(page => page.OpenFile(path), path);
 
     private void ChooseFile(object sender, RoutedEventArgs args)
     {
-        var dialog = new OpenFileDialog { Filter = BrowserLesson.FileFilter, CheckFileExists = true };
+        var dialog = new OpenFileDialog { Filter = TeachingFile.Filter, CheckFileExists = true };
         if (dialog.ShowDialog(this) == true)
-            OpenFile(dialog.FileName);
+            teacher.OpenSelectedFile(dialog.FileName);
+    }
+
+    private void OpenBrowserFileInApp(object sender, RoutedEventArgs args)
+    {
+        if (browserFile is { } path)
+            OpenDesktopFile(path);
+    }
+
+    internal bool OpenDesktopFile(string path)
+    {
+        try
+        {
+            if (!TeachingFile.OpenInDesktopApp(new WindowInteropHelper(this).Handle, path))
+                return false;
+        }
+        catch (Exception error) when (SourceError(error) || error is Win32Exception)
+        {
+            Hint.Text = $"Could not open the file in a desktop app. {error.Message}";
+            return false;
+        }
+        ResetSource();
+        desktopFile = path;
+        browserMode = false;
+        BrowserBar.Visibility = Visibility.Collapsed;
+        MediaBar.Visibility = Visibility.Collapsed;
+        BrowserSlot.Visibility = Visibility.Hidden;
+        SetTool(Tool.Pen);
+        Windows.SelectedItem = null;
+        ChooseWindow();
+        return true;
     }
 
     private void Go(object sender, RoutedEventArgs args)
     {
+        if (TeachingFile.LocalPath(Address.Text) is { } path)
+        {
+            if (File.Exists(path))
+                teacher.OpenSelectedFile(path);
+            else
+                Hint.Text = "That file is unavailable. Check the path or use Open file.";
+            return;
+        }
         if (BrowserLesson.WebAddress(Address.Text) is not { } uri)
         {
-            Hint.Text = "Enter a valid HTTP or HTTPS web address, or choose Open file for a local lesson.";
+            Hint.Text = "Enter an HTTP or HTTPS address, paste a full file path, or choose Open file.";
             return;
         }
         OpenPage(page => page.Open(uri));
@@ -183,10 +236,14 @@ internal partial class SourceWindow : Window
         Go(sender, args);
     }
 
-    private async void OpenPage(Action<BrowserLesson> navigate)
+    private async void OpenPage(Action<BrowserLesson> navigate, string? file = null)
     {
         ShowBrowser();
         ResetSource();
+        browserFile = file;
+        OpenInDesktopApp.Visibility = file is null ? Visibility.Collapsed : Visibility.Visible;
+        if (file is not null)
+            Address.Text = file;
         SetTool(Tool.Interact);
         var revision = sourceRevision;
         Hint.Text = "Opening browser…";
@@ -211,6 +268,8 @@ internal partial class SourceWindow : Window
                         return;
                     Address.Text = page.Address;
                     Hint.Text = message;
+                    browserFile = page.LocalFile;
+                    OpenInDesktopApp.Visibility = browserFile is null ? Visibility.Collapsed : Visibility.Visible;
                 };
                 browserInitialization = page.InitializeAsync();
             }
@@ -326,9 +385,13 @@ internal partial class SourceWindow : Window
         ResetMedia();
         sourceRevision++;
         image = null;
+        browserFile = null;
+        desktopFile = null;
+        OpenInDesktopApp.Visibility = Visibility.Collapsed;
         Unpublish();
         capture?.Dispose();
         capture = null;
+        UpdateInteract();
         ResetAnnotations();
     }
 
@@ -340,7 +403,27 @@ internal partial class SourceWindow : Window
         CancelAnnotation();
     }
 
-    private void SelectTool(object sender, RoutedEventArgs args) => SetTool(Enum.Parse<Tool>((string)((Button)sender).Tag));
+    private void SelectTool(object sender, RoutedEventArgs args)
+    {
+        var next = Enum.Parse<Tool>((string)((Button)sender).Tag);
+        if (next == Tool.Interact && capture is { } window)
+        {
+            if (!window.Target.TryActivate())
+                Hint.Text = "Switch to the original app from the Windows taskbar to interact with it.";
+            return;
+        }
+        SetTool(next);
+        if (next == Tool.Interact)
+            browser?.View.Focus();
+    }
+
+    private void UpdateInteract()
+    {
+        Interact.IsEnabled = browserMode || capture is not null;
+        Interact.Content = capture is null ? "Interact" : "Interact in app";
+        Interact.ToolTip = capture is null ? "Use the page's links, buttons, sliders and other controls"
+            : "Return to the original app to use its controls and animations";
+    }
 
     private void SetTool(Tool next)
     {
@@ -354,7 +437,7 @@ internal partial class SourceWindow : Window
             ? InkCanvasEditingMode.Ink : InkCanvasEditingMode.None;
         Input.EditingModeInverted = Input.EditingMode;
         Input.UseCustomCursor = true;
-        Interact.IsEnabled = browserMode;
+        UpdateInteract();
         foreach (var button in new[] { Interact, SelectAnnotation, RoundPen, SquarePen, Marker, Eraser, Arrow, Pointer })
             button.Background = (Brush)FindResource((string)button.Tag == tool.ToString() ? "AccentDark" : "Panel");
         ChangeInk(null, null);
@@ -363,9 +446,16 @@ internal partial class SourceWindow : Window
     private uint InkColor => ((ColorChoice)Colors.SelectedItem).Argb;
     private int InkWidth => (int)Widths.SelectedItem;
     private Classroom.Content? Selected => marks.FirstOrDefault(item => item.Id == selectedId);
-    private double SelectionUnit => BoardSelection.Unit(Math.Min(SourceViewbox.ActualWidth, SourceViewbox.ActualHeight * 16 / 9));
+    private double SelectionUnit => BoardSelection.Unit(SourceStage.ActualWidth);
 
-    private void SourceViewSizeChanged(object sender, SizeChangedEventArgs args) => RefreshOverlay();
+    private void SourceAreaSizeChanged(object sender, SizeChangedEventArgs args)
+    {
+        // Keep the live browser at its actual display size. Only the WPF ink layer is transformed.
+        var width = Math.Min(args.NewSize.Width, args.NewSize.Height * 16 / 9);
+        SourceStage.Width = width;
+        SourceStage.Height = width * 9 / 16;
+        RefreshOverlay();
+    }
 
     private void ChangeInk(object? sender, SelectionChangedEventArgs? args)
     {

@@ -13,12 +13,14 @@ internal sealed class BrowserLesson : IDisposable
     private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
         { ".html", ".htm", ".svg", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" };
     private string? localHost;
+    private string? localFolder;
     private ulong navigation;
     private bool disposed;
 
     public WebView2CompositionControl View { get; } = new();
     public bool Ready { get; private set; }
     public string Address { get; private set; } = "";
+    public string? LocalFile { get; private set; }
     public event Action? Loading;
     public event Action<string>? Loaded;
 
@@ -76,6 +78,7 @@ internal sealed class BrowserLesson : IDisposable
             }
             if (localHost is not null && !string.Equals(uri.Host, localHost, StringComparison.OrdinalIgnoreCase))
                 ClearLocalFolder();
+            LocalFile = MappedFile(uri);
             navigation = args.NavigationId;
             Ready = false;
             Loading?.Invoke();
@@ -85,8 +88,7 @@ internal sealed class BrowserLesson : IDisposable
             if (args.NavigationId != navigation)
                 return;
             Ready = args.IsSuccess;
-            Address = Uri.TryCreate(core.Source, UriKind.Absolute, out var source) && source.Host == localHost
-                ? Uri.UnescapeDataString(source.Segments[^1]) : core.Source;
+            Address = LocalFile ?? core.Source;
             Loaded?.Invoke(args.IsSuccess ? "Ready. Interact with the page or choose a drawing tool."
                 : $"The page could not be loaded ({args.WebErrorStatus}).");
         };
@@ -104,8 +106,10 @@ internal sealed class BrowserLesson : IDisposable
         if (!IsSupportedFile(path) || !File.Exists(path))
             throw new IOException("Choose an existing HTML, PDF or supported image file.");
         ClearLocalFolder();
+        path = Path.GetFullPath(path);
+        localFolder = Path.GetDirectoryName(path)!;
         localHost = $"lesson-{Guid.NewGuid():N}.educast.invalid";
-        View.CoreWebView2.SetVirtualHostNameToFolderMapping(localHost, Path.GetDirectoryName(path)!,
+        View.CoreWebView2.SetVirtualHostNameToFolderMapping(localHost, localFolder,
             CoreWebView2HostResourceAccessKind.Deny);
         Ready = false;
         View.CoreWebView2.Navigate($"https://{localHost}/{Uri.EscapeDataString(Path.GetFileName(path))}");
@@ -133,12 +137,26 @@ internal sealed class BrowserLesson : IDisposable
 
     private static bool IsWeb(Uri uri) => (uri.Scheme is "http" or "https") && uri.Host.Length > 0 && uri.UserInfo.Length == 0;
 
+    private string? MappedFile(Uri uri)
+    {
+        if (localFolder is not { } folder)
+            return null;
+        var relative = Uri.UnescapeDataString(uri.AbsolutePath[1..]).Replace('/', Path.DirectorySeparatorChar);
+        if (Path.IsPathRooted(relative) || relative.IndexOfAny(Path.GetInvalidPathChars()) >= 0 || relative.Contains(':'))
+            return null;
+        var path = Path.GetFullPath(relative, folder);
+        var suffix = Path.GetRelativePath(folder, path);
+        return suffix is "." or ".." || suffix.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+            Path.IsPathRooted(suffix) ? null : path;
+    }
+
     private void ClearLocalFolder()
     {
         if (localHost is null)
             return;
         View.CoreWebView2.ClearVirtualHostNameToFolderMapping(localHost);
         localHost = null;
+        localFolder = null;
     }
 
     public void Dispose()

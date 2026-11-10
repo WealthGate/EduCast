@@ -17,6 +17,15 @@ internal sealed record CaptureWindow(nint Handle, uint ProcessId, string Title)
     public bool IsOpen => IsWindowVisible(Handle) && GetWindowThreadProcessId(Handle, out var id) != 0 && id == ProcessId;
     public bool IsMinimized => IsIconic(Handle);
 
+    public bool TryActivate()
+    {
+        if (!IsOpen)
+            return false;
+        if (IsMinimized)
+            ShowWindow(Handle, 9);
+        return SetForegroundWindow(Handle);
+    }
+
     public static List<CaptureWindow> List()
     {
         var windows = new List<CaptureWindow>();
@@ -41,6 +50,10 @@ internal sealed record CaptureWindow(nint Handle, uint ProcessId, string Title)
     private static extern bool IsWindowVisible(nint window);
     [DllImport("user32.dll")]
     private static extern bool IsIconic(nint window);
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(nint window, int command);
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(nint window);
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(nint window, out uint processId);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]

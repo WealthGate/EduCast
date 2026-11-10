@@ -19,17 +19,21 @@ internal sealed class MediaPlayback : IDisposable
     private BitmapSource? image;
     private int stopped;
 
+    internal static bool IsSupportedFile(string file) => InputFormat(file) is not null;
+
+    private static string? InputFormat(string file) => Path.GetExtension(file).ToLowerInvariant() switch
+    {
+        ".mp4" or ".mov" or ".m4v" or ".m4a" => "mov",
+        ".webm" => "matroska",
+        ".mp3" => "mp3",
+        ".wav" => "wav",
+        ".aac" => "aac",
+        _ => null
+    };
+
     internal MediaPlayback(string executable, string file, TimeSpan start)
     {
-        var format = Path.GetExtension(file).ToLowerInvariant() switch
-        {
-            ".mp4" or ".mov" or ".m4v" or ".m4a" => "mov",
-            ".webm" => "matroska",
-            ".mp3" => "mp3",
-            ".wav" => "wav",
-            ".aac" => "aac",
-            _ => throw new IOException("Choose a supported local video or audio file.")
-        };
+        var format = InputFormat(file) ?? throw new IOException("Choose a supported local video or audio file.");
         Start = start;
         var offset = start > TimeSpan.Zero ? new[] { "-ss", start.TotalSeconds.ToString("F3", CultureInfo.InvariantCulture) } : [];
         var process = FfmpegMedia.Start(executable, ["-hide_banner", "-loglevel", "error", "-nostdin",

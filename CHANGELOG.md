@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1
+
+- Fixed browser preview scaling so clicks and drags line up with local HTML lesson controls as the window is resized. Both **Open…** and **Open file…** use the same file routing, and the browser accepts pasted local paths.
+- Open PowerPoint, Office, and OpenDocument files in their desktop apps from EduCast. For other file types, Windows lets you choose an app. Capture the live lesson or slideshow, then use **Interact in app** to return to its controls.
+- Open a local browser file in another app when it needs a feature specific to that app. Captured windows refresh up to 25 times per second for smoother demonstrations and animations.
+
 ## 0.12.0
 
 - Demonstrate a 0–150 mm vernier caliper and a 0–25 mm micrometer screw gauge. Both have shaded, movable bodies, adjustable measuring parts, and enlarged scales. Find them under **Instruments…** or in the Physics tool list.

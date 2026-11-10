@@ -24,7 +24,7 @@
             </StackPanel>
             <WrapPanel Grid.Column="1" VerticalAlignment="Center">
                 <Button Content="_New" Click="NewLesson" ToolTip="New lesson (Ctrl+N)"/>
-                <Button Content="_Open…" Click="OpenLesson" ToolTip="Open lesson (Ctrl+O)"/>
+                <Button Content="_Open…" Click="OpenLesson" ToolTip="Open a lesson, teaching file, or presentation (Ctrl+O)"/>
                 <Button Content="_Save" Click="SaveLesson" ToolTip="Save lesson (Ctrl+S)"/>
                 <Button Content="Save as…" Click="SaveAs"/>
                 <Button x:Name="SampleButton" Content="Sample lesson" Click="Sample"/>

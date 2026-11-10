@@ -29,6 +29,14 @@ internal static partial class Checks
         Assert(BrowserLesson.IsSupportedFile("lesson.HTML") && BrowserLesson.IsSupportedFile("chapter.pdf") &&
             BrowserLesson.IsSupportedFile("diagram.PNG") && BrowserLesson.IsSupportedFile("image.webp") &&
             !BrowserLesson.IsSupportedFile("lesson.educast"));
+        Assert(TeachingFile.Classify("lesson.EDUCAST") == TeachingFileKind.Board);
+        Assert(TeachingFile.Classify("interactive #1 (1).HTML") == TeachingFileKind.Browser);
+        Assert(TeachingFile.Classify("clip.MP4") == TeachingFileKind.Media);
+        Assert(TeachingFile.Classify("lab.PPSX") == TeachingFileKind.DesktopApp);
+        Assert(TeachingFile.Classify("model.ggb") == TeachingFileKind.DesktopApp);
+        Assert(TeachingFile.LocalPath(" \"C:\\Lesson Files\\interactive #1 (1).html\" ") == @"C:\Lesson Files\interactive #1 (1).html");
+        Assert(TeachingFile.LocalPath("file:///C:/Lesson%20Files/interactive%20%231.html") == @"C:\Lesson Files\interactive #1.html");
+        Assert(TeachingFile.LocalPath("https://example.org/lesson") is null);
     }
 
     private static int CaptureFixture(string title)
@@ -80,10 +88,16 @@ internal static partial class Checks
         var publish = Find<CheckBox>(source, "Publish");
         var hint = Find<TextBlock>(source, "Hint");
         var slot = Find<Grid>(source, "BrowserSlot");
-        source.Dispatcher.BeginInvoke(() => source.OpenFile(lesson));
+        source.Dispatcher.BeginInvoke(() => teacher.OpenSelectedFile(lesson));
         WaitFor(() => publish.IsEnabled, () => hint.Text);
+        Assert(Find<TextBox>(source, "Address").Text == Path.GetFullPath(lesson),
+            "a local lesson must show its real file path");
         Assert(Pixel(program, 25, 25).SequenceEqual(boardPixel), "a private browser must not reach Program");
         var browser = (WebView2CompositionControl)slot.Children[0];
+        var screenOrigin = browser.PointToScreen(new Point());
+        var screenEdge = browser.PointToScreen(new Point(browser.ActualWidth, 0));
+        Assert(Math.Abs(screenEdge.X - screenOrigin.X - browser.ActualWidth * VisualTreeHelper.GetDpi(browser).DpiScaleX) < 2,
+            "The WPF layout must leave the live browser at native size so mouse input aligns.");
         var script = browser.CoreWebView2.ExecuteScriptAsync("""
             document.querySelector('[data-tab="1"]').click();
             const slider = document.querySelector('#theta');
@@ -139,6 +153,8 @@ internal static partial class Checks
             windows.SelectedItem = windows.Items.OfType<CaptureWindow>().Single(window => window.Title == title);
             Click(source, "PreviewWindowButton");
             WaitFor(() => publish.IsEnabled, () => hint.Text);
+            var interact = Find<Button>(source, "Interact");
+            Assert(interact.IsEnabled && Equals(interact.Content, "Interact in app"));
             Assert(Pixel(program, 25, 25).SequenceEqual(boardPixel), "a private capture must not reach Program");
             var live = Find<CheckBox>(teacher, "LiveMode");
             live.IsChecked = false;

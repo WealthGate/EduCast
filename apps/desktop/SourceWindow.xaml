@@ -10,6 +10,7 @@
             <Button Content="← Board" Style="{StaticResource Primary}" Click="ReturnToBoard"
                 ToolTip="Return to the writing board and keep this source and its annotations (Ctrl+Shift+B)"/>
             <Button Content="Browser" Click="SelectBrowser"/>
+            <Button Content="Open file…" Click="ChooseFile"/>
             <Button Content="Media file…" Click="SelectMediaFile"/>
             <Button Content="Live stream…" Click="OpenLiveBroadcast"/>
             <Button Content="Capture window…" Click="SelectWindow"/>
@@ -23,10 +24,11 @@
         <DockPanel x:Name="BrowserBar" DockPanel.Dock="Top" LastChildFill="True" Visibility="Collapsed">
             <Button x:Name="Back" Content="‹" Click="GoBack" ToolTip="Back" AutomationProperties.Name="Back"/>
             <Button x:Name="Reload" Content="↻" Click="ReloadPage" ToolTip="Reload page" AutomationProperties.Name="Reload page"/>
-            <Button Content="Open file…" Click="ChooseFile"/>
+            <Button x:Name="OpenInDesktopApp" Content="Open in app…" Click="OpenBrowserFileInApp" Visibility="Collapsed"
+                ToolTip="Open this file in a Windows app and capture its window"/>
             <Button x:Name="GoButton" DockPanel.Dock="Right" Content="Go" Click="Go"/>
             <TextBox x:Name="Address" Margin="0,0,5,5" KeyDown="AddressKey" MaxLength="8192"
-                ToolTip="Enter a web address" AutomationProperties.Name="Web address"/>
+                ToolTip="Enter a web address or paste a full file path" AutomationProperties.Name="Web address or file path"/>
         </DockPanel>
         <WrapPanel x:Name="MediaBar" DockPanel.Dock="Top" Visibility="Collapsed">
             <Button x:Name="PlayMediaButton" Content="Play" Click="ToggleMedia"/>
@@ -64,17 +66,21 @@
         <TextBlock x:Name="Hint" DockPanel.Dock="Bottom" Margin="0,7,0,0" Foreground="{StaticResource Muted}"
             TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
         <Border Background="Black" BorderBrush="{StaticResource Line}" BorderThickness="1" ClipToBounds="True">
-            <Viewbox x:Name="SourceViewbox" Stretch="Uniform" SizeChanged="SourceViewSizeChanged">
-                <Grid x:Name="Viewport" Width="1280" Height="720" ClipToBounds="True">
+            <Grid SizeChanged="SourceAreaSizeChanged">
+                <Grid x:Name="SourceStage" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="True">
                     <Grid x:Name="BrowserSlot"/>
-                    <studio:SourceSurface x:Name="Surface"/>
-                    <Grid x:Name="Drawing" Background="Transparent" PreviewMouseLeftButtonDown="AnnotationDown"
-                          PreviewMouseMove="AnnotationMove" PreviewMouseLeftButtonUp="AnnotationUp" MouseLeave="AnnotationLeave"
-                          LostMouseCapture="AnnotationCaptureLost">
-                        <studio:LiveInkCanvas x:Name="Input" Background="Transparent" StrokeCollected="CollectAnnotation"/>
-                    </Grid>
+                    <Viewbox Stretch="Fill">
+                        <Grid x:Name="Viewport" Width="1280" Height="720" ClipToBounds="True">
+                            <studio:SourceSurface x:Name="Surface"/>
+                            <Grid x:Name="Drawing" Background="Transparent" PreviewMouseLeftButtonDown="AnnotationDown"
+                                  PreviewMouseMove="AnnotationMove" PreviewMouseLeftButtonUp="AnnotationUp" MouseLeave="AnnotationLeave"
+                                  LostMouseCapture="AnnotationCaptureLost">
+                                <studio:LiveInkCanvas x:Name="Input" Background="Transparent" StrokeCollected="CollectAnnotation"/>
+                            </Grid>
+                        </Grid>
+                    </Viewbox>
                 </Grid>
-            </Viewbox>
+            </Grid>
         </Border>
     </DockPanel>
 </Window>
