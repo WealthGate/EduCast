@@ -20,7 +20,7 @@ fi
 ./configure --enable-cross-compile --cross-prefix=x86_64-w64-mingw32- --target-os=mingw32 --arch=x86_64 \
   --cc=x86_64-w64-mingw32-clang "${assembly[@]}" \
   --enable-static --disable-shared --disable-autodetect --disable-debug --disable-doc \
-  --disable-ffplay --disable-ffprobe --disable-everything --enable-schannel --enable-mediafoundation \
+  --disable-ffplay --disable-ffprobe --disable-everything --enable-schannel --enable-mediafoundation --enable-d3d11va \
   --extra-ldflags=-static \
   --enable-protocol=file,pipe,tcp,rtmp,rtmps,tls \
   --enable-indev=dshow,lavfi \
