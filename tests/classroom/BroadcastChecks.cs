@@ -117,7 +117,7 @@ internal static partial class Checks
 
         var job = new ProgramBroadcast(engine, destinations, null, (pcm, _) =>
         {
-            media.Audio.Read(pcm);
+            media.Audio.Read(pcm, paced: true);
             return Task.FromResult((pixels, true));
         }, ["-re", "-f", "lavfi", "-i", "sine=f=1000:r=48000"], testEncoder: !builtIn);
         try
@@ -169,20 +169,24 @@ internal static partial class Checks
             "-vf", "crop=2:2:640:80", "-frames:v", "1", "-c:v", "rawvideo", "-pix_fmt", "bgr24", "-f", "rawvideo", "pipe:1"]);
         Assert(top.Length == 12 && top[2] > 210 && top[0] < 20, "the receiver got the wrong video");
         var audio = RunEngine(engine, ["-hide_banner", "-loglevel", "error", "-i", file, "-map", "0:a:0",
-            "-t", "1.5", "-f", "s16le", "pipe:1"]);
-        Assert(audio.Length >= 34000 * StreamFrames.SampleBytes && audio.Any(b => b != 0), "the receiver got no audible AAC samples");
-        Assert(ToneAmplitude(audio, 440) > 250 && ToneAmplitude(audio, 1000) > 250,
-            "the received AAC must contain both media audio and the microphone tone");
+            "-t", "2.3", "-f", "s16le", "pipe:1"]);
+        const int window = 960;
+        Assert(audio.Length >= 100 * window * StreamFrames.SampleBytes, "the receiver got too few AAC samples");
+        var tones = Enumerable.Range(25, 75).Select(index => (
+            Media: ToneAmplitude(audio, index * window, window, 440) > 300,
+            Mic: ToneAmplitude(audio, index * window, window, 1000) > 300)).ToArray();
+        var mixed = tones.Count(tone => tone.Media && tone.Mic);
+        Assert(mixed >= 25, $"the received AAC contained both tones in {mixed} windows " +
+            $"(media {tones.Count(t => t.Media)}, microphone {tones.Count(t => t.Mic)})");
     }
 
-    private static double ToneAmplitude(byte[] audio, int frequency)
+    private static double ToneAmplitude(byte[] audio, int start, int samples, int frequency)
     {
         var sin = 0d;
         var cos = 0d;
-        const int samples = 24000;
         for (var i = 0; i < samples; i++)
         {
-            var value = BinaryPrimitives.ReadInt16LittleEndian(audio.AsSpan((i + 10000) * StreamFrames.SampleBytes));
+            var value = BinaryPrimitives.ReadInt16LittleEndian(audio.AsSpan((i + start) * StreamFrames.SampleBytes));
             var angle = i * frequency * Math.Tau / StreamFrames.SampleRate;
             sin += value * Math.Sin(angle);
             cos += value * Math.Cos(angle);

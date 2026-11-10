@@ -11,7 +11,9 @@ public partial class TeacherWindow
     private DisplayWindow? broadcastOutput;
     private BroadcastWindow? liveBroadcast;
 
-    private void OpenLiveBroadcast(object sender, RoutedEventArgs args)
+    private void OpenLiveBroadcast(object sender, RoutedEventArgs args) => ShowLiveBroadcast();
+
+    internal void ShowLiveBroadcast()
     {
         liveBroadcast ??= new BroadcastWindow(this);
         liveBroadcast.Show();
@@ -37,7 +39,7 @@ public partial class TeacherWindow
     private void OpenBroadcastSetup(object sender, RoutedEventArgs args)
     {
         var panel = new StackPanel { Margin = new Thickness(16) };
-        var dialog = BoardOptions("Zoom and streaming", panel);
+        var dialog = BoardOptions("Online Program window", panel);
         panel.Children.Add(new TextBlock
         {
             Text = "Open a separate 16:9 window with just the Program feed. In Zoom, Teams or Meet, share that window. " +

@@ -102,6 +102,7 @@ internal sealed class PcmBuffer
     private readonly byte[] buffer = new byte[StreamFrames.AudioBytes * 5];
     private int count;
     private int start;
+    private bool playing;
 
     internal void Write(ReadOnlySpan<byte> pcm)
     {
@@ -120,11 +121,17 @@ internal sealed class PcmBuffer
         }
     }
 
-    internal void Read(Span<byte> pcm)
+    internal void Read(Span<byte> pcm, bool paced = false)
     {
         pcm.Clear();
         lock (buffer)
         {
+            if (paced)
+            {
+                playing = count >= pcm.Length * (playing ? 1 : 2);
+                if (!playing)
+                    return;
+            }
             var length = Math.Min(pcm.Length, count);
             var first = Math.Min(buffer.Length - start, length);
             buffer.AsSpan(start, first).CopyTo(pcm);
@@ -140,6 +147,7 @@ internal sealed class PcmBuffer
         {
             count = 0;
             start = 0;
+            playing = false;
         }
     }
 

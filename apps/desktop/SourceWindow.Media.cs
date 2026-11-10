@@ -51,7 +51,7 @@ internal partial class SourceWindow
         if (playback is null)
             return;
         if (approved.HasValue && approved == mediaId && Publish.IsChecked == true)
-            playback.Audio.Read(buffer);
+            playback.Audio.Read(buffer, paced: true);
         else
             playback.Audio.Clear();
     }

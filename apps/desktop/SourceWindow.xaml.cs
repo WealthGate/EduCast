@@ -90,6 +90,7 @@ internal partial class SourceWindow : Window
     }
 
     private void SelectBrowser(object sender, RoutedEventArgs args) => ShowBrowser();
+    private void OpenLiveBroadcast(object sender, RoutedEventArgs args) => teacher.ShowLiveBroadcast();
     private void ReturnToBoard(object sender, RoutedEventArgs args) => teacher.ReturnToBoard();
     private void SelectWindow(object sender, RoutedEventArgs args) => ChooseWindow();
     private void TakePreview(object sender, RoutedEventArgs args) => teacher.SourceTake();

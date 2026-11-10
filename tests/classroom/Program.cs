@@ -409,10 +409,13 @@ internal static partial class Checks
             [dshow @ 0x1] "Microphone" (audio)
             [dshow @ 0x1]   Alternative name "@device_sw_mic"
             """;
-        var devices = FfmpegMedia.ParseDevices(listing);
-        Assert(devices.Cameras.Count == 2 && devices.Cameras[0].Id == "@device_sw_usb" &&
-            devices.Cameras[1].Name == "Integrated Camera");
-        Assert(devices.Microphones.SequenceEqual([new MicrophoneDevice("Microphone", "@device_sw_mic")]));
+        foreach (var input in new[] { listing, listing.Replace("dshow @", "in#0 @", StringComparison.Ordinal) })
+        {
+            var devices = FfmpegMedia.ParseDevices(input);
+            Assert(devices.Cameras.Count == 2 && devices.Cameras[0].Id == "@device_sw_usb" &&
+                devices.Cameras[1].Name == "Integrated Camera");
+            Assert(devices.Microphones.SequenceEqual([new MicrophoneDevice("Microphone", "@device_sw_mic")]));
+        }
     }
 
     private static void MathGeometry()

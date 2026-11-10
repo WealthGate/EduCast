@@ -90,7 +90,7 @@ internal static partial class FfmpegMedia
     }
 
     [GeneratedRegex("""
-        \[dshow [^\r\n]+\] "(?<name>.+)" \((?<kind>video|audio|none)\)\r?\n\[dshow [^\r\n]+\]\s+Alternative name "(?<id>.+)"
+        \[(?<prefix>(?:dshow|in\#\d+) [^\r\n]+)\] "(?<name>.+)" \((?<kind>video|audio|none)\)\r?\n\[\k<prefix>\]\s+Alternative name "(?<id>.+)"
         """)]
     private static partial Regex DeviceLine();
 }

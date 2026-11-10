@@ -87,7 +87,8 @@ internal sealed class ProgramBroadcast
         try
         {
             using var mic = FfmpegMedia.Start(executable, ["-hide_banner", "-loglevel", "error", "-nostdin",
-                .. input, "-map", "0:a:0", "-vn", "-ac", "2", "-ar", "48000", "-f", "s16le", "pipe:1"], output: true);
+                .. input, "-map", "0:a:0", "-vn", "-ac", "2", "-ar", "48000",
+                "-flush_packets", "1", "-f", "s16le", "pipe:1"], output: true);
             using var terminate = cancel.Register(() => FfmpegMedia.Stop(mic));
             var errors = mic.StandardError.BaseStream.CopyToAsync(Stream.Null, cancel);
             try
@@ -160,10 +161,7 @@ internal sealed class ProgramBroadcast
         await input.WriteAsync(StreamFrames.Header(Profile.Width, Profile.Height), cancel).ConfigureAwait(false);
         var media = new byte[StreamFrames.AudioBytes];
         var mic = new byte[media.Length];
-        var silence = new byte[media.Length];
         var header = new byte[8];
-        var clock = Stopwatch.StartNew();
-        var sent = 0L;
         using var ticks = new PeriodicTimer(TimeSpan.FromSeconds(1d / StreamFrames.Fps));
         do
         {
@@ -171,19 +169,13 @@ internal sealed class ProgramBroadcast
             var (frame, allowMic) = await capture(media, cancel).ConfigureAwait(false);
             if (frame.Length != Profile.Width * Profile.Height * 4)
                 throw new IOException("Program supplied an invalid video frame.");
-            micPcm.Read(mic);
+            micPcm.Read(mic, paced: true);
             if (allowMic && !MicMuted)
                 PcmBuffer.Mix(media, mic);
-            var due = (long)(clock.Elapsed.TotalSeconds * StreamFrames.Fps) + 1;
-            if (due - sent > StreamFrames.Fps * 2)
-                throw new IOException("The streaming encoder fell more than two seconds behind.");
             using var stalled = CancellationTokenSource.CreateLinkedTokenSource(cancel);
             stalled.CancelAfter(TimeSpan.FromSeconds(8));
             using var terminate = stalled.Token.Register(() => FfmpegMedia.Stop(encoder));
-            for (; sent < due - 1; sent++)
-                await StreamFrames.WriteAsync(input, frame, silence, header, stalled.Token).ConfigureAwait(false);
             await StreamFrames.WriteAsync(input, frame, media, header, stalled.Token).ConfigureAwait(false);
-            sent++;
         }
         while (await ticks.WaitForNextTickAsync(cancel).ConfigureAwait(false));
     }

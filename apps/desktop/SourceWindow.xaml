@@ -11,6 +11,7 @@
                 ToolTip="Return to the writing board and keep this source and its annotations (Ctrl+Shift+B)"/>
             <Button Content="Browser" Click="SelectBrowser"/>
             <Button Content="Media file…" Click="SelectMediaFile"/>
+            <Button Content="Live stream…" Click="OpenLiveBroadcast"/>
             <Button Content="Capture window…" Click="SelectWindow"/>
             <CheckBox x:Name="Publish" Content="Show on Program" IsEnabled="False" Click="ChangePublication"
                 Margin="6,7,12,5" ToolTip="Approve this source for the student output. In manual mode, use Take preview."/>
