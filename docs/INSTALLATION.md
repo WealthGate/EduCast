@@ -8,6 +8,8 @@
 4. For portable use, extract the entire matching ZIP and run `EduCast.Studio.exe` from that folder.
 5. Choose **Sample lesson** and follow the [classroom setup](CLASSROOM_DISPLAY.md).
 
+The teaching browser uses the Microsoft Edge WebView2 Evergreen Runtime. If EduCast prompts for it, install the x64 runtime and reopen the browser. [Microsoft WebView2 downloads](https://developer.microsoft.com/microsoft-edge/webview2/#download-section)
+
 Uninstall through **Settings → Apps → Installed apps**. Keep your lesson files in a separate working folder. Back up the editable `.educast` files through your usual local backup process. Reopen a backup through **Open…**. A Program PNG is suitable for clean sharing, while an editable lesson includes its teacher notes and all objects.
 
 For upgrades and notifications, see [Releases and update notifications](RELEASES.md).

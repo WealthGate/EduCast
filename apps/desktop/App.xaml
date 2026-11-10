@@ -15,6 +15,12 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        <Geometry x:Key="RoundPenIcon">M4,17 L15,6 Q17,4 19,6 Q21,8 19,10 L8,21 Z M4,17 L8,21 M4,17 L2,23 L8,21</Geometry>
+        <Geometry x:Key="SquarePenIcon">M4,17 L16,5 L21,10 L9,22 L3,23 Z M4,17 L9,22 M13,8 L18,13</Geometry>
+        <Geometry x:Key="HighlighterIcon">M3,17 L14,6 L21,13 L10,24 Z M3,17 L2,21 L6,22 M6,16 L11,21</Geometry>
+        <Geometry x:Key="EraserIcon">M3,16 L13,6 Q15,4 17,6 L21,10 Q23,12 21,14 L12,23 L9,23 Z M8,11 L17,20 M12,23 L22,23</Geometry>
+        <Geometry x:Key="ArrowIcon">M3,21 L21,3 M11,3 L21,3 L21,13</Geometry>
+        <Geometry x:Key="PointerIcon">M4,3 L8,21 L12,14 L20,12 Z M12,14 L18,22</Geometry>
         <Style TargetType="Button">
             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
             <Setter Property="Background" Value="#243248"/>
@@ -131,6 +137,18 @@
                             </Setter.Value>
                         </Setter>
                     </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="IconTool" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <Path Data="{Binding}" Width="18" Height="18" Stretch="Uniform" StrokeThickness="1.7"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </DataTemplate>
                 </Setter.Value>
             </Setter>
         </Style>

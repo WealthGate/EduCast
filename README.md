@@ -6,6 +6,8 @@ Open **Studio & clock…** for an analog or digital classroom clock, stopwatch, 
 
 Open **Math instruments…** to put an interactive ruler, compass, protractor, set square, quadratic French curve, or calculator on the board. Select **Show on Program** when you want students to see the tool.
 
+Open **Browser…** for web links and interactive HTML lessons, or choose **Capture window…** to preview another Windows app. Both support pen, highlighter, arrow, and pointer annotations before or during sharing. [Teaching sources](docs/STUDIO.md#teach-from-a-web-page-file-or-app-window)
+
 Get the installer or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). The teacher workspace checks for updates and can install newer versions when you click **Update**. For new-version notifications, choose **Watch → Custom → Releases** on GitHub.
 
 ## Start teaching
@@ -29,7 +31,7 @@ The test executable returns a nonzero exit code if any check fails. Pass `-- --c
 
 - [Installation and build](docs/INSTALLATION.md)
 - [Teacher guide and classroom hardware checklist](docs/CLASSROOM_DISPLAY.md)
-- [Cameras, classroom clock, and recording](docs/STUDIO.md)
+- [Teaching sources, cameras, classroom clock, and recording](docs/STUDIO.md)
 - [On-board math instruments](docs/MATH_INSTRUMENTS.md)
 - [Architecture and milestone roadmap](docs/ARCHITECTURE.md)
 - [Scope and outstanding requirements](docs/REQUIREMENTS.md)

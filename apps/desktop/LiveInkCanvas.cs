@@ -5,6 +5,7 @@ using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Threading;
 using EduCast.Classroom;
+using ItemVisibility = EduCast.Classroom.Visibility;
 
 namespace EduCast.Studio;
 
@@ -111,6 +112,16 @@ internal sealed class LiveInkCanvas : InkCanvas
                 return ToBoardPoint(point.X, point.Y, point.PressureFactor);
             })
         };
+    }
+
+    internal static Ink Describe(DrawingAttributes attributes, ItemVisibility visibility = ItemVisibility.Both, bool answer = false)
+    {
+        var color = attributes.Color;
+        var argb = (uint)(color.A << 24 | color.R << 16 | color.G << 8 | color.B);
+        var tip = attributes.StylusTip == StylusTip.Ellipse ? InkTip.Round :
+            attributes.IsHighlighter ? InkTip.Chisel : InkTip.Square;
+        return new Ink(Guid.NewGuid(), visibility, answer, argb,
+            attributes.Width, attributes.FitToCurve, attributes.IsHighlighter, [], tip);
     }
 
     internal void CancelStroke()

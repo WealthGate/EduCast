@@ -67,11 +67,20 @@
                 <Border Background="{StaticResource Panel}" Padding="10,8,5,3" CornerRadius="9" Margin="0,0,0,8">
                     <StackPanel>
                         <WrapPanel>
-                            <Button x:Name="PenButton" Content="Pen" Click="ChooseTool" Tag="Pen" ToolTip="Write with pressure-sensitive vector ink"/>
-                            <Button x:Name="MarkerButton" Content="Highlighter" Click="ChooseTool" Tag="Highlighter"/>
-                            <Button x:Name="EraseButton" Content="Eraser" Click="ChooseTool" Tag="Eraser" ToolTip="Click or drag across whole objects"/>
+                            <Button x:Name="PenButton" Style="{StaticResource IconTool}" Content="{StaticResource RoundPenIcon}"
+                                Click="ChooseTool" Tag="Pen" ToolTip="Round pen" AutomationProperties.Name="Round pen"/>
+                            <Button x:Name="SquarePenButton" Style="{StaticResource IconTool}" Content="{StaticResource SquarePenIcon}"
+                                Click="ChooseTool" Tag="SquarePen" ToolTip="Square pen" AutomationProperties.Name="Square pen"/>
+                            <Button x:Name="MarkerButton" Style="{StaticResource IconTool}" Content="{StaticResource HighlighterIcon}"
+                                Click="ChooseTool" Tag="Highlighter" ToolTip="Chisel highlighter" AutomationProperties.Name="Chisel highlighter"/>
+                            <Button x:Name="EraseButton" Style="{StaticResource IconTool}" Content="{StaticResource EraserIcon}"
+                                Click="ChooseTool" Tag="Eraser" ToolTip="Erase whole objects" AutomationProperties.Name="Eraser"/>
+                            <Button x:Name="ArrowButton" Style="{StaticResource IconTool}" Content="{StaticResource ArrowIcon}"
+                                Click="ChooseTool" Tag="Arrow" ToolTip="Draw an arrow" AutomationProperties.Name="Draw arrow"/>
+                            <Button x:Name="PointerButton" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}"
+                                Click="ChooseTool" Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
                             <Button x:Name="SelectButton" Content="Select" Click="ChooseTool" Tag="Select"
-                                ToolTip="Click to select or drag to reposition a board object"/>
+                                ToolTip="Drag an object to move it, or drag an edge or corner to resize"/>
                             <Button x:Name="LineButton" Content="Ruler line" Click="ChooseTool" Tag="Line" ToolTip="Drag endpoints. Hold Shift for 15° snapping."/>
                             <Button x:Name="CircleButton" Content="Compass circle" Click="ChooseTool" Tag="Circle" ToolTip="Drag from the center to set a radius"/>
                             <Button x:Name="ArcButton" Content="Compass arc" Click="ChooseTool" Tag="Arc" ToolTip="Drag from the center to set radius and start. Then move and click the end."/>
@@ -136,7 +145,7 @@
                             <Viewbox Stretch="Uniform">
                                 <Grid x:Name="BoardInput" Width="1280" Height="720" ClipToBounds="True"
                                     PreviewMouseLeftButtonDown="BoardDown" PreviewMouseMove="BoardMove"
-                                    PreviewMouseLeftButtonUp="BoardUp" LostMouseCapture="BoardCaptureLost">
+                                    PreviewMouseLeftButtonUp="BoardUp" LostMouseCapture="BoardCaptureLost" MouseLeave="BoardLeave">
                                     <studio:BoardSurface x:Name="TeacherBoard"/>
                                     <studio:LiveInkCanvas x:Name="DrawingInput" Background="Transparent" StrokeCollected="CollectInk"/>
                                     <studio:TeacherInstrumentSurface x:Name="TeacherInstrument"/>
@@ -190,6 +199,10 @@
                         <WrapPanel>
                             <Button x:Name="StudioButton" Content="Studio &amp; clock…" Click="OpenStudio"/>
                             <Button x:Name="RecordingButton" Content="Record…" Click="RecordingAction"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <Button x:Name="BrowserButton" Content="Browser…" Click="OpenBrowser" ToolTip="Open a link or an interactive lesson file"/>
+                            <Button x:Name="WindowCaptureButton" Content="Capture window…" Click="OpenWindowCapture" ToolTip="Preview an open app window for the class"/>
                         </WrapPanel>
                         <WrapPanel>
                             <CheckBox x:Name="LiveMode" Content="Live updates" IsChecked="True" Click="SetLive" Margin="0,7,9,4"/>

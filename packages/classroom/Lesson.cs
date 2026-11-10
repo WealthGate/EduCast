@@ -5,8 +5,14 @@ namespace EduCast.Classroom;
 
 public enum Visibility { Both, TeacherOnly, StudentOnly, Hidden }
 public enum BoardPaper { Plain, Grid, Dots, Ruled, Dark }
-public enum ShapeKind { Line, Rectangle, Circle, Arc }
+public enum ShapeKind { Line, Rectangle, Circle, Arc, Arrow }
+public enum InkTip { Round, Square, Chisel }
 public readonly record struct BoardPoint(double X, double Y, float Pressure = 0.5f);
+public sealed record ObjectPlacement(double Scale, double X, double Y)
+{
+    public const double MinimumScale = .05;
+    public const double MaximumScale = 16;
+}
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Ink), "ink")]
@@ -14,10 +20,15 @@ public readonly record struct BoardPoint(double X, double Y, float Pressure = 0.
 [JsonDerivedType(typeof(Equation), "equation")]
 [JsonDerivedType(typeof(BoardText), "text")]
 [JsonDerivedType(typeof(Graph), "graph")]
-public abstract record Content(Guid Id, Visibility Visibility, bool IsAnswer, uint Argb);
+public abstract record Content(Guid Id, Visibility Visibility, bool IsAnswer, uint Argb)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ObjectPlacement? Placement { get; init; }
+}
 
 public sealed record Ink(Guid Id, Visibility Visibility, bool IsAnswer, uint Argb,
-    double Width, bool Smooth, bool Highlighter, ImmutableArray<BoardPoint> Points)
+    double Width, bool Smooth, bool Highlighter, ImmutableArray<BoardPoint> Points,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] InkTip Tip = InkTip.Round)
     : Content(Id, Visibility, IsAnswer, Argb);
 
 public sealed record Shape(Guid Id, Visibility Visibility, bool IsAnswer, uint Argb,

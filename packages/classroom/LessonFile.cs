@@ -56,15 +56,19 @@ public static class LessonFile
             foreach (var item in page.Items)
             {
                 if (item is null || item.Id == Guid.Empty || !ids.Add(item.Id) ||
-                    !Enum.IsDefined(item.Visibility) || !ValidContent(item))
+                    !Enum.IsDefined(item.Visibility) || !ValidPlacement(item.Placement) || !ValidContent(item))
                     throw new InvalidDataException("The lesson contains an invalid board object.");
             }
         }
     }
 
+    private static bool ValidPlacement(ObjectPlacement? placement) => placement is null ||
+        Range(placement.Scale, ObjectPlacement.MinimumScale, ObjectPlacement.MaximumScale) &&
+        Range(placement.X, -10_000_000, 10_000_000) && Range(placement.Y, -10_000_000, 10_000_000);
+
     private static bool ValidContent(Content content) => content switch
     {
-        Ink ink => Range(ink.Width, 1, 60) && !ink.Points.IsDefaultOrEmpty &&
+        Ink ink => Enum.IsDefined(ink.Tip) && Range(ink.Width, 1, 60) && !ink.Points.IsDefaultOrEmpty &&
             ink.Points.Length <= 30000 && ink.Points.All(Point),
         Shape shape => Enum.IsDefined(shape.ShapeKind) && Range(shape.Width, 1, 60) &&
             Point(shape.Start) && Point(shape.End) && Range(shape.Sweep, -360, 360),

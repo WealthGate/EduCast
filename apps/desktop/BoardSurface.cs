@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using EduCast.Classroom;
 using ItemVisibility = EduCast.Classroom.Visibility;
+using Matrix = System.Windows.Media.Matrix;
 
 namespace EduCast.Studio;
 
@@ -63,37 +64,32 @@ internal sealed class BoardSurface : FrameworkElement
         dc.Pop();
     }
 
-    public void Mark(Content? selected, Shape? ghost = null)
+    public void Mark(Content? selected, Shape? ghost = null, double handleUnit = 1)
     {
         using var dc = overlay.RenderOpen();
         dc.PushClip(new RectangleGeometry(Bounds));
         if (ghost is not null)
             dc.DrawDrawing(For(ghost));
         if (selected is not null)
-            MarkBounds(dc, For(selected).Bounds);
+            BoardSelection.Draw(dc, BoundsOf(selected), handleUnit);
         dc.Pop();
     }
 
-    public void MarkMoving(Content item, Vector offset)
+    public void MarkManipulation(Content item, Matrix transform, double handleUnit = 1)
     {
-        var drawing = For(item);
-        var constrained = ConstrainMove(drawing.Bounds, offset);
         using var dc = overlay.RenderOpen();
         dc.PushClip(new RectangleGeometry(Bounds));
-        dc.PushTransform(new TranslateTransform(constrained.X, constrained.Y));
-        dc.DrawDrawing(drawing);
-        MarkBounds(dc, drawing.Bounds);
-        dc.Pop();
+        DrawManipulation(dc, item, transform, handleUnit);
         dc.Pop();
     }
 
-    private static void MarkBounds(DrawingContext dc, Rect bounds)
+    internal static void DrawManipulation(DrawingContext dc, Content item, Matrix transform, double handleUnit)
     {
-        if (bounds.IsEmpty)
-            return;
-        bounds.Inflate(6, 6);
-        var pen = new Pen(Brushes.DodgerBlue, 2) { DashStyle = DashStyles.Dash };
-        dc.DrawRectangle(null, pen, bounds);
+        var drawing = For(item);
+        dc.PushTransform(new MatrixTransform(transform));
+        dc.DrawDrawing(drawing);
+        dc.Pop();
+        BoardSelection.Draw(dc, Rect.Transform(drawing.Bounds, transform), handleUnit);
     }
 
     public void PresentInk(ProgramInk? ink)
@@ -106,14 +102,19 @@ internal sealed class BoardSurface : FrameworkElement
         dc.Pop();
     }
 
-    public static Content? Hit(Page page, Point point) => page.Items.Reverse()
+    public static Content? Hit(Page page, Point point) => Hit(page.Items, point);
+
+    internal static Content? Hit(IEnumerable<Content> items, Point point) => items.Reverse()
         .Where(item => item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly)
         .FirstOrDefault(item =>
         {
+            var scale = item.Placement?.Scale ?? 1;
+            var local = item.Placement is { } placement
+                ? new Point((point.X - placement.X) / scale, (point.Y - placement.Y) / scale) : point;
             if (item is Ink ink)
-                return ToStroke(ink).HitTest(point, 14);
+                return ToStroke(ink).HitTest(local, 14 / scale);
             if (item is Shape shape)
-                return ShapeGeometry(shape).StrokeContains(new Pen(Brushes.Black, shape.Width + 14), point);
+                return ShapeGeometry(shape).StrokeContains(new Pen(Brushes.Black, shape.Width + 14 / scale), local);
             var bounds = For(item).Bounds;
             bounds.Inflate(7, 7);
             return bounds.Contains(point);
@@ -124,6 +125,8 @@ internal sealed class BoardSurface : FrameworkElement
         var constrained = ConstrainMove(For(item).Bounds, offset);
         if (constrained.X == 0 && constrained.Y == 0)
             return item;
+        if (item.Placement is { } placement)
+            return item with { Placement = placement with { X = placement.X + constrained.X, Y = placement.Y + constrained.Y } };
 
         BoardPoint Shift(BoardPoint point) => point with { X = point.X + constrained.X, Y = point.Y + constrained.Y };
         return item switch
@@ -137,22 +140,26 @@ internal sealed class BoardSurface : FrameworkElement
         };
     }
 
-    private static Vector ConstrainMove(Rect drawingBounds, Vector offset) => drawingBounds.IsEmpty
+    internal static Rect BoundsOf(Content item) => For(item).Bounds;
+
+    internal static Vector ConstrainMove(Rect drawingBounds, Vector offset) => drawingBounds.IsEmpty
         ? new Vector()
         : new Vector(
             Math.Clamp(offset.X, Math.Min(0, -drawingBounds.Left), Math.Max(0, BoardWidth - drawingBounds.Right)),
             Math.Clamp(offset.Y, Math.Min(0, -drawingBounds.Top), Math.Max(0, BoardHeight - drawingBounds.Bottom)));
 
-    public static DrawingAttributes InkAttributes(uint color, double width, bool smooth, bool marker) => new()
+    public static DrawingAttributes InkAttributes(uint color, double width, bool smooth, bool marker,
+        InkTip tip = InkTip.Round) => new()
     {
-        Color = ColorFrom(color), Width = width, Height = width,
+        Color = ColorFrom(color), Width = width, Height = tip == InkTip.Chisel ? width / 2.5 : width,
+        StylusTip = tip == InkTip.Round ? StylusTip.Ellipse : StylusTip.Rectangle,
         FitToCurve = smooth, IsHighlighter = marker
     };
 
     private static Stroke ToStroke(Ink ink)
     {
         var points = new StylusPointCollection(ink.Points.Select(p => new StylusPoint(p.X, p.Y, p.Pressure)));
-        return new Stroke(points, InkAttributes(ink.Argb, ink.Width, ink.Smooth, ink.Highlighter));
+        return new Stroke(points, InkAttributes(ink.Argb, ink.Width, ink.Smooth, ink.Highlighter, ink.Tip));
     }
 
     private static Color ColorFrom(uint argb) => Color.FromArgb(
@@ -163,6 +170,12 @@ internal sealed class BoardSurface : FrameworkElement
     private static DrawingGroup For(Content content) => Drawings.GetValue(content, MakeDrawing);
 
     internal static void DrawInk(DrawingContext dc, Ink ink) => dc.DrawDrawing(For(ink));
+
+    internal static void DrawItems(DrawingContext dc, IEnumerable<Content> items)
+    {
+        foreach (var item in items)
+            dc.DrawDrawing(For(item));
+    }
 
     private static DrawingGroup MakeDrawing(Content item)
     {
@@ -205,6 +218,8 @@ internal sealed class BoardSurface : FrameworkElement
                     break;
             }
         }
+        if (item.Placement is { } placement)
+            drawing.Transform = new MatrixTransform(placement.Scale, 0, 0, placement.Scale, placement.X, placement.Y);
         drawing.Freeze();
         return drawing;
     }
@@ -217,12 +232,47 @@ internal sealed class BoardSurface : FrameworkElement
         return shape.ShapeKind switch
         {
             ShapeKind.Line => new LineGeometry(a, b),
+            ShapeKind.Arrow => ArrowGeometry(a, b, Math.Max(14, shape.Width * 3)),
             ShapeKind.Rectangle => new RectangleGeometry(new Rect(a, b)),
             ShapeKind.Circle => new EllipseGeometry(a, radius, radius),
             ShapeKind.Arc when Math.Abs(shape.Sweep) >= 359.999 => new EllipseGeometry(a, radius, radius),
             ShapeKind.Arc => ArcGeometry(a, b, radius, shape.Sweep),
             _ => Geometry.Empty
         };
+    }
+
+    private static Geometry ArrowGeometry(Point start, Point end, double headLength)
+    {
+        var delta = end - start;
+        var length = delta.Length;
+        if (length < .01)
+            return Geometry.Empty;
+        var back = delta * (Math.Min(length * .65, headLength) / length);
+        var side = new Vector(-back.Y, back.X) * .55;
+        var arrow = new StreamGeometry();
+        using (var geometry = arrow.Open())
+        {
+            geometry.BeginFigure(start, false, false);
+            geometry.LineTo(end, true, false);
+            geometry.BeginFigure(end - back + side, false, false);
+            geometry.LineTo(end, true, false);
+            geometry.LineTo(end - back - side, true, false);
+        }
+        return arrow;
+    }
+
+    internal static void DrawPointer(DrawingContext dc, Point point)
+    {
+        var arrow = ArrowGeometry(point + new Vector(33, 38), point, 20);
+        dc.DrawGeometry(null, new Pen(Brushes.Black, 9), arrow);
+        dc.DrawGeometry(null, new Pen(Brushes.Gold, 5), arrow);
+    }
+
+    public void MarkPointer(Point? point)
+    {
+        using var dc = overlay.RenderOpen();
+        if (point is { } position)
+            DrawPointer(dc, position);
     }
 
     private static Geometry ArcGeometry(Point center, Point start, double radius, double sweep)

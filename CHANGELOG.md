@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- Preview an open Windows app and share the selected window with the class.
+- Open web links and local HTML lessons, SVGs, and PDFs in EduCast’s browser. Interactive lessons retain their JavaScript controls.
+- Annotate browser pages and captured windows with icon buttons for round pen, square pen, chisel highlighter, eraser, and arrows. Use the arrow pointer to indicate a spot without leaving a mark. The board also has pen tip, arrow, and pointer tools.
+- Drag board objects and source annotations to move them. Drag an edge or corner to resize ink, shapes, arrows, text, equations, and graphs proportionally.
+
 ## 0.7.0
 
 - Added optional microphone audio to clean Program MP4 recordings. Select an input in Studio before each take. Video-only recording is the default.

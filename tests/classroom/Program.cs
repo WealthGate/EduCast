@@ -18,13 +18,15 @@ using EduCast.Studio;
 using Page = EduCast.Classroom.Page;
 using Visibility = EduCast.Classroom.Visibility;
 
-internal static class Checks
+internal static partial class Checks
 {
     private const uint InkColor = 0xff172c39;
 
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args is ["--capture-fixture", var title])
+            return CaptureFixture(title);
         (string, Action)[] tests =
         [
             ("Program projection filters private, hidden and unrevealed objects", Projection),
@@ -45,7 +47,10 @@ internal static class Checks
             ("DirectShow enumeration separates cameras and microphones", DeviceListing),
             ("WPF teacher window, progressive ink and separate clean output", () => Desktop(args)),
             ("WPF selection overlay and committed move preserve object identity and pressure", SelectionMove),
+            ("WPF edge and corner drags resize board objects while preserving their content", SelectionResize),
             ("WPF Program PNG encodes visible content and excludes private objects", Snapshot),
+            ("Teaching browser accepts web addresses and supported lesson files", TeachingAddresses),
+            ("WPF source composition renders arrows, pen marks and a transient pointer", SourceComposition),
             ("WPF clean Program camera and clock composition rasterizes at UHD", StudioComposition),
             ("WPF optional FFmpeg capture and 720p/1080p/UHD recording smoke test", MediaSmoke)
         ];
@@ -190,18 +195,26 @@ internal static class Checks
                 [new(10, 10, .2f), new(30, 30, .7f)]),
             new Shape(Guid.NewGuid(), Visibility.Both, false, InkColor, 4, ShapeKind.Arc, new(20, 20), new(30, 30), 90),
             new Equation(Guid.NewGuid(), Visibility.Both, true, InkColor, new(35, 35), 42, "sqrt(x^2+y^2)"),
-            new Graph(Guid.NewGuid(), Visibility.StudentOnly, false, InkColor, new(40, 40), "y=x^2-4x+3")
+            new Graph(Guid.NewGuid(), Visibility.StudentOnly, false, InkColor, new(40, 40), "y=x^2-4x+3"),
+            new Ink(Guid.NewGuid(), Visibility.Both, false, InkColor, 4, true, false, [new(20, 20)], InkTip.Square),
+            new Shape(Guid.NewGuid(), Visibility.Both, false, InkColor, 4, ShapeKind.Arrow, new(20, 20), new(30, 30))
+            {
+                Placement = new ObjectPlacement(1.75, -18, -22)
+            }
         ]);
         var lesson = new Lesson(1, "Round trip", [page, Page.Empty()]);
         var file = Path.Combine(directory, "test.educast");
         LessonFile.Save(file, lesson);
         var reopened = LessonFile.Load(file);
         Assert(reopened.Title == lesson.Title && reopened.Pages.Length == 2 && reopened.Pages[0].Notes == page.Notes);
-        Assert(reopened.Pages[0].Items[1] is Ink { Points.Length: 2 } ink && ink.Points[1].Pressure == .7f);
+        Assert(reopened.Pages[0].Items[1] is Ink { Points.Length: 2, Tip: InkTip.Round } ink && ink.Points[1].Pressure == .7f);
         Assert(reopened.Pages[0].Items[2] is Shape { Sweep: 90 });
         Assert(reopened.Pages[0].Items[3] is Equation { IsAnswer: true });
         Assert(reopened.Pages[0].Items[4] is Graph { Visibility: Visibility.StudentOnly });
-        Assert(ProgramFrame.From(reopened.Pages[0]).Items.Length == 3);
+        Assert(reopened.Pages[0].Items[5] is Ink { Tip: InkTip.Square });
+        Assert(reopened.Pages[0].Items[6] is Shape { ShapeKind: ShapeKind.Arrow, Placement: { Scale: 1.75, X: -18, Y: -22 } });
+        Assert(reopened.Pages[0].Items[0].Placement is null);
+        Assert(ProgramFrame.From(reopened.Pages[0]).Items.Length == 5);
         LessonFile.Save(file, reopened with { Title = "Revised" });
         Assert(LessonFile.Load(file).Title == "Revised");
         var before = File.ReadAllBytes(file);
@@ -543,6 +556,9 @@ internal static class Checks
         Click(teacher, "SampleButton");
         Pump();
         Assert(Find<TextBox>(teacher, "Notes").Text.Contains("CSEC", StringComparison.Ordinal));
+        var sources = Array.IndexOf(args, "--teaching-sources");
+        if (sources >= 0 && sources + 1 < args.Length)
+            TeachingSources(app, teacher, program, args[sources + 1]);
         var capture = Array.IndexOf(args, "--capture");
         if (capture >= 0 && capture + 1 < args.Length)
         {
@@ -729,7 +745,8 @@ internal static class Checks
         session.ChangePage(session.Page with { Items = [ink] });
         var teacher = new BoardSurface();
         teacher.Edit(session.Page with { Items = [] });
-        teacher.MarkMoving(ink, new Vector(200, 100));
+        var drag = BoardSelection.Begin([ink], null, new Point(120, 100), 1)!;
+        teacher.MarkManipulation(ink, drag.Preview(new Point(320, 200)));
         var student = new BoardSurface();
         student.Present(session.Output);
         var size = new Size(BoardSurface.BoardWidth, BoardSurface.BoardHeight);
@@ -743,7 +760,7 @@ internal static class Checks
         Assert(Pixel(student, 320, 200).SequenceEqual(paper), "drag preview reached Program");
         Assert(!Pixel(student, 120, 100).SequenceEqual(paper));
 
-        var moved = (Ink)BoardSurface.Move(ink, new Vector(200, 100));
+        var moved = (Ink)drag.Commit(new Point(320, 200));
         Assert(moved.Id == ink.Id && moved.Points[0] == new BoardPoint(300, 200, .2f));
         Assert(moved.Points[1] == new BoardPoint(340, 200, .8f));
         Assert(ReferenceEquals(BoardSurface.Move(ink, new Vector()), ink));

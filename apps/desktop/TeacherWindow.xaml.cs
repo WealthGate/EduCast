@@ -20,7 +20,7 @@ namespace EduCast.Studio;
 
 public partial class TeacherWindow : Window
 {
-    private enum Tool { Pen, Highlighter, Eraser, Select, Line, Circle, Arc, Rectangle, Place, Instrument }
+    private enum Tool { Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer, Select, Line, Circle, Arc, Rectangle, Place, Instrument }
     private sealed record ColorChoice(string Name, uint Argb);
     private sealed record OutputChoice(Display? Display)
     {
@@ -65,7 +65,8 @@ public partial class TeacherWindow : Window
     private Tool toolBeforePlacement;
     private (InsertKind Kind, string Source)? placement;
     private Point? anchor;
-    private bool movingSelection;
+    private BoardSelection? selectionDrag;
+    private bool selectionPreview;
     private Shape? pendingArc;
     private HashSet<Guid>? erasing;
     private Point? previousErase;
@@ -164,12 +165,18 @@ public partial class TeacherWindow : Window
             updateLifetime.Cancel();
             updateLifetime.Dispose();
             DrawingInput.CancelStroke();
+            sourceWindow?.Close();
             output?.Close();
         };
     }
 
     private BoardItem? Selected => selectedId is Guid id
         ? session.Page.Items.FirstOrDefault(item => item.Id == id) : null;
+
+    private BoardItem? VisibleSelection => Selected is { Visibility: ItemVisibility.Both or ItemVisibility.TeacherOnly } item
+        ? item : null;
+
+    private double SelectionUnit => BoardSelection.Unit(BoardSlot.Width);
 
     private uint InkColor
     {
@@ -301,8 +308,7 @@ public partial class TeacherWindow : Window
             renderedPage = session.Page;
         }
         var item = Selected;
-        var visibleSelection = item is { Visibility: ItemVisibility.Both or ItemVisibility.TeacherOnly };
-        TeacherBoard.Mark(visibleSelection ? item : null);
+        TeacherBoard.Mark(VisibleSelection, handleUnit: SelectionUnit);
         if (selectedId is not null && item is null)
             selectedId = null;
 
@@ -372,6 +378,7 @@ public partial class TeacherWindow : Window
         RefreshStudioLayers();
         ProgramState.Text = session.Blackout ? "BLACKOUT" : session.Frozen ? "FROZEN" :
             session.Live ? "LIVE UPDATES" : "MANUAL TAKE";
+        sourceWindow?.DisplayProgramState(ProgramState.Text, session.Frozen, session.Blackout);
         LiveMode.IsChecked = session.Live;
         FreezeButton.Content = session.Frozen ? "Resume" : "Freeze";
         BlackButton.Content = session.Blackout ? "Restore" : "Blackout";
@@ -511,8 +518,15 @@ public partial class TeacherWindow : Window
 
     private void OpenLesson(object sender, RoutedEventArgs args)
     {
-        var dialog = new OpenFileDialog { Filter = "EduCast lesson (*.educast)|*.educast", CheckFileExists = true };
-        if (dialog.ShowDialog(this) != true || !ConfirmDiscard())
+        var dialog = new OpenFileDialog { Filter = $"EduCast lesson (*.educast)|*.educast|{BrowserLesson.FileFilter}", CheckFileExists = true };
+        if (dialog.ShowDialog(this) != true)
+            return;
+        if (dialog.FilterIndex == 2 || BrowserLesson.IsSupportedFile(dialog.FileName))
+        {
+            ShowSourceWindow().OpenFile(dialog.FileName);
+            return;
+        }
+        if (!ConfirmDiscard())
             return;
         try { Load(LessonFile.Load(dialog.FileName), dialog.FileName); }
         catch (Exception error) when (FileError(error)) { ShowFileError(error); }
@@ -522,6 +536,7 @@ public partial class TeacherWindow : Window
     {
         StopOutput(this, new RoutedEventArgs());
         studio?.Unpublish();
+        sourceWindow?.Close();
         CloseMathTools();
         frozenLayers = null;
         CancelGesture();
@@ -602,7 +617,10 @@ public partial class TeacherWindow : Window
     {
         if (!ready || updating)
             return;
+        CancelGesture();
         selectedId = (Objects.SelectedItem as ObjectChoice)?.Id;
+        if (VisibleSelection is not null && tool != Tool.Select)
+            SetTool(Tool.Select);
         Refresh();
     }
 
@@ -709,7 +727,7 @@ public partial class TeacherWindow : Window
     {
         var choice = Enum.Parse<Tool>((string)((Button)sender).Tag);
         CancelGesture();
-        if (Selected is not null)
+        if (choice != Tool.Select)
             ClearSelection();
         SetTool(choice);
         Refresh();
@@ -718,18 +736,23 @@ public partial class TeacherWindow : Window
     private void SetTool(Tool choice)
     {
         tool = choice;
-        DrawingInput.EditingMode = choice is Tool.Pen or Tool.Highlighter ? InkCanvasEditingMode.Ink : InkCanvasEditingMode.None;
+        DrawingInput.EditingMode = choice is Tool.Pen or Tool.SquarePen or Tool.Highlighter
+            ? InkCanvasEditingMode.Ink : InkCanvasEditingMode.None;
         DrawingInput.EditingModeInverted = DrawingInput.EditingMode;
         DrawingInput.UseCustomCursor = true;
         DrawingInput.Cursor = choice == Tool.Select ? Cursors.Arrow : Cursors.Cross;
-        foreach (var button in new[] { PenButton, MarkerButton, EraseButton, SelectButton, LineButton, CircleButton, ArcButton, RectButton })
+        foreach (var button in new[] { PenButton, SquarePenButton, MarkerButton, EraseButton, ArrowButton, PointerButton,
+            SelectButton, LineButton, CircleButton, ArcButton, RectButton })
             button.Background = (Brush)FindResource((string)button.Tag == choice.ToString() ? "AccentDark" : "Panel");
         ToolHint.Text = choice switch
         {
-            Tool.Pen => "Pen · mouse, touch or stylus",
-            Tool.Highlighter => "Highlighter · draw to emphasize",
+            Tool.Pen => "Round pen · mouse, touch or stylus",
+            Tool.SquarePen => "Square pen · mouse, touch or stylus",
+            Tool.Highlighter => "Chisel highlighter · draw to emphasize",
             Tool.Eraser => "Eraser · sweep across objects",
-            Tool.Select => "Select · click or drag a board object",
+            Tool.Arrow => "Draw arrow · drag from tail to tip. Hold Shift to snap the angle.",
+            Tool.Pointer => "Arrow pointer · move over the board to point without leaving a mark",
+            Tool.Select => "Select · drag an object to move it, or drag its edge or corner to resize",
             Tool.Line => "Ruler line · drag endpoints, Shift snaps to 15°",
             Tool.Circle => "Compass circle · drag from the center",
             Tool.Arc => "Compass arc · drag center to start, then click its end",
@@ -745,7 +768,10 @@ public partial class TeacherWindow : Window
         if (!ready)
             return;
         DrawingInput.DefaultDrawingAttributes = BoardSurface.InkAttributes(InkColor, ToolWidth,
-            SmoothInk.IsChecked == true, tool == Tool.Highlighter);
+            SmoothInk.IsChecked == true, tool == Tool.Highlighter, tool switch
+            {
+                Tool.SquarePen => InkTip.Square, Tool.Highlighter => InkTip.Chisel, _ => InkTip.Round
+            });
     }
 
     private void CollectInk(object sender, InkCanvasStrokeCollectedEventArgs args)
@@ -754,13 +780,7 @@ public partial class TeacherWindow : Window
             AddItem(ink);
     }
 
-    private Ink NewInk(DrawingAttributes attributes)
-    {
-        var color = attributes.Color;
-        var argb = (uint)(color.A << 24 | color.R << 16 | color.G << 8 | color.B);
-        return new Ink(Guid.NewGuid(), newVisibility, newAnswer, argb,
-            attributes.Width, attributes.FitToCurve, attributes.IsHighlighter, []);
-    }
+    private Ink NewInk(DrawingAttributes attributes) => LiveInkCanvas.Describe(attributes, newVisibility, newAnswer);
 
     private static BoardPoint PointOf(Point point) => new(
         Math.Clamp(point.X, 0, BoardSurface.BoardWidth), Math.Clamp(point.Y, 0, BoardSurface.BoardHeight));
@@ -774,7 +794,7 @@ public partial class TeacherWindow : Window
                 CancelMathDrag();
             return;
         }
-        if (tool is Tool.Pen or Tool.Highlighter)
+        if (tool is Tool.Pen or Tool.SquarePen or Tool.Highlighter)
         {
             if (Selected is not null)
             {
@@ -784,6 +804,8 @@ public partial class TeacherWindow : Window
             return;
         }
         args.Handled = true;
+        if (tool == Tool.Pointer)
+            return;
         var position = args.GetPosition(BoardInput);
         if (tool == Tool.Place && placement is { } value)
         {
@@ -794,12 +816,15 @@ public partial class TeacherWindow : Window
         }
         if (tool == Tool.Select)
         {
-            selectedId = BoardSurface.Hit(session.Page, position)?.Id;
-            if (selectedId is null)
-                ClearSelection();
+            var selection = BoardSelection.Begin(session.Page.Items, VisibleSelection, position, SelectionUnit);
+            selectedId = selection?.Item.Id;
             Refresh();
-            if (selectedId is not null && BoardInput.CaptureMouse())
+            if (selection is not null && BoardInput.CaptureMouse())
+            {
                 anchor = position;
+                selectionDrag = selection;
+                DrawingInput.Cursor = selection.Cursor;
+            }
             return;
         }
         if (tool == Tool.Arc && pendingArc is { } arc)
@@ -823,6 +848,11 @@ public partial class TeacherWindow : Window
     private void BoardMove(object sender, MouseEventArgs args)
     {
         var position = args.GetPosition(BoardInput);
+        if (tool == Tool.Pointer)
+        {
+            SetBoardPointer(position);
+            return;
+        }
         if (mathDrag is not null && BoardInput.IsMouseCaptured)
         {
             UpdateMathDrag(Pointer(position), Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
@@ -833,24 +863,36 @@ public partial class TeacherWindow : Window
             TeacherBoard.Mark(null, arc with { Sweep = Sweep(arc, position, Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) });
             return;
         }
-        if (anchor is not Point start || !BoardInput.IsMouseCaptured)
-            return;
         if (tool == Tool.Select)
         {
-            if (Selected is not { } item || (!movingSelection && (position - start).Length < 3))
-                return;
-            if (!movingSelection)
-            {
-                movingSelection = true;
-                TeacherBoard.Edit(session.Page with { Items = session.Page.Items.Remove(item) });
-                renderedPage = null;
-            }
-            TeacherBoard.MarkMoving(item, position - start);
+            PreviewSelection(position);
+            return;
         }
-        else if (tool == Tool.Eraser)
+        if (anchor is not Point start || !BoardInput.IsMouseCaptured)
+            return;
+        if (tool == Tool.Eraser)
             EraseAt(position);
         else
             TeacherBoard.Mark(null, MakeShape(start, position));
+    }
+
+    private void PreviewSelection(Point position)
+    {
+        if (selectionDrag is not { } drag || !BoardInput.IsMouseCaptured)
+        {
+            DrawingInput.Cursor = BoardSelection.Hover(VisibleSelection, position, SelectionUnit);
+            return;
+        }
+        var transform = drag.Preview(position);
+        if (!selectionPreview && transform.IsIdentity)
+            return;
+        if (!selectionPreview)
+        {
+            selectionPreview = true;
+            TeacherBoard.Edit(session.Page with { Items = session.Page.Items.Remove(drag.Item) });
+            renderedPage = null;
+        }
+        TeacherBoard.MarkManipulation(drag.Item, transform, SelectionUnit);
     }
 
     private void BoardUp(object sender, MouseButtonEventArgs args)
@@ -870,12 +912,14 @@ public partial class TeacherWindow : Window
         BoardInput.ReleaseMouseCapture();
         if (tool == Tool.Select)
         {
-            var moved = movingSelection;
-            movingSelection = false;
-            if (moved && Selected is { } item)
-                Replace(BoardSurface.Move(item, position - start));
+            var drag = selectionDrag;
+            selectionDrag = null;
+            selectionPreview = false;
+            if (drag is not null && ReferenceEquals(Selected, drag.Item))
+                Replace(drag.Commit(position));
             else
                 Refresh();
+            DrawingInput.Cursor = BoardSelection.Hover(VisibleSelection, position, SelectionUnit);
             return;
         }
         if (erasing is { } deleted)
@@ -910,7 +954,7 @@ public partial class TeacherWindow : Window
 
     private Shape MakeShape(Point start, Point end)
     {
-        if (tool == Tool.Line && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        if (tool is Tool.Line or Tool.Arrow && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
         {
             var delta = end - start;
             var angle = Math.Round(Math.Atan2(delta.Y, delta.X) / (Math.PI / 12)) * (Math.PI / 12);
@@ -919,7 +963,7 @@ public partial class TeacherWindow : Window
         var kind = tool switch
         {
             Tool.Circle => ShapeKind.Circle, Tool.Rectangle => ShapeKind.Rectangle, Tool.Arc => ShapeKind.Arc,
-            _ => ShapeKind.Line
+            Tool.Arrow => ShapeKind.Arrow, _ => ShapeKind.Line
         };
         return new Shape(Guid.NewGuid(), newVisibility, newAnswer, InkColor, InkWidth,
             kind, PointOf(start), PointOf(end));
@@ -965,10 +1009,12 @@ public partial class TeacherWindow : Window
 
     private void CancelGesture()
     {
+        SetBoardPointer(null);
         CancelMathDrag();
         DrawingInput.CancelStroke();
         anchor = null;
-        movingSelection = false;
+        selectionDrag = null;
+        selectionPreview = false;
         pendingArc = null;
         if (erasing is not null)
             renderedPage = null;
@@ -1006,6 +1052,8 @@ public partial class TeacherWindow : Window
         var boardWidth = Math.Floor(fitted * zoom);
         BoardSlot.Width = boardWidth;
         BoardSlot.Height = Math.Floor(boardWidth * 9 / 16);
+        if (tool == Tool.Select && selectionDrag is null)
+            TeacherBoard.Mark(VisibleSelection, handleUnit: SelectionUnit);
         ZoomButton.Content = zoom == 1 ? "Fit" : $"{zoom:P0}";
     }
 
@@ -1163,6 +1211,8 @@ public partial class TeacherWindow : Window
 
     private void SetLive(object sender, RoutedEventArgs args)
     {
+        if (session.Live)
+            TakeSource();
         session.Live = LiveMode.IsChecked == true;
         if (session.Live)
             RefreshMathInstrument(publish: true);
@@ -1171,7 +1221,7 @@ public partial class TeacherWindow : Window
 
     private void Freeze(object sender, RoutedEventArgs args)
     {
-        frozenLayers = session.Frozen ? null : LiveStudioLayers();
+        frozenLayers = session.Frozen ? null : LiveStudioLayers(includeGestures: false);
         session.ToggleFreeze();
         RefreshProgram();
     }
@@ -1185,6 +1235,7 @@ public partial class TeacherWindow : Window
     private void Take(object sender, RoutedEventArgs args)
     {
         session.Take();
+        TakeSource();
         RefreshMathInstrument(publish: true);
         RefreshProgram();
     }
@@ -1227,9 +1278,13 @@ public partial class TeacherWindow : Window
     {
         var live = LiveStudioLayers();
         if (frozenLayers is { } held)
-            frozenLayers = new ProgramLayers(live.CameraOne is null ? null : held.CameraOne,
-                live.CameraTwo is null ? null : held.CameraTwo, live.Clock is null ? null : held.Clock,
-                live.Instrument is null ? null : held.Instrument);
+            frozenLayers = held with
+            {
+                CameraOne = live.CameraOne is null ? null : held.CameraOne,
+                CameraTwo = live.CameraTwo is null ? null : held.CameraTwo,
+                Clock = live.Clock is null ? null : held.Clock,
+                Instrument = live.Instrument is null ? null : held.Instrument
+            };
         var next = session.Blackout ? new ProgramLayers() : frozenLayers ?? live;
         if (next == visibleLayers)
             return;
@@ -1238,7 +1293,12 @@ public partial class TeacherWindow : Window
         output?.SetLayers(next);
     }
 
-    private ProgramLayers LiveStudioLayers() => studioLayers with { Instrument = publishedInstrument };
+    private ProgramLayers LiveStudioLayers(bool includeGestures = true) => studioLayers with
+    {
+        Instrument = publishedInstrument,
+        Source = session.Live ? sourceWindow?.PublishedFrame(includeGestures) : takenSource,
+        Pointer = session.Live && includeGestures ? boardPointer : null
+    };
 
     private void RecordingAction(object sender, RoutedEventArgs args)
     {

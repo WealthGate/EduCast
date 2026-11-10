@@ -17,7 +17,9 @@ if ($root.LinkType -or $root.FullName -ine $expected) {
 $portableFiles = @(
     'EduCast.Studio.exe', 'EduCast.Studio.dll', 'EduCast.Studio.deps.json',
     'EduCast.Studio.runtimeconfig.json', 'EduCast.Classroom.dll',
-    'EduCast.Studio.pdb', 'EduCast.Classroom.pdb'
+    'EduCast.Studio.pdb', 'EduCast.Classroom.pdb',
+    'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'Microsoft.Web.WebView2.Wpf.dll',
+    'Microsoft.Windows.SDK.NET.dll', 'WebView2Loader.dll', 'WinRT.Runtime.dll'
 )
 $runningFolders = @(Get-Process -Name 'EduCast.Studio' -ErrorAction SilentlyContinue |
     Where-Object Path | ForEach-Object { Split-Path -Parent $_.Path })

@@ -1,0 +1,71 @@
+<Window x:Class="EduCast.Studio.SourceWindow" x:ClassModifier="internal"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:studio="clr-namespace:EduCast.Studio"
+    Title="EduCast · Teaching Source" Width="1100" Height="790" MinWidth="620" MinHeight="430"
+    WindowStartupLocation="CenterOwner" Background="{StaticResource Shell}" Foreground="{StaticResource Ink}"
+    FontFamily="Segoe UI" FontSize="13">
+    <DockPanel Margin="12">
+        <WrapPanel DockPanel.Dock="Top">
+            <Button Content="Browser" Click="SelectBrowser"/>
+            <Button Content="Capture window…" Click="SelectWindow"/>
+            <CheckBox x:Name="Publish" Content="Show on Program" IsEnabled="False" Click="ChangePublication"
+                Margin="6,7,12,5" ToolTip="Approve this source for the student output. In manual mode, use Take preview."/>
+            <Button Content="Take preview" Click="TakePreview"/>
+            <Button x:Name="FreezeSourceButton" Content="Freeze" Click="FreezeProgram"/>
+            <Button x:Name="BlackoutSourceButton" Content="Blackout" Click="BlackoutProgram"/>
+            <TextBlock x:Name="SourceProgramState" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="5,0,0,5"/>
+        </WrapPanel>
+        <DockPanel x:Name="BrowserBar" DockPanel.Dock="Top" LastChildFill="True" Visibility="Collapsed">
+            <Button x:Name="Back" Content="‹" Click="GoBack" ToolTip="Back" AutomationProperties.Name="Back"/>
+            <Button x:Name="Reload" Content="↻" Click="ReloadPage" ToolTip="Reload page" AutomationProperties.Name="Reload page"/>
+            <Button Content="Open file…" Click="ChooseFile"/>
+            <Button x:Name="GoButton" DockPanel.Dock="Right" Content="Go" Click="Go"/>
+            <TextBox x:Name="Address" Margin="0,0,5,5" KeyDown="AddressKey" MaxLength="8192"
+                ToolTip="Enter a web address" AutomationProperties.Name="Web address"/>
+        </DockPanel>
+        <DockPanel x:Name="WindowBar" DockPanel.Dock="Top" LastChildFill="True" Visibility="Collapsed">
+            <Button Content="Refresh list" Click="RefreshWindowList"/>
+            <Button x:Name="PreviewWindowButton" DockPanel.Dock="Right" Content="Preview window" Click="StartWindowCapture"/>
+            <ComboBox x:Name="Windows" DisplayMemberPath="Title" AutomationProperties.Name="Open windows"/>
+        </DockPanel>
+        <WrapPanel DockPanel.Dock="Top" Margin="0,2,0,2">
+            <Button x:Name="Interact" Content="Interact" Click="SelectTool" Tag="Interact"
+                ToolTip="Use the page's links, buttons, sliders and other controls"/>
+            <Button x:Name="SelectAnnotation" Content="Select" Click="SelectTool" Tag="Select"
+                ToolTip="Drag an annotation to move it, or drag an edge or corner to resize"/>
+            <Button x:Name="RoundPen" Style="{StaticResource IconTool}" Content="{StaticResource RoundPenIcon}" Click="SelectTool"
+                Tag="Pen" ToolTip="Round pen" AutomationProperties.Name="Round pen"/>
+            <Button x:Name="SquarePen" Style="{StaticResource IconTool}" Content="{StaticResource SquarePenIcon}" Click="SelectTool"
+                Tag="SquarePen" ToolTip="Square pen" AutomationProperties.Name="Square pen"/>
+            <Button x:Name="Marker" Style="{StaticResource IconTool}" Content="{StaticResource HighlighterIcon}" Click="SelectTool"
+                Tag="Highlighter" ToolTip="Chisel highlighter" AutomationProperties.Name="Chisel highlighter"/>
+            <Button x:Name="Eraser" Style="{StaticResource IconTool}" Content="{StaticResource EraserIcon}" Click="SelectTool"
+                Tag="Eraser" ToolTip="Click to erase an annotation" AutomationProperties.Name="Eraser"/>
+            <Button x:Name="Arrow" Style="{StaticResource IconTool}" Content="{StaticResource ArrowIcon}" Click="SelectTool"
+                Tag="Arrow" ToolTip="Draw an arrow from tail to tip" AutomationProperties.Name="Draw arrow"/>
+            <Button x:Name="Pointer" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}" Click="SelectTool"
+                Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
+            <ComboBox x:Name="Colors" Width="90" DisplayMemberPath="Name" SelectionChanged="ChangeInk"
+                AutomationProperties.Name="Annotation color"/>
+            <ComboBox x:Name="Widths" Width="58" SelectionChanged="ChangeInk" AutomationProperties.Name="Annotation width"/>
+            <Button x:Name="UndoButton" Content="Undo" Click="UndoAnnotation" IsEnabled="False"/>
+            <Button x:Name="ClearButton" Content="Clear ink" Click="ClearAnnotations" IsEnabled="False"/>
+        </WrapPanel>
+        <TextBlock x:Name="Hint" DockPanel.Dock="Bottom" Margin="0,7,0,0" Foreground="{StaticResource Muted}"
+            TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+        <Border Background="Black" BorderBrush="{StaticResource Line}" BorderThickness="1" ClipToBounds="True">
+            <Viewbox x:Name="SourceViewbox" Stretch="Uniform" SizeChanged="SourceViewSizeChanged">
+                <Grid x:Name="Viewport" Width="1280" Height="720" ClipToBounds="True">
+                    <Grid x:Name="BrowserSlot"/>
+                    <studio:SourceSurface x:Name="Surface"/>
+                    <Grid x:Name="Drawing" Background="Transparent" PreviewMouseLeftButtonDown="AnnotationDown"
+                          PreviewMouseMove="AnnotationMove" PreviewMouseLeftButtonUp="AnnotationUp" MouseLeave="AnnotationLeave"
+                          LostMouseCapture="AnnotationCaptureLost">
+                        <studio:LiveInkCanvas x:Name="Input" Background="Transparent" StrokeCollected="CollectAnnotation"/>
+                    </Grid>
+                </Grid>
+            </Viewbox>
+        </Border>
+    </DockPanel>
+</Window>

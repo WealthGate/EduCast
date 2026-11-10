@@ -16,7 +16,12 @@ internal static class ProgramImage
         var renderer = new ProgramSurface();
         var size = new Size(BoardSurface.BoardWidth, BoardSurface.BoardHeight);
         renderer.Present(frame.Board);
-        renderer.PresentLayers(frame.Layers);
+        var source = frame.Layers.Source;
+        renderer.PresentLayers(frame.Layers with
+        {
+            Pointer = null,
+            Source = source is null ? null : source with { Ink = source.Ink with { Gesture = null, Pointer = null } }
+        });
         renderer.Measure(size);
         renderer.Arrange(new Rect(size));
         var image = new RenderTargetBitmap((int)size.Width, (int)size.Height, 96, 96, PixelFormats.Pbgra32);

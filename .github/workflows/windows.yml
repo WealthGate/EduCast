@@ -74,6 +74,6 @@ jobs:
           foreach ($asset in $assets) {
             if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) { throw "Missing release asset $asset." }
           }
-          $notes = "Use the Windows x64 MSI to install or upgrade, or extract the portable ZIP. Both require the x64 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). The MSI is unsigned. See the [changelog](https://github.com/$env:GITHUB_REPOSITORY/blob/$tag/CHANGELOG.md)."
+          $notes = "Use the Windows x64 MSI to install or upgrade, or extract the portable ZIP. Both require the x64 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). The teaching browser uses the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download-section). The MSI is unsigned. See the [changelog](https://github.com/$env:GITHUB_REPOSITORY/blob/$tag/CHANGELOG.md)."
           gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --verify-tag --title "EduCast Studio $version" --notes $notes --generate-notes
           if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed.' }

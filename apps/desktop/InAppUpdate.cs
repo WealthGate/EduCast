@@ -27,10 +27,13 @@ internal static class InAppUpdate
     private const string RequestName = "request.json";
     private const string Finished = "finished";
     private const string Executable = "EduCast.Studio.exe";
+    private const string WebViewLoader = "WebView2Loader.dll";
     private static readonly string[] RunnerFiles =
     [
         Executable, "EduCast.Studio.dll", "EduCast.Studio.deps.json",
-        "EduCast.Studio.runtimeconfig.json", "EduCast.Classroom.dll"
+        "EduCast.Studio.runtimeconfig.json", "EduCast.Classroom.dll",
+        "Microsoft.Web.WebView2.Core.dll", "Microsoft.Web.WebView2.WinForms.dll", "Microsoft.Web.WebView2.Wpf.dll",
+        "Microsoft.Windows.SDK.NET.dll", "WinRT.Runtime.dll"
     ];
     private static string StagingRoot => Path.GetFullPath(Path.Combine(Path.GetTempPath(), "EduCast Studio Updates"));
     private sealed record UpdateRequest(int ParentId, long ParentStarted, Version Version, long Size, string Sha256,
@@ -63,6 +66,10 @@ internal static class InAppUpdate
         var folder = update.Folder;
         foreach (var name in RunnerFiles)
             File.Copy(Path.Combine(AppContext.BaseDirectory, name), Path.Combine(folder, name));
+        var loader = Path.Combine(AppContext.BaseDirectory, WebViewLoader);
+        if (!File.Exists(loader))
+            loader = Path.Combine(AppContext.BaseDirectory, "runtimes", "win-x64", "native", WebViewLoader);
+        File.Copy(loader, Path.Combine(folder, WebViewLoader));
         using var parent = Process.GetCurrentProcess();
         var request = new UpdateRequest(parent.Id, parent.StartTime.ToUniversalTime().Ticks, update.Release.Version,
             update.Release.Size, update.Release.Sha256, Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory));
@@ -205,7 +212,7 @@ internal static class InAppUpdate
                 !Directory.Exists(folder) || IsReparsePoint(folder) ||
                 ReadAppVersion(folder) != ReleaseCatalog.InstalledVersion)
                 return;
-            foreach (var name in RunnerFiles)
+            foreach (var name in RunnerFiles.Append(WebViewLoader))
                 UpdateDownload.TryDelete(Path.Combine(folder, name));
         }
         catch (IOException) { }
@@ -235,7 +242,7 @@ internal static class InAppUpdate
         {
             if (!IsStage(folder))
                 return;
-            foreach (var name in RunnerFiles.Append(InstallerName).Append(RequestName))
+            foreach (var name in RunnerFiles.Append(WebViewLoader).Append(InstallerName).Append(RequestName))
                 UpdateDownload.TryDelete(Path.Combine(folder, name));
             if (Directory.EnumerateFileSystemEntries(folder).All(path => Path.GetFileName(path) == Finished))
             {

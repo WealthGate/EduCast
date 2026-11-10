@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/EduCast.ico</ApplicationIcon>
@@ -11,6 +11,7 @@
     <Resource Include="Assets/EduCast.ico" />
     <Resource Include="Assets/EduCast.png" />
     <ProjectReference Include="../../packages/classroom/EduCast.Classroom.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <InternalsVisibleTo Include="EduCast.Checks" />
   </ItemGroup>
 </Project>

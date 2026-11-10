@@ -6,6 +6,8 @@ The project file is local JSON and includes teacher-only information. Store it i
 
 Recordings use the same approved visual composition. Recording audio is opt-in for each take and goes directly from the selected input into the local MP4. The app does not monitor or play it on the student display. Freeze and blackout affect the picture. Use Stop to end capture.
 
+Teaching sources start private. **Show on Program** authorizes sharing the browser viewport or the chosen app window. EduCast excludes its own windows from capture. The browser uses an in-private profile, denies page permissions and downloads, and gives a local lesson access to its folder for supporting assets. Closing a source or clearing its publication checkbox revokes the shared image, including a frozen frame.
+
 The desktop checks public GitHub release metadata over HTTPS. When the teacher selects Update, the app validates the version, installer name, published size, SHA-256 digest, and MSI product and upgrade identity. The updater downloads from GitHub, rechecks the staged installer after the teacher workspace exits, and hands it to Windows Installer for a per-user upgrade. Windows Installer runs without forcing a reboot. Authenticode signing remains a release gate for managed school deployment.
 
 Owner roles, school isolation, MFA, beta invitations, cloud data retention and recording/broadcast consent are future implementation gates. See [requirements status](REQUIREMENTS.md).

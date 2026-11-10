@@ -26,6 +26,14 @@
         <RegistryValue Root="HKCU" Key="Software\EduCast Studio" Name="Installed"
             Type="integer" Value="1" KeyPath="yes" />
       </Component>
+      <Component Directory="INSTALLFOLDER" Guid="0C699A12-EB0E-461A-A057-77A8D16FE3A8">
+        <File Source="$(PublishDirectory)\Microsoft.Web.WebView2.Core.dll" KeyPath="yes" />
+        <File Source="$(PublishDirectory)\Microsoft.Web.WebView2.WinForms.dll" />
+        <File Source="$(PublishDirectory)\Microsoft.Web.WebView2.Wpf.dll" />
+        <File Source="$(PublishDirectory)\Microsoft.Windows.SDK.NET.dll" />
+        <File Source="$(PublishDirectory)\WebView2Loader.dll" />
+        <File Source="$(PublishDirectory)\WinRT.Runtime.dll" />
+      </Component>
     </Feature>
   </Package>
 </Wix>

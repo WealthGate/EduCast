@@ -1,4 +1,16 @@
-# Cameras, classroom clock, and recording
+# Teaching sources, cameras, classroom clock, and recording
+
+## Teach from a web page, file, or app window
+
+1. In the Program panel, choose **Browser…** to enter a web address or **Open file…** to load a local HTML lesson, SVG, or PDF. You can also open those files from the main **Open…** menu. Keep supporting files such as scripts and images in the lesson folder.
+2. To teach from another app, choose **Capture window…**, select the open window, and choose **Preview window**. Work in the original app and annotate its preview in EduCast. Keep the captured window restored while sharing.
+3. Select **Show on Program** when the preview is ready for students. In manual mode, use **Take preview** to publish the current source and its marks. **Freeze** holds that picture and **Blackout** hides it. Clear **Show on Program** or close the source window to return to the board, including during Freeze.
+4. Select **Interact** to use the page’s links, buttons, and sliders. Select a pen or highlighter icon to draw, or drag from tail to tip with **Draw arrow**. **Arrow pointer** follows the cursor and disappears when it leaves the preview. Annotations stay at their screen position and clear when you open another page or source. They are kept for the current session.
+5. Choose **Select** to move an annotation by dragging it. Drag an edge or corner of its outline to resize it. Students see the change when you release the drag in live mode.
+
+The browser uses the Microsoft Edge WebView2 Runtime. Local lessons with bundled assets can run offline. Browser and captured window sources share a picture, and recording audio still comes from the selected microphone. [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download-section)
+
+## Studio controls
 
 Open **Studio & clock…** in the teacher workspace. The clock works offline with the desktop app. Camera capture and recording use a separately installed Windows FFmpeg build that supports DirectShow, `libx264` and AAC. EduCast looks for `ffmpeg.exe` on PATH. You can also select it with **Choose FFmpeg…**. [FFmpeg downloads](https://ffmpeg.org/download.html) · [FFmpeg licensing](https://www.ffmpeg.org/legal.html)
 

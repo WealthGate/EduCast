@@ -4,6 +4,8 @@
 
 The first desktop increment uses C# with nullable analysis and WPF on Windows. The brief suggests Rust and C++ for native work and React/TypeScript for interface development. WPF gives this milestone a Windows window and input stack, a vector compositor, and native stylus support without an embedded browser or web build dependencies. The lesson model and math parser target cross-platform .NET and have no dependency on WPF. The desktop UI would need a platform-specific port for macOS. [Microsoft WPF overview](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/overview/), [WPF digital ink](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/advanced/digital-ink)
 
+Teaching sources use Windows Graphics Capture for an explicitly selected window and WebView2 for web pages and local browser files. Both feed approved bitmaps and separate WPF annotations to the Program compositor. Browser navigation and teacher controls stay in the source window. [Windows Graphics Capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture) · [WebView2 in WPF](https://learn.microsoft.com/en-us/microsoft-edge/webview2/platforms/wpf)
+
 | Location | Responsibility |
 | --- | --- |
 | `packages/classroom` | Immutable lesson and page records, board objects, local persistence, history, publication state, math syntax tree and graph evaluation |
@@ -23,7 +25,7 @@ Windows enumeration supplies physical monitor coordinates. The app uses a per-mo
 
 - The board uses a 1280 × 720 logical coordinate space. WPF scales the vectors to the window. The output 4:3 setting fits the board inside a 4:3 matte without distorting geometry.
 - The native InkCanvas renders in-progress pressure-sensitive strokes. Routed stylus packets or mouse samples feed a bounded overlay at WPF render priority. The session projects this overlay only for approved live ink. A completed stroke enters editable history once, using the native stroke's captured samples. Freeze, manual Take, and PNG export use committed frames. Drawings and paper patterns are reused across views.
-- While the teacher drags a selected object, the teacher canvas translates its cached drawing in an overlay. Releasing the object commits the movement as one undoable edit.
+- While the teacher moves or resizes a selected object, the teacher canvas transforms its cached drawing in an overlay. Releasing the object commits one undoable edit. A saved resize stores the transform alongside the editable content.
 - On-board instruments keep their pose and controls separate from lesson data. Trace gestures project onto mathematical guides and commit ordinary vector objects. Program receives a separately approved instrument display and the same privacy-filtered transient ink used for pen strokes. [Instrument guide](MATH_INSTRUMENTS.md)
 - Equations are stored as source and parsed into a structured syntax tree. WPF typesets grouped expressions, fractions, scripts, radicals and small matrices. The graph evaluator accepts a constrained expression tree over real numbers. It never evaluates arbitrary code.
 - Projects are bounded, versioned JSON files. A save writes a new file beside the destination, flushes it, then replaces the destination. The app validates incoming data before it replaces the active lesson. Notes remain in the editable project. Send the Program PNG for clean sharing.

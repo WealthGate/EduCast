@@ -25,7 +25,13 @@ $releaseFiles = @(
     'EduCast.Studio.dll',
     'EduCast.Studio.deps.json',
     'EduCast.Studio.runtimeconfig.json',
-    'EduCast.Classroom.dll'
+    'EduCast.Classroom.dll',
+    'Microsoft.Web.WebView2.Core.dll',
+    'Microsoft.Web.WebView2.WinForms.dll',
+    'Microsoft.Web.WebView2.Wpf.dll',
+    'Microsoft.Windows.SDK.NET.dll',
+    'WebView2Loader.dll',
+    'WinRT.Runtime.dll'
 ) | ForEach-Object { Join-Path $publishDirectory $_ }
 Compress-Archive -LiteralPath $releaseFiles -DestinationPath $archive -Force
 $packages = @($archive)
