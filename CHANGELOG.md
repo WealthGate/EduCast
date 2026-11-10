@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0
+
+- Demonstrate a 0–150 mm vernier caliper and a 0–25 mm micrometer screw gauge. Both have shaded, movable bodies, adjustable measuring parts, and enlarged scales. Find them under **Instruments…** or in the Physics tool list.
+- Slide the caliper for outside, inside, and depth measurements, or turn the micrometer thimble for outside measurements. Practice on specimens that stop the instrument at contact, or measure between points on a calibrated board.
+- Show students the working scales, reveal or hide the calculation, and place a reading on the lesson as an editable label.
+
 ## 0.11.0
 
 - Read the ruler’s zero and both protractors’ center and scale with the handles moved off their measuring faces. Compass pins show the exact pivot and pencil positions. Drag the pencil point with Trace off to set its reach and direction.

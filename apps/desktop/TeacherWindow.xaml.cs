@@ -817,6 +817,8 @@ public partial class TeacherWindow : Window
             Tool.DoubleBond or Tool.TripleBond => "Bond · drag between two atom labels",
             Tool.SmartInk => "Sketch a shape. For a cone, draw an ellipse and two sloping sides. Apply or keep the suggestion.",
             Tool.SmartMath => "Write a fraction, radical, script or division sign as one group, then review the suggestion.",
+            Tool.Instrument when instrumentDisplay?.Gauge is not null =>
+                "Drag the body to move it. Drag or scroll over the carriage or thimble to adjust the reading.",
             Tool.Instrument => "Drag the instrument to move it. Use the handles to adjust it, or enable Trace to draw along it.",
             _ => "Click the board to place your object. Esc cancels."
         };
@@ -1183,7 +1185,11 @@ public partial class TeacherWindow : Window
     private void WheelZoom(object sender, MouseWheelEventArgs args)
     {
         if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            args.Handled = TryGaugeWheel(Pointer(args.GetPosition(BoardInput)), args.Delta,
+                Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
             return;
+        }
         Zoom(args.Delta > 0 ? zoom * 1.25 : zoom / 1.25);
         args.Handled = true;
     }
@@ -1380,7 +1386,7 @@ public partial class TeacherWindow : Window
                 CameraOne = live.CameraOne is null ? null : held.CameraOne,
                 CameraTwo = live.CameraTwo is null ? null : held.CameraTwo,
                 Clock = live.Clock is null ? null : held.Clock,
-                Instrument = live.Instrument is null ? null : held.Instrument
+                Instrument = live.Instrument is null ? null : ConcealGaugeReading(held.Instrument, live.Instrument)
             };
         var next = session.Blackout ? new ProgramLayers() : frozenLayers ?? live;
         if (!sourceOnStage && next.Source is not null)

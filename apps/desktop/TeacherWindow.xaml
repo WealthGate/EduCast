@@ -95,7 +95,7 @@
                                 ToolTip="Sketch a supported shape or symbol and choose whether to replace your ink"/>
                             <Button x:Name="SmartMathButton" Content="Smart math ink" Click="ChooseTool" Tag="SmartMath"
                                 ToolTip="Recognize handwritten fractions, roots, scripts and division signs"/>
-                            <Button x:Name="MathToolsButton" Content="Math instruments…" Click="OpenMathTools"
+                            <Button x:Name="MathToolsButton" Content="Instruments…" Click="OpenMathTools"
                                 ToolTip="Place a movable teaching instrument on the board"/>
                         </WrapPanel>
                         <WrapPanel>
@@ -122,8 +122,8 @@
                         </WrapPanel>
                         <StackPanel x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,4,0,0">
                             <WrapPanel>
-                                <ComboBox x:Name="InstrumentChoice" Width="158" DisplayMemberPath="Label"
-                                    SelectionChanged="ChangeInstrument" AutomationProperties.Name="On-board math instrument"/>
+                                <ComboBox x:Name="InstrumentChoice" Width="195" DisplayMemberPath="Label"
+                                    SelectionChanged="ChangeInstrument" AutomationProperties.Name="On-board instrument"/>
                                 <Button Content="Use tool" Click="UseMathInstrument"/>
                                 <CheckBox x:Name="TraceInstrument" Content="Trace" Click="ChangeTraceMode"
                                     Margin="4,6,8,0" ToolTip="Drag along an edge, curve, or compass path to draw"/>
@@ -144,6 +144,24 @@
                                 </WrapPanel>
                                 <TextBlock x:Name="InstrumentStatus" Margin="5,5,8,5" Foreground="{StaticResource Muted}"/>
                             </WrapPanel>
+                            <StackPanel x:Name="GaugeControls" Visibility="Collapsed">
+                                <WrapPanel>
+                                    <ComboBox x:Name="GaugeModeChoice" Width="92" DisplayMemberPath="Label"
+                                        SelectionChanged="ChangeGaugeMode" AutomationProperties.Name="Measurement mode"/>
+                                    <ComboBox x:Name="GaugeSampleChoice" Width="130" DisplayMemberPath="Label"
+                                        SelectionChanged="ChangeGaugeSample" AutomationProperties.Name="Practice specimen"/>
+                                    <Button x:Name="GaugeAlignButton" Content="Measure board points…" Click="AlignGauge"
+                                        ToolTip="Drag between two board points using the ruler calibration"/>
+                                    <Button x:Name="GaugeContactButton" Content="Close to zero" Click="GaugeContact"/>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <Button Content="−" Tag="-1" Click="NudgeGauge" AutomationProperties.Name="Decrease one graduation"/>
+                                    <Button Content="+" Tag="1" Click="NudgeGauge" AutomationProperties.Name="Increase one graduation"/>
+                                    <CheckBox x:Name="GaugeCloseUp" Content="Scale close-up" Click="ChangeGaugeReadout" Margin="4,6,8,0"/>
+                                    <CheckBox x:Name="GaugeShowReading" Content="Show reading" Click="ChangeGaugeReadout" Margin="4,6,8,0"/>
+                                    <Button x:Name="GaugeWriteButton" Content="Add reading…" Click="WriteGaugeReading"/>
+                                </WrapPanel>
+                            </StackPanel>
                             <WrapPanel x:Name="CalculatorControls" Visibility="Collapsed">
                                 <TextBox x:Name="CalculatorEntry" Width="185" MaxLength="280" Margin="0,0,5,5"
                                     KeyDown="CalculatorKeyDown" ToolTip="Try (3/4)^2, sqrt(81) or sin(30)"

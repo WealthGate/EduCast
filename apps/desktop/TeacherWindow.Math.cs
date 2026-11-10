@@ -46,7 +46,8 @@ public partial class TeacherWindow
             new(InstrumentKind.Ruler, "Ruler"), new(InstrumentKind.Compass, "Compass"),
             new(InstrumentKind.Protractor180, "Protractor 180°"), new(InstrumentKind.Protractor360, "Protractor 360°"),
             new(InstrumentKind.SetSquare45, "Set square 45°"), new(InstrumentKind.SetSquare30, "Set square 30°/60°"),
-            new(InstrumentKind.FrenchCurve, "French curve"), new(InstrumentKind.Calculator, "Calculator")
+            new(InstrumentKind.FrenchCurve, "French curve"), new(InstrumentKind.Calculator, "Calculator"),
+            new(InstrumentKind.VernierCaliper, "Vernier caliper"), new(InstrumentKind.Micrometer, "Micrometer screw gauge")
         };
         foreach (var value in new[] { "7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "−",
             "0", ".", "+", "^", "(", ")", "⌫", "Clear" })
@@ -74,7 +75,8 @@ public partial class TeacherWindow
         ClearSelection();
         PublishInstrument.IsChecked = false;
         var pose = InstrumentPose.Create(selected.Kind, unitsPerCentimetre, RulerInches.IsChecked == true);
-        instrumentDisplay = new InstrumentDisplay(pose);
+        instrumentDisplay = new InstrumentDisplay(pose, Gauge: pose.IsGauge ? MeasurementGauge.Create(pose.Kind) : null);
+        ConfigureGaugeControls();
         TraceInstrument.IsEnabled = pose.CanTrace;
         TraceInstrument.IsChecked = false;
         RulerControls.Visibility = pose.Kind == InstrumentKind.Ruler
@@ -82,7 +84,7 @@ public partial class TeacherWindow
         CalculatorControls.Visibility = pose.Kind == InstrumentKind.Calculator
             ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
         ToggleCalculatorKeys(sender, args);
-        InstrumentDrawButton.Visibility = pose.Kind == InstrumentKind.Calculator
+        InstrumentDrawButton.Visibility = pose.Kind == InstrumentKind.Calculator || pose.IsGauge
             ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
         InstrumentDrawButton.Content = pose.Kind switch
         {
@@ -115,6 +117,7 @@ public partial class TeacherWindow
             return;
         CancelGesture();
         instrumentDisplay = null;
+        ConfigureGaugeControls();
         PublishInstrument.IsChecked = false;
         InstrumentChoice.SelectedIndex = -1;
         InstrumentBar.Visibility = System.Windows.Visibility.Collapsed;
@@ -138,11 +141,18 @@ public partial class TeacherWindow
             publishedInstrument = null;
         else if (session.Live || publish)
             publishedInstrument = instrumentDisplay;
+        else
+            publishedInstrument = ConcealGaugeReading(publishedInstrument, instrumentDisplay);
         RefreshStudioLayers();
         RefreshLiveInk();
 
         if (calibrationLength is not null || instrumentDisplay is not { Pose: var pose })
             return;
+        if (instrumentDisplay.Gauge is { } gauge)
+        {
+            RefreshGaugeStatus(gauge);
+            return;
+        }
         InstrumentStatus.Text = pose.Kind switch
         {
             InstrumentKind.Ruler => $"{pose.Size / pose.UnitsPerMeasure:0.##} {pose.Unit} · {InstrumentPose.Normalize(pose.Rotation):0.#}°",
@@ -199,6 +209,14 @@ public partial class TeacherWindow
     {
         if (instrumentDisplay is not { Pose: var pose } display)
             return false;
+        if (display.Gauge is { } gauge)
+        {
+            var handle = alignGauge ? InstrumentHandle.GaugeAlign : GaugeDrawing.Hit(pose, gauge, pose.ToLocal(pointer));
+            if (handle is null)
+                return false;
+            mathDrag = new MathDrag(display, pointer, handle, null, false, ConstructionInk());
+            return true;
+        }
         if (calibrationLength is not null)
         {
             mathDrag = new MathDrag(display, pointer, null, null, true, ConstructionInk(ItemVisibility.TeacherOnly));
@@ -251,7 +269,9 @@ public partial class TeacherWindow
             return;
         var pose = drag.Original.Pose;
         var local = pose.ToLocal(pointer);
-        if (drag.Calibration)
+        if (drag.Original.Gauge is not null && drag.Handle is InstrumentHandle.GaugeAdjust or InstrumentHandle.GaugeAlign)
+            UpdateGaugeDrag(drag, pointer, snap);
+        else if (drag.Calibration)
             instrumentTrace = drag.Stroke with { Points = [Bound(drag.Start), Bound(pointer)] };
         else if (drag.Handle is { } handle)
         {
@@ -321,6 +341,11 @@ public partial class TeacherWindow
     {
         if (mathDrag is not { } drag)
             return;
+        if (drag.Handle == InstrumentHandle.GaugeAlign)
+        {
+            FinishGaugeAlignment(drag, pointer);
+            return;
+        }
         UpdateMathDrag(pointer, snap);
         var completed = instrumentTrace;
         var reference = calibrationLength;
@@ -360,13 +385,14 @@ public partial class TeacherWindow
 
     private void CancelMathDrag()
     {
-        if (mathDrag is null && calibrationLength is null)
+        if (mathDrag is null && calibrationLength is null && !alignGauge)
             return;
         if (mathDrag is { } drag)
             instrumentDisplay = drag.Original;
         mathDrag = null;
         instrumentTrace = null;
         calibrationLength = null;
+        alignGauge = false;
         RefreshMathInstrument();
     }
 

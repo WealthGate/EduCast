@@ -11,7 +11,7 @@ namespace EduCast.Studio;
 public partial class TeacherWindow
 {
     private sealed record SubjectTool(string Label, Tool? Shape = null, DiagramKind? Diagram = null,
-        string? Symbol = null, int Sides = 0);
+        string? Symbol = null, int Sides = 0, InstrumentKind? Instrument = null);
 
     private static readonly SubjectTool[] Shapes =
     [
@@ -63,6 +63,8 @@ public partial class TeacherWindow
                 new(DiagramLabel(DiagramKind.SeriesCircuit), Diagram: DiagramKind.SeriesCircuit),
                 new(DiagramLabel(DiagramKind.TransverseWave), Diagram: DiagramKind.TransverseWave),
                 new(DiagramLabel(DiagramKind.Refraction), Diagram: DiagramKind.Refraction),
+                new("Vernier caliper", Instrument: InstrumentKind.VernierCaliper),
+                new("Micrometer screw gauge", Instrument: InstrumentKind.Micrometer),
                 new("Ohm (Ω)", Symbol: "Ω"), new("Change (Δ)", Symbol: "Δ"), new("Angle (θ)", Symbol: "θ"),
                 new("Wavelength (λ)", Symbol: "λ"), new("Micro (μ)", Symbol: "μ"), new("Degrees (°)", Symbol: "°")
             ],
@@ -148,6 +150,8 @@ public partial class TeacherWindow
         }
         else if (choice.Symbol is { } symbol)
             BeginPlacement(origin => new BoardText(Guid.NewGuid(), newVisibility, newAnswer, InkColor, origin, 43, symbol));
+        else if (choice.Instrument is { } instrument)
+            OpenGauge(instrument, sender, args);
     }
 
     private void EditDiagram(TeachingDiagram diagram)

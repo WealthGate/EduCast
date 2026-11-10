@@ -2,7 +2,11 @@ using System.Collections.Immutable;
 
 namespace EduCast.Classroom;
 
-public enum InstrumentKind { Ruler, Compass, Protractor180, Protractor360, SetSquare45, SetSquare30, FrenchCurve, Calculator }
+public enum InstrumentKind
+{
+    Ruler, Compass, Protractor180, Protractor360, SetSquare45, SetSquare30, FrenchCurve, Calculator,
+    VernierCaliper, Micrometer
+}
 
 public readonly record struct GuideEdge(BoardPoint Start, BoardPoint End)
 {
@@ -26,6 +30,7 @@ public sealed record InstrumentPose(InstrumentKind Kind, BoardPoint Origin, doub
 
     public bool IsProtractor => Kind is InstrumentKind.Protractor180 or InstrumentKind.Protractor360;
     public bool IsSetSquare => Kind is InstrumentKind.SetSquare45 or InstrumentKind.SetSquare30;
+    public bool IsGauge => Kind is InstrumentKind.VernierCaliper or InstrumentKind.Micrometer;
     public bool CanTrace => Kind is InstrumentKind.Ruler or InstrumentKind.Compass or
         InstrumentKind.SetSquare45 or InstrumentKind.SetSquare30 or InstrumentKind.FrenchCurve;
     public double TriangleHeight => Kind == InstrumentKind.SetSquare30 ? Size / Math.Sqrt(3) : Size;
@@ -33,15 +38,16 @@ public sealed record InstrumentPose(InstrumentKind Kind, BoardPoint Origin, doub
     public BoardPoint Hinge => new(Size * .5, -Math.Clamp(Size * .65, 34, 155));
 
     public static InstrumentPose Create(InstrumentKind kind, double units = DefaultUnitsPerCentimetre,
-        bool inches = false) => new(kind, new BoardPoint(455, 376), 0, kind switch
-        {
-            InstrumentKind.Ruler => 416,
-            InstrumentKind.Compass => 126,
-            InstrumentKind.Protractor180 or InstrumentKind.Protractor360 => 154,
-            InstrumentKind.SetSquare45 or InstrumentKind.SetSquare30 => 220,
-            InstrumentKind.FrenchCurve => 380,
-            _ => 300
-        }, 60, 132, units, inches);
+        bool inches = false) => new(kind, kind is InstrumentKind.VernierCaliper or InstrumentKind.Micrometer
+            ? new BoardPoint(240, 345) : new BoardPoint(455, 376), 0, kind switch
+            {
+                InstrumentKind.Ruler => 416,
+                InstrumentKind.Compass => 126,
+                InstrumentKind.Protractor180 or InstrumentKind.Protractor360 => 154,
+                InstrumentKind.SetSquare45 or InstrumentKind.SetSquare30 => 220,
+                InstrumentKind.FrenchCurve => 380,
+                _ => 300
+            }, 60, 132, units, inches);
 
     public BoardPoint ToBoard(BoardPoint local)
     {

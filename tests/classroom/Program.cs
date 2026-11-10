@@ -64,6 +64,7 @@ internal static partial class Checks
             ("Update download verifies bytes and checksum and rejects an unsafe redirect", DownloadUpdate),
             ("Classroom clock follows local time and stopwatch/countdown use monotonic time", ClockControls),
             ("Math instrument scales, edge projection, angles and exact guide geometry", MathGeometry),
+            ("Physics instrument graduations, screw pitch and specimen contact", GaugeArithmetic),
             ("Scientific calculator evaluates expressions and rejects undefined results", Calculator),
             ("DirectShow enumeration separates cameras and microphones", DeviceListing),
             ("Streaming destination validation and bounded audio mixing", BroadcastInputs),
@@ -572,6 +573,7 @@ internal static partial class Checks
         Assert(Pixel(studentBoard, 980, 555).SequenceEqual(clean), "unpublished camera remained in the hold");
         Click(teacher, "FreezeButton");
         InstrumentDemonstration(teacher, studentBoard, clean);
+        GaugeDemonstration(teacher, studentBoard, clean);
         Click(teacher, "StopButton");
         Assert(!app.Windows.Cast<Window>().Contains(student));
         Assert(online.IsVisible);

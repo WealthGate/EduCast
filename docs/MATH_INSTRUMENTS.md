@@ -1,6 +1,6 @@
-# On-board math instruments
+# On-board math and physics instruments
 
-Choose **Math instruments…** above the board and select a tool. An instrument appears over the lesson. The handles sit outside the measuring faces. Drag the instrument body or the **+** handle to move it, use **↻** to rotate, and use **↔** to resize. Hold **Shift** while moving for board-grid alignment or while rotating for 15° steps. Switch to **Pen** to write freehand around the instrument. Select **Use tool** to return to manipulation. **Esc** cancels the active adjustment or trace.
+Choose **Instruments…** above the board and select a tool. An instrument appears over the lesson. The handles sit outside the measuring faces. Drag the instrument body or its **+** handle to move it, use **↻** to rotate, and use **↔** where available to resize. Hold **Shift** while moving for board-grid alignment or while rotating for 15° steps. Switch to **Pen** to write freehand around the instrument. Select **Use tool** to return to manipulation. **Esc** cancels the active adjustment or trace.
 
 ## Demonstrate to students
 
@@ -20,6 +20,17 @@ The instrument stays on the board while you use it. Completed constructions beco
 | French curve | Move the vertex, use **↔** to change the span, and use **±** to change or flip the rise. The guide follows a quadratic curve in the instrument's local coordinates. Enable **Trace** to draw part of it or choose **Draw full curve**. Use the separate **Graph…** tool for function plots with axes |
 
 Calibrated lengths refer to the board reference. The displayed physical size varies with zoom, display scaling, and projector placement.
+
+## Vernier caliper and micrometer
+
+Open either instrument from **Instruments…** or the **Physics** page’s tool list. Drag the body to move it and the **↻** handle to rotate it. The two contact marks show where the instrument is measuring. **Measure board points…** aligns those marks with the two endpoints you drag between and rounds the distance to the instrument’s graduation. It uses the ruler’s board calibration.
+
+- **Vernier caliper** measures from 0 to 150 mm in steps of 0.02 mm. Drag the sliding carriage. Use **Outside** for the large jaws, **Inside** for the small jaws, and **Depth** for the rear rod. Read the last whole millimetre before vernier zero, then add the number of the matching vernier division multiplied by 0.02 mm. The illustrated scale has 50 vernier divisions across 49 mm. [Mitutoyo caliper scale](https://www.mitutoyo.com/webfoo/wp-content/uploads/E12029-Calipers.pdf)
+- **Micrometer screw gauge** measures from 0 to 25 mm in steps of 0.01 mm. Drag the thimble upward to open and downward to close. A full turn moves the spindle 0.50 mm. Read the last exposed whole or half millimetre on the sleeve, then add the thimble division at the index line multiplied by 0.01 mm. [Mitutoyo micrometer guide](https://www.mitutoyo.com/webfoo/wp-content/uploads/E11003-Quick-Guide.pdf)
+
+Hold **Shift** during adjustment for a finer drag. Scroll over the carriage or thimble, or use **−** and **+**, for one graduation. **Shift** with the wheel steps 1 mm on the caliper or one full turn on the micrometer. Pick a practice specimen and adjust until the measuring faces contact it. **Close to specimen** or **Advance to contact** seats the tool in one step. The simulation assumes a correct zero and stops at ideal contact. [NPL guide to callipers and micrometers](https://eprintspublications.npl.co.uk/2043/)
+
+Keep **Scale close-up** on and turn **Show reading** off to have students read the graduations themselves. Turning off **Show reading** also hides the calculated answer from a frozen Program view. Use **Add reading…** and click the board to place the calculation as a lesson label. The label follows the board’s visibility and answer settings.
 
 ## Calculator
 

@@ -6,8 +6,9 @@ using Matrix = System.Windows.Media.Matrix;
 
 namespace EduCast.Studio;
 
-internal enum InstrumentHandle { Move, Rotate, Resize, Angle, Curve, CompassTip }
-internal sealed record InstrumentDisplay(InstrumentPose Pose, string Expression = "", string Result = "");
+internal enum InstrumentHandle { Move, Rotate, Resize, Angle, Curve, CompassTip, GaugeAdjust, GaugeAlign }
+internal sealed record InstrumentDisplay(InstrumentPose Pose, string Expression = "", string Result = "",
+    MeasurementGauge? Gauge = null);
 
 internal sealed class TeacherInstrumentSurface : FrameworkElement
 {
@@ -103,6 +104,11 @@ internal static class InstrumentDrawing
 
     public static void Draw(DrawingContext dc, InstrumentDisplay display, bool controls = false, bool tracing = false)
     {
+        if (display.Gauge is { } gauge)
+        {
+            GaugeDrawing.Draw(dc, display, gauge, controls);
+            return;
+        }
         var pose = display.Pose;
         var transform = Matrix.Identity;
         transform.Rotate(pose.Rotation);
