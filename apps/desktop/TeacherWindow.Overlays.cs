@@ -36,6 +36,14 @@ public partial class TeacherWindow
         return bounds;
     }
 
+    internal void RemoveClock()
+    {
+        clockDrag = null;
+        if (studio is not null)
+            studio.RemoveClock();
+        ApplyStudioLayers(studioLayers with { Clock = null });
+    }
+
     internal void MoveClock(Point pointer)
     {
         if (clockDrag is not { } drag)

@@ -36,14 +36,14 @@ internal sealed class StudioTools : Window
     private readonly DispatcherTimer timer;
     private readonly TextBlock message = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock clockText = new() { FontSize = 32, FontWeight = FontWeights.SemiBold };
-    private readonly TextBox countdown = new() { Text = "05:00", Width = 86, Margin = new Thickness(0, 0, 6, 5) };
-    private readonly ComboBox clockMode = new() { ItemsSource = Enum.GetValues<ClockView>(), SelectedIndex = 0, Width = 115 };
+    private readonly TextBox countdown = new() { Text = "05:00", MinWidth = 86, Margin = new Thickness(0, 0, 6, 5) };
+    private readonly ComboBox clockMode = new() { ItemsSource = Enum.GetValues<ClockView>(), SelectedIndex = 0, MinWidth = 115 };
     private readonly CheckBox clockPublish = new() { Content = "Show clock on Program" };
     private readonly Button toggleClock = new() { Content = "Start", IsEnabled = false };
     private readonly Button resetClock = new() { Content = "Reset", IsEnabled = false };
     private readonly ComboBox profiles = new()
     {
-        ItemsSource = RecordingProfile.Options, DisplayMemberPath = nameof(RecordingProfile.Label), SelectedIndex = 0, Width = 205
+        ItemsSource = RecordingProfile.Options, DisplayMemberPath = nameof(RecordingProfile.Label), SelectedIndex = 0, MinWidth = 205
     };
     private readonly Button record = new() { Content = "Record Program…" };
     private readonly Button scan = new() { Content = "Refresh devices" };
@@ -67,8 +67,8 @@ internal sealed class StudioTools : Window
     {
         Owner = teacher;
         Title = "EduCast · Studio tools";
-        Background = (Brush)Application.Current.FindResource("Shell");
-        Foreground = (Brush)Application.Current.FindResource("Ink");
+        SetResourceReference(BackgroundProperty, "Shell");
+        SetResourceReference(ForegroundProperty, "Ink");
         Width = 680;
         Height = 595;
         MinWidth = 540;
@@ -81,7 +81,7 @@ internal sealed class StudioTools : Window
         board.Click += (_, _) => teacher.ReturnToBoard();
         root.Children.Add(board);
         root.Children.Add(Label("CAMERAS  /  PRIVATE PREVIEW"));
-        var setup = new WrapPanel();
+        var setup = new ToolbarPanel();
         browse.Click += async (_, _) =>
         {
             var dialog = new OpenFileDialog { Filter = "FFmpeg (ffmpeg.exe)|ffmpeg.exe", CheckFileExists = true };
@@ -114,7 +114,7 @@ internal sealed class StudioTools : Window
 
         root.Children.Add(Label("CLASSROOM CLOCK"));
         root.Children.Add(clockText);
-        var clockControls = new WrapPanel();
+        var clockControls = new ToolbarPanel();
         countdown.ToolTip = "Countdown duration in MM:SS or H:MM:SS";
         clockControls.Children.Add(clockMode);
         clockControls.Children.Add(countdown);
@@ -129,11 +129,11 @@ internal sealed class StudioTools : Window
         clockPublish.Click += (_, _) => Refresh();
 
         root.Children.Add(Label("CLEAN PROGRAM RECORDING"));
-        var recordingControls = new WrapPanel();
+        var recordingControls = new ToolbarPanel();
         recordingControls.Children.Add(profiles);
         recordingControls.Children.Add(record);
         root.Children.Add(recordingControls);
-        var audioControls = new WrapPanel();
+        var audioControls = new ToolbarPanel();
         var audioLabel = Label("Recording microphone");
         audioLabel.Margin = new Thickness(0, 5, 8, 5);
         AutomationProperties.SetLabeledBy(microphones, audioLabel);
@@ -180,6 +180,12 @@ internal sealed class StudioTools : Window
             microphones.SelectedIndex = 0;
         record.IsEnabled = !finishing;
         record.Content = finishing ? "Finishing…" : active ? "Stop recording" : "Record Program…";
+    }
+
+    internal void RemoveClock()
+    {
+        clockPublish.IsChecked = false;
+        Refresh();
     }
 
     public void Unpublish()

@@ -3,73 +3,85 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:studio="clr-namespace:EduCast.Studio"
     Title="EduCast · Teaching Source" Width="1100" Height="790" MinWidth="620" MinHeight="430"
-    WindowStartupLocation="CenterOwner" Background="{StaticResource Shell}" Foreground="{StaticResource Ink}"
+    WindowStartupLocation="CenterOwner" Background="{DynamicResource Shell}" Foreground="{DynamicResource Ink}"
     FontFamily="Segoe UI" FontSize="13">
-    <DockPanel Margin="12">
-        <WrapPanel DockPanel.Dock="Top">
-            <Button Content="← Board" Style="{StaticResource Primary}" Click="ReturnToBoard"
-                ToolTip="Return to the writing board and keep this source and its annotations (Ctrl+Shift+B)"/>
-            <Button Content="Browser" Click="SelectBrowser"/>
-            <Button Content="Open file…" Click="ChooseFile"/>
-            <Button Content="Media file…" Click="SelectMediaFile"/>
-            <Button Content="Live stream…" Click="OpenLiveBroadcast"/>
-            <Button Content="Capture window…" Click="SelectWindow"/>
-            <CheckBox x:Name="Publish" Content="Show on Program" IsEnabled="False" Click="ChangePublication"
-                Margin="6,7,12,5" ToolTip="Approve this source for the student output. In manual mode, use Take preview."/>
-            <Button Content="Take preview" Click="TakePreview"/>
-            <Button x:Name="FreezeSourceButton" Content="Freeze" Click="FreezeProgram"/>
-            <Button x:Name="BlackoutSourceButton" Content="Blackout" Click="BlackoutProgram"/>
-            <TextBlock x:Name="SourceProgramState" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="5,0,0,5"/>
-        </WrapPanel>
-        <DockPanel x:Name="BrowserBar" DockPanel.Dock="Top" LastChildFill="True" Visibility="Collapsed">
-            <Button x:Name="Back" Content="‹" Click="GoBack" ToolTip="Back" AutomationProperties.Name="Back"/>
-            <Button x:Name="Reload" Content="↻" Click="ReloadPage" ToolTip="Reload page" AutomationProperties.Name="Reload page"/>
-            <Button x:Name="OpenInDesktopApp" Content="Open in app…" Click="OpenBrowserFileInApp" Visibility="Collapsed"
-                ToolTip="Open this file in a Windows app and capture its window"/>
-            <Button x:Name="GoButton" DockPanel.Dock="Right" Content="Go" Click="Go"/>
-            <TextBox x:Name="Address" Margin="0,0,5,5" KeyDown="AddressKey" MaxLength="8192"
-                ToolTip="Enter a web address or paste a full file path" AutomationProperties.Name="Web address or file path"/>
-        </DockPanel>
-        <WrapPanel x:Name="MediaBar" DockPanel.Dock="Top" Visibility="Collapsed">
-            <Button x:Name="PlayMediaButton" Content="Play" Click="ToggleMedia"/>
-            <Button Content="Restart clip" Click="RestartMedia"/>
-            <TextBlock x:Name="MediaName" VerticalAlignment="Center" Margin="6,0" TextTrimming="CharacterEllipsis"/>
-        </WrapPanel>
-        <DockPanel x:Name="WindowBar" DockPanel.Dock="Top" LastChildFill="True" Visibility="Collapsed">
-            <Button Content="Refresh list" Click="RefreshWindowList"/>
-            <Button x:Name="PreviewWindowButton" DockPanel.Dock="Right" Content="Preview window" Click="StartWindowCapture"/>
-            <ComboBox x:Name="Windows" DisplayMemberPath="Title" AutomationProperties.Name="Open windows"/>
-        </DockPanel>
-        <WrapPanel DockPanel.Dock="Top" Margin="0,2,0,2">
-            <Button x:Name="Interact" Content="Interact" Click="SelectTool" Tag="Interact"
-                ToolTip="Use the page's links, buttons, sliders and other controls"/>
-            <Button x:Name="SelectAnnotation" Content="Select" Click="SelectTool" Tag="Select"
-                ToolTip="Drag an annotation to move it, or drag an edge or corner to resize"/>
-            <Button x:Name="RoundPen" Style="{StaticResource IconTool}" Content="{StaticResource RoundPenIcon}" Click="SelectTool"
-                Tag="Pen" ToolTip="Round pen" AutomationProperties.Name="Round pen"/>
-            <Button x:Name="SquarePen" Style="{StaticResource IconTool}" Content="{StaticResource SquarePenIcon}" Click="SelectTool"
-                Tag="SquarePen" ToolTip="Square pen" AutomationProperties.Name="Square pen"/>
-            <Button x:Name="Marker" Style="{StaticResource IconTool}" Content="{StaticResource HighlighterIcon}" Click="SelectTool"
-                Tag="Highlighter" ToolTip="Chisel highlighter" AutomationProperties.Name="Chisel highlighter"/>
-            <Button x:Name="Eraser" Style="{StaticResource IconTool}" Content="{StaticResource EraserIcon}" Click="SelectTool"
-                Tag="Eraser" ToolTip="Click to erase an annotation" AutomationProperties.Name="Eraser"/>
-            <Button x:Name="Arrow" Style="{StaticResource IconTool}" Content="{StaticResource ArrowIcon}" Click="SelectTool"
-                Tag="Arrow" ToolTip="Draw an arrow from tail to tip" AutomationProperties.Name="Draw arrow"/>
-            <Button x:Name="Pointer" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}" Click="SelectTool"
-                Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
-            <Button x:Name="SmartInk" Content="Smart ink" Style="{StaticResource CreativeTool}" Click="SelectTool" Tag="SmartInk"/>
-            <Button x:Name="SmartMath" Content="Smart math ink" Style="{StaticResource CreativeTool}" Click="SelectTool" Tag="SmartMath"/>
-            <Button Content="Instruments…" Style="{StaticResource InstrumentTool}" Click="OpenInstruments"/>
-            <ComboBox x:Name="Colors" Width="90" DisplayMemberPath="Name" SelectionChanged="ChangeInk"
-                AutomationProperties.Name="Annotation color"/>
-            <ComboBox x:Name="Widths" Width="58" SelectionChanged="ChangeInk" AutomationProperties.Name="Annotation width"/>
-            <Button x:Name="UndoButton" Content="Undo" Click="UndoAnnotation" IsEnabled="False"/>
-            <Button x:Name="ClearButton" Content="Clear ink" Click="ClearAnnotations" IsEnabled="False"/>
-        </WrapPanel>
-        <StackPanel x:Name="InstrumentHost" DockPanel.Dock="Top"/>
-        <TextBlock x:Name="Hint" DockPanel.Dock="Bottom" Margin="0,7,0,0" Foreground="{StaticResource Muted}"
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ScrollViewer x:Name="SourceToolbar" Style="{StaticResource ToolbarViewport}">
+            <StackPanel>
+                <studio:ToolbarPanel x:Name="SourceActions">
+                    <Button Content="← Board" Style="{StaticResource Primary}" Click="ReturnToBoard"
+                        ToolTip="Return to the writing board and keep this source and its annotations (Ctrl+Shift+B)"/>
+                    <Button Content="Browser" Click="SelectBrowser"/>
+                    <Button Content="Open file…" Click="ChooseFile"/>
+                    <Button Content="Media file…" Click="SelectMediaFile"/>
+                    <Button Content="Live stream…" Click="OpenLiveBroadcast"/>
+                    <Button Content="Capture window…" Click="SelectWindow"/>
+                    <CheckBox x:Name="Publish" Content="Show on Program" IsEnabled="False" Click="ChangePublication"
+                        Margin="6,7,12,5" ToolTip="Approve this source for the student output. In manual mode, use Take preview."/>
+                    <Button Content="Take preview" Click="TakePreview"/>
+                    <Button x:Name="FreezeSourceButton" Content="Freeze" Click="FreezeProgram"/>
+                    <Button x:Name="BlackoutSourceButton" Content="Blackout" Click="BlackoutProgram"/>
+                    <TextBlock x:Name="SourceProgramState" Style="{StaticResource ToolbarLabel}"/>
+                    <DockPanel>
+                        <TextBlock Text="THEME" Style="{StaticResource ToolbarLabel}"/>
+                        <ComboBox x:Name="ThemePicker" Style="{StaticResource ThemePicker}"/>
+                    </DockPanel>
+                </studio:ToolbarPanel>
+                <DockPanel x:Name="BrowserBar" LastChildFill="True" Visibility="Collapsed">
+                    <Button x:Name="Back" Content="‹" Click="GoBack" ToolTip="Back" AutomationProperties.Name="Back"/>
+                    <Button x:Name="Reload" Content="↻" Click="ReloadPage" ToolTip="Reload page" AutomationProperties.Name="Reload page"/>
+                    <Button x:Name="OpenInDesktopApp" Content="Open in app…" Click="OpenBrowserFileInApp" Visibility="Collapsed"
+                        ToolTip="Open this file in a Windows app and capture its window"/>
+                    <Button x:Name="GoButton" DockPanel.Dock="Right" Content="Go" Click="Go"/>
+                    <TextBox x:Name="Address" Margin="0,0,5,5" KeyDown="AddressKey" MaxLength="8192"
+                        ToolTip="Enter a web address or paste a full file path" AutomationProperties.Name="Web address or file path"/>
+                </DockPanel>
+                <studio:ToolbarPanel x:Name="MediaBar" Visibility="Collapsed">
+                    <Button x:Name="PlayMediaButton" Content="Play" Click="ToggleMedia"/>
+                    <Button Content="Restart clip" Click="RestartMedia"/>
+                    <TextBlock x:Name="MediaName" Style="{StaticResource ToolbarLabel}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                </studio:ToolbarPanel>
+                <DockPanel x:Name="WindowBar" LastChildFill="True" Visibility="Collapsed">
+                    <Button Content="Refresh list" Click="RefreshWindowList"/>
+                    <Button x:Name="PreviewWindowButton" DockPanel.Dock="Right" Content="Preview window" Click="StartWindowCapture"/>
+                    <ComboBox x:Name="Windows" DisplayMemberPath="Title" AutomationProperties.Name="Open windows"/>
+                </DockPanel>
+                <studio:ToolbarPanel x:Name="AnnotationTools" Margin="0,2,0,2">
+                    <Button x:Name="Interact" Content="Interact" Click="SelectTool" Tag="Interact"
+                        ToolTip="Use the page's links, buttons, sliders and other controls"/>
+                    <Button x:Name="SelectAnnotation" Content="Select" Click="SelectTool" Tag="Select"
+                        ToolTip="Drag an annotation to move it, or drag an edge or corner to resize"/>
+                    <Button x:Name="RoundPen" Style="{StaticResource IconTool}" Content="{StaticResource RoundPenIcon}" Click="SelectTool"
+                        Tag="Pen" ToolTip="Round pen" AutomationProperties.Name="Round pen"/>
+                    <Button x:Name="SquarePen" Style="{StaticResource IconTool}" Content="{StaticResource SquarePenIcon}" Click="SelectTool"
+                        Tag="SquarePen" ToolTip="Square pen" AutomationProperties.Name="Square pen"/>
+                    <Button x:Name="Marker" Style="{StaticResource IconTool}" Content="{StaticResource HighlighterIcon}" Click="SelectTool"
+                        Tag="Highlighter" ToolTip="Chisel highlighter" AutomationProperties.Name="Chisel highlighter"/>
+                    <Button x:Name="Eraser" Style="{StaticResource IconTool}" Content="{StaticResource EraserIcon}" Click="SelectTool"
+                        Tag="Eraser" ToolTip="Click to erase an annotation" AutomationProperties.Name="Eraser"/>
+                    <Button x:Name="Arrow" Style="{StaticResource IconTool}" Content="{StaticResource ArrowIcon}" Click="SelectTool"
+                        Tag="Arrow" ToolTip="Draw an arrow from tail to tip" AutomationProperties.Name="Draw arrow"/>
+                    <Button x:Name="Pointer" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}" Click="SelectTool"
+                        Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
+                    <Button x:Name="SmartInk" Content="Smart ink" Style="{StaticResource CreativeTool}" Click="SelectTool" Tag="SmartInk"/>
+                    <Button x:Name="SmartMath" Content="Smart math ink" Style="{StaticResource CreativeTool}" Click="SelectTool" Tag="SmartMath"/>
+                    <Button x:Name="SourceMathToolsButton" Content="▸ Instruments" Style="{StaticResource InstrumentTool}"
+                        AutomationProperties.Name="Instruments" Click="OpenInstruments"/>
+                    <ComboBox x:Name="Colors" MinWidth="90" DisplayMemberPath="Name" SelectionChanged="ChangeInk"
+                        AutomationProperties.Name="Annotation color"/>
+                    <ComboBox x:Name="Widths" MinWidth="58" SelectionChanged="ChangeInk" AutomationProperties.Name="Annotation width"/>
+                    <Button x:Name="UndoButton" Content="Undo" Click="UndoAnnotation" IsEnabled="False"/>
+                    <Button x:Name="ClearButton" Content="Clear ink" Click="ClearAnnotations" IsEnabled="False"/>
+                </studio:ToolbarPanel>
+                <StackPanel x:Name="InstrumentHost"/>
+            </StackPanel>
+        </ScrollViewer>
+        <TextBlock x:Name="Hint" Grid.Row="2" Margin="0,7,0,0" Foreground="{DynamicResource Muted}"
             TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
-        <Border Background="Black" BorderBrush="{StaticResource Line}" BorderThickness="1" ClipToBounds="True">
+        <Border Grid.Row="1" Background="Black" BorderBrush="{DynamicResource Line}" BorderThickness="1" ClipToBounds="True">
             <Grid SizeChanged="SourceAreaSizeChanged">
                 <Grid x:Name="SourceStage" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="True">
                     <Grid x:Name="BrowserSlot"/>
@@ -87,5 +99,5 @@
                 </Grid>
             </Grid>
         </Border>
-    </DockPanel>
+    </Grid>
 </Window>

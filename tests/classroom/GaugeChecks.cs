@@ -52,7 +52,7 @@ internal static partial class Checks
 
         var choice = Find<ComboBox>(teacher, "InstrumentChoice");
         choice.SelectedIndex = 8;
-        Click(teacher, "MathToolsButton");
+        teacher.OpenInstruments(source: false);
         ExpectOpening(1542);
         var overlay = Find<FrameworkElement>(teacher, "TeacherInstrument");
         Pump();

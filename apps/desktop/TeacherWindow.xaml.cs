@@ -835,7 +835,7 @@ public partial class TeacherWindow : Window
         DrawingInput.Cursor = choice == Tool.Select ? Cursors.Arrow : Cursors.Cross;
         foreach (var button in new[] { PenButton, SquarePenButton, MarkerButton, EraseButton, ArrowButton, PointerButton,
             SelectButton, LineButton, CircleButton, ArcButton, RectButton, SmartInkButton, SmartMathButton })
-            button.Background = (Brush)FindResource((string)button.Tag == choice.ToString() ? "AccentDark" : "Control");
+            button.SetResourceReference(Control.BackgroundProperty, (string)button.Tag == choice.ToString() ? "AccentDark" : "Control");
         ToolHint.Text = choice switch
         {
             Tool.Pen => "Round pen · mouse, touch or stylus",
@@ -904,6 +904,18 @@ public partial class TeacherWindow : Window
     {
         var position = args.GetPosition(BoardInput);
         SetMathSurface(source: false);
+        if (TeacherInstrument.CloseAt(position))
+        {
+            args.Handled = true;
+            return;
+        }
+        if (VisibleSelection is { } selected && BoardSelection.CloseAt(selected, position, SelectionUnit))
+        {
+            CancelGesture();
+            DeleteSelected(sender, args);
+            args.Handled = true;
+            return;
+        }
         if (args.ClickCount == 2)
             inkTap.Clear();
         else
@@ -1235,6 +1247,7 @@ public partial class TeacherWindow : Window
         var boardWidth = Math.Floor(fitted * zoom);
         BoardSlot.Width = boardWidth;
         BoardSlot.Height = Math.Floor(boardWidth * 9 / 16);
+        TeacherInstrument.ScaleControls(SelectionUnit);
         if (tool == Tool.Select && selectionDrag is null)
             TeacherBoard.Mark(VisibleSelection, handleUnit: SelectionUnit);
         ZoomButton.Content = zoom == 1 ? "Fit" : $"{zoom:P0}";
@@ -1569,7 +1582,16 @@ public partial class TeacherWindow : Window
         RecordingButton.Content = recording is null ? "Record…" : stoppingRecording ? "Finishing…" :
             $"● REC{(recording.IncludesAudio ? " + mic" : "")} {recording.Elapsed:hh\\:mm\\:ss} · Stop";
         RecordingButton.IsEnabled = !stoppingRecording;
-        RecordingButton.Background = recording is null ? (Brush)FindResource("Panel") : Brushes.Firebrick;
+        if (recording is null)
+        {
+            RecordingButton.ClearValue(Control.BackgroundProperty);
+            RecordingButton.ClearValue(Control.ForegroundProperty);
+        }
+        else
+        {
+            RecordingButton.Background = Brushes.Firebrick;
+            RecordingButton.Foreground = Brushes.White;
+        }
     }
 
     private async Task ObserveRecordingAsync(ProgramRecording job)

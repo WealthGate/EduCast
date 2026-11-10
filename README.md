@@ -6,6 +6,8 @@ Open **Studio & clock…** for a classroom clock, two camera previews, and clean
 
 Open **Instruments…** to put an interactive ruler, compass, protractor, set square, quadratic French curve, calculator, vernier caliper, or micrometer on the board or a teaching resource. Use **Add instrument** to combine tools and **Show on Program** to share them individually.
 
+Choose **Violet**, **Ocean**, or **Daylight** from **Theme** to personalize the teacher workspace. The choice is saved for your next session. Toolbars wrap and spread controls across the window. Click **Instruments** to expand or collapse its settings. Use the canvas **×** control to remove the selected object, active instrument, or shared clock.
+
 Open **Browser…** for web links and interactive HTML lessons, or choose **Capture window…** to preview another Windows app. Both support pen, highlighter, arrow, and pointer annotations before or during sharing. [Teaching sources](docs/STUDIO.md#teach-from-a-web-page-file-or-app-window)
 
 Use **Board** and **Resume source** to switch between the writing board and your current teaching material. Choose a subject above the board for science notation, diagrams and sketch recognition. [Subject board](docs/SUBJECT_BOARD.md)

@@ -77,6 +77,8 @@ internal partial class SourceWindow : Window
                 smartInk.Resume();
             RefreshOverlay();
         };
+        SourceInstruments.RemoveInstrument += () => teacher.RemoveActiveInstrument(source: true);
+        SourceInstruments.RemoveClock += teacher.RemoveClock;
         SetTool(Tool.Interact);
         timer.Tick += ReadSource;
         timer.Start();
@@ -113,14 +115,17 @@ internal partial class SourceWindow : Window
             InstrumentHost.Children.Add(panel);
     }
 
-    private void OpenInstruments(object sender, RoutedEventArgs args) => teacher.OpenInstruments(source: true);
+    private void OpenInstruments(object sender, RoutedEventArgs args) => teacher.ToggleInstruments(source: true);
+
+    internal void SetInstrumentExpansion(bool expanded) =>
+        SourceMathToolsButton.Content = expanded ? "▾ Instruments" : "▸ Instruments";
 
     internal void UseInstrument() => SetTool(Tool.Instrument);
 
     internal void PresentInstruments(InstrumentDisplay[] displays, InstrumentDisplay? active, Classroom.Content? preview,
         bool trace, (ClockReading Reading, Vector Offset)? clock)
     {
-        SourceInstruments.Present(displays, active, preview, trace, clock);
+        SourceInstruments.Present(displays, active, preview, trace, clock, SelectionUnit);
         constructionPreview = preview?.Visibility == ItemVisibility.Both ? preview : null;
     }
 
@@ -497,7 +502,7 @@ internal partial class SourceWindow : Window
         Input.UseCustomCursor = true;
         UpdateInteract();
         foreach (var button in new[] { Interact, SelectAnnotation, RoundPen, SquarePen, Marker, Eraser, Arrow, Pointer, SmartInk, SmartMath })
-            button.Background = (Brush)FindResource((string)button.Tag == tool.ToString() ? "AccentDark" : "Control");
+            button.SetResourceReference(Control.BackgroundProperty, (string)button.Tag == tool.ToString() ? "AccentDark" : "Control");
         ChangeInk(null, null);
         if (tool is Tool.Select or Tool.Instrument or Tool.SmartInk or Tool.SmartMath)
             Hint.Text = tool switch
@@ -520,6 +525,7 @@ internal partial class SourceWindow : Window
         var width = Math.Min(args.NewSize.Width, args.NewSize.Height * 16 / 9);
         SourceStage.Width = width;
         SourceStage.Height = width * 9 / 16;
+        SourceInstruments.ScaleControls(BoardSelection.Unit(width));
         RefreshOverlay();
     }
 
@@ -558,6 +564,14 @@ internal partial class SourceWindow : Window
         }
         var position = args.GetPosition(Drawing);
         teacher.SetMathSurface(source: true);
+        if (Selected is { } selected && BoardSelection.CloseAt(selected, position, SelectionUnit))
+        {
+            CancelAnnotation();
+            selectedId = null;
+            EditMarks(marks.Remove(selected));
+            args.Handled = true;
+            return;
+        }
         if (args.ClickCount == 2)
             inkTap.Clear();
         else

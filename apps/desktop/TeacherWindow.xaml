@@ -4,7 +4,7 @@
     xmlns:studio="clr-namespace:EduCast.Studio"
     Title="EduCast Studio" Width="1390" Height="870" MinWidth="860" MinHeight="690"
     Icon="Assets/EduCast.ico"
-    WindowStartupLocation="CenterScreen" Background="{StaticResource Shell}" Foreground="{StaticResource Ink}"
+    WindowStartupLocation="CenterScreen" Background="{DynamicResource Shell}" Foreground="{DynamicResource Ink}"
     FontFamily="Segoe UI" FontSize="13">
     <Grid Margin="18,12,18,9">
         <Grid.RowDefinitions>
@@ -14,7 +14,7 @@
         </Grid.RowDefinitions>
 
         <Grid Margin="0,0,0,13">
-            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <Image Source="Assets/EduCast.png" Width="40" Height="40" Margin="0,0,12,0"/>
                 <StackPanel VerticalAlignment="Center">
@@ -22,7 +22,7 @@
                     <TextBlock Text="TEACHER WORKSPACE   /   CLASSROOM" Style="{StaticResource Caption}"/>
                 </StackPanel>
             </StackPanel>
-            <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+            <studio:ToolbarPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
                 <Button Content="_New" Click="NewLesson" ToolTip="New lesson (Ctrl+N)"/>
                 <Button Content="_Open…" Click="OpenLesson" ToolTip="Open a lesson, teaching file, or presentation (Ctrl+O)"/>
                 <Button Content="_Save" Click="SaveLesson" ToolTip="Save lesson (Ctrl+S)"/>
@@ -30,34 +30,38 @@
                 <Button x:Name="SampleButton" Content="Sample lesson" Click="Sample"/>
                 <Button x:Name="UpdateButton" Content="Check for updates" Click="CheckForUpdates"
                     ToolTip="Check for a newer EduCast release on GitHub"/>
-            </WrapPanel>
+                <DockPanel>
+                    <TextBlock Text="THEME" Style="{StaticResource ToolbarLabel}"/>
+                    <ComboBox x:Name="ThemePicker" Style="{StaticResource ThemePicker}"/>
+                </DockPanel>
+            </studio:ToolbarPanel>
         </Grid>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="184" MinWidth="145"/>
+                <ColumnDefinition Width="164" MinWidth="145"/>
                 <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*" MinWidth="390"/>
+                <ColumnDefinition Width="*" MinWidth="350"/>
                 <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="300" MinWidth="250"/>
+                <ColumnDefinition Width="260" MinWidth="235"/>
             </Grid.ColumnDefinitions>
-            <Border Background="{StaticResource Panel}" Padding="12" CornerRadius="9">
+            <Border Background="{DynamicResource Panel}" Padding="12" CornerRadius="9">
                 <DockPanel LastChildFill="True">
                     <StackPanel DockPanel.Dock="Top">
                         <TextBlock Text="LESSON" Style="{StaticResource Caption}"/>
                         <TextBox x:Name="LessonTitle" MaxLength="120" Margin="0,8,0,16" LostKeyboardFocus="EditTitle"
                             AutomationProperties.Name="Lesson title"/>
                         <TextBlock Text="PAGES" Style="{StaticResource Caption}" Margin="0,0,0,7"/>
-                        <Button Content="+  Add page" Click="AddPage" HorizontalContentAlignment="Left"/>
-                        <Button Content="Duplicate page" Click="DuplicatePage" HorizontalContentAlignment="Left"
+                        <Button Content="+  Add page" Click="AddPage"/>
+                        <Button Content="Duplicate page" Click="DuplicatePage"
                             ToolTip="Copy this page so you can develop the next step separately"/>
-                        <WrapPanel Margin="0,1,0,6">
+                        <studio:ToolbarPanel Margin="0,1,0,6">
                             <Button x:Name="Prev" Content="‹  Prev" Click="PreviousPage" ToolTip="Previous page (Alt+Left)"/>
                             <Button x:Name="Next" Content="Next  ›" Click="NextPage" ToolTip="Next page (Alt+Right)"/>
-                        </WrapPanel>
+                        </studio:ToolbarPanel>
                     </StackPanel>
-                    <ListBox x:Name="Pages" SelectionChanged="SelectPage" Background="{StaticResource Field}" Foreground="{StaticResource Ink}"
-                        BorderBrush="{StaticResource Line}" AutomationProperties.Name="Lesson pages"/>
+                    <ListBox x:Name="Pages" SelectionChanged="SelectPage" Background="{DynamicResource Field}" Foreground="{DynamicResource Ink}"
+                        BorderBrush="{DynamicResource Line}" AutomationProperties.Name="Lesson pages"/>
                 </DockPanel>
             </Border>
             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent"/>
@@ -66,122 +70,116 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Border Background="{StaticResource Panel}" Padding="10,8,5,3" CornerRadius="9" Margin="0,0,0,8">
-                    <StackPanel>
-                        <WrapPanel>
-                            <Button x:Name="BoardButton" Style="{StaticResource Primary}" Content="Board" Click="ShowBoard"
-                                ToolTip="Return to the writing board (Ctrl+Shift+B from another app)"/>
-                            <Button x:Name="ResumeSourceButton" Content="Teaching source" Click="ResumeSource"
-                                ToolTip="Switch back to the last file or captured window with its annotations"/>
-                            <Button x:Name="PenButton" Style="{StaticResource IconTool}" Content="{StaticResource RoundPenIcon}"
-                                Click="ChooseTool" Tag="Pen" ToolTip="Round pen" AutomationProperties.Name="Round pen"/>
-                            <Button x:Name="SquarePenButton" Style="{StaticResource IconTool}" Content="{StaticResource SquarePenIcon}"
-                                Click="ChooseTool" Tag="SquarePen" ToolTip="Square pen" AutomationProperties.Name="Square pen"/>
-                            <Button x:Name="MarkerButton" Style="{StaticResource IconTool}" Content="{StaticResource HighlighterIcon}"
-                                Click="ChooseTool" Tag="Highlighter" ToolTip="Chisel highlighter" AutomationProperties.Name="Chisel highlighter"/>
-                            <Button x:Name="EraseButton" Style="{StaticResource IconTool}" Content="{StaticResource EraserIcon}"
-                                Click="ChooseTool" Tag="Eraser" ToolTip="Erase whole objects" AutomationProperties.Name="Eraser"/>
-                            <Button x:Name="ArrowButton" Style="{StaticResource IconTool}" Content="{StaticResource ArrowIcon}"
-                                Click="ChooseTool" Tag="Arrow" ToolTip="Draw an arrow" AutomationProperties.Name="Draw arrow"/>
-                            <Button x:Name="PointerButton" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}"
-                                Click="ChooseTool" Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
-                            <Button x:Name="SelectButton" Content="Select" Click="ChooseTool" Tag="Select"
-                                ToolTip="Drag an object to move it, or drag an edge or corner to resize"/>
-                            <Button x:Name="LineButton" Content="Ruler line" Click="ChooseTool" Tag="Line" ToolTip="Drag endpoints. Hold Shift for 15° snapping."/>
-                            <Button x:Name="CircleButton" Content="Compass circle" Click="ChooseTool" Tag="Circle" ToolTip="Drag from the center to set a radius"/>
-                            <Button x:Name="ArcButton" Content="Compass arc" Click="ChooseTool" Tag="Arc" ToolTip="Drag from the center to set radius and start. Then move and click the end."/>
-                            <Button x:Name="RectButton" Content="Rectangle" Click="ChooseTool" Tag="Rectangle"/>
-                            <Button x:Name="SmartInkButton" Content="Smart ink" Style="{StaticResource CreativeTool}" Click="ChooseTool" Tag="SmartInk"
-                                ToolTip="Automatically tidy recognized shapes after you pause"/>
-                            <Button x:Name="SmartMathButton" Content="Smart math ink" Style="{StaticResource CreativeTool}" Click="ChooseTool" Tag="SmartMath"
-                                ToolTip="Automatically typeset recognized equations, fractions, roots, and scripts"/>
-                            <Button x:Name="MathToolsButton" Content="Instruments…" Style="{StaticResource InstrumentTool}" Click="OpenMathTools"
-                                ToolTip="Place a movable teaching instrument on the board"/>
-                        </WrapPanel>
-                        <WrapPanel>
-                            <ComboBox x:Name="Colors" Width="91" SelectionChanged="UpdateInk" AutomationProperties.Name="Ink color"/>
-                            <ComboBox x:Name="Widths" Width="68" SelectionChanged="UpdateInk" AutomationProperties.Name="Ink thickness"/>
-                            <CheckBox x:Name="SmoothInk" Content="Smooth" IsChecked="True" Click="UpdateInk" Margin="2,6,9,4"/>
-                            <Button x:Name="UndoButton" Content="Undo" Click="Undo" ToolTip="Undo (Ctrl+Z)"/>
-                            <Button x:Name="RedoButton" Content="Redo" Click="Redo" ToolTip="Redo (Ctrl+Y)"/>
-                            <Button Content="Clear" Click="ClearPage"/>
-                            <ComboBox x:Name="Paper" Width="94" SelectionChanged="ChangePaper" AutomationProperties.Name="Board paper"/>
-                            <Button x:Name="BoardColorButton" Content="Board color…" Click="ChooseBoardColor"
-                                ToolTip="Choose a background color for this page"/>
-                        </WrapPanel>
-                        <WrapPanel>
-                            <TextBlock Text="SUBJECT" Style="{StaticResource Caption}" Margin="0,6,8,0"/>
-                            <ComboBox x:Name="SubjectChoice" Width="122" SelectionChanged="ChangeSubject"
-                                AutomationProperties.Name="Page subject"/>
-                            <ComboBox x:Name="SubjectTools" Width="157" DisplayMemberPath="Label"
-                                AutomationProperties.Name="Subject tools and shapes"/>
-                            <Button Content="Use tool" Click="UseSubjectTool"/>
-                        </WrapPanel>
-                        <StackPanel x:Name="BoardInstrumentHost">
-                            <StackPanel x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,4,0,0">
-                                <WrapPanel>
-                                    <ComboBox x:Name="InstrumentChoice" Width="195" DisplayMemberPath="Label"
-                                        AutomationProperties.Name="Instrument type"/>
-                                    <Button x:Name="AddInstrumentButton" Content="Add instrument" Click="PlaceInstrument" Style="{StaticResource Primary}"/>
-                                    <ComboBox x:Name="PlacedInstruments" Width="150" DisplayMemberPath="Label"
-                                        SelectionChanged="ChoosePlacedInstrument" AutomationProperties.Name="Active instrument"/>
-                                </WrapPanel>
-                                <WrapPanel x:Name="InstrumentActions">
-                                    <Button Content="Use instrument" Click="UseMathInstrument"/>
-                                    <CheckBox x:Name="TraceInstrument" Content="Trace" Click="ChangeTraceMode"
-                                        Margin="4,6,8,0" ToolTip="Drag along an edge, curve, or compass path to draw"/>
-                                    <CheckBox x:Name="PublishInstrument" Content="Show on Program" Click="ChangeInstrumentPublication"
-                                        Margin="4,6,8,0"/>
-                                    <Button x:Name="RemoveInstrumentButton" Content="Remove tool" Click="RemoveMathInstrument"/>
-                                </WrapPanel>
-                                <WrapPanel x:Name="InstrumentOptions">
-                                    <Button x:Name="InstrumentDrawButton" Click="DrawFromInstrument"/>
-                                    <WrapPanel x:Name="RulerControls" Visibility="Collapsed">
-                                        <CheckBox x:Name="RulerInches" Content="Inches" Click="ChangeRulerUnits" Margin="4,6,8,0"/>
-                                        <CheckBox x:Name="RulerLabels" Content="Label length" Click="ChangeRulerLabels" Margin="4,6,8,0"/>
-                                        <TextBox x:Name="ReferenceLength" Width="53" Text="5" MaxLength="12" Margin="0,0,5,5"
-                                            AutomationProperties.Name="Known ruler reference length in selected units"/>
-                                        <Button x:Name="CalibrateButton" Content="Calibrate…" Click="CalibrateRuler"
-                                            ToolTip="Drag along a known reference length on the board"/>
-                                        <Button Content="Reset scale" Click="ResetRulerScale"/>
-                                    </WrapPanel>
-                                    <TextBlock x:Name="InstrumentStatus" Margin="5,5,8,5" Foreground="{StaticResource Muted}"/>
-                                </WrapPanel>
-                                <StackPanel x:Name="GaugeControls" Visibility="Collapsed">
-                                    <WrapPanel>
-                                        <ComboBox x:Name="GaugeModeChoice" Width="92" DisplayMemberPath="Label"
-                                            SelectionChanged="ChangeGaugeMode" AutomationProperties.Name="Measurement mode"/>
-                                        <ComboBox x:Name="GaugeSampleChoice" Width="130" DisplayMemberPath="Label"
-                                            SelectionChanged="ChangeGaugeSample" AutomationProperties.Name="Practice specimen"/>
-                                        <Button x:Name="GaugeAlignButton" Content="Measure board points…" Click="AlignGauge"
-                                            ToolTip="Drag between two board points using the ruler calibration"/>
-                                        <Button x:Name="GaugeContactButton" Content="Close to zero" Click="GaugeContact"/>
-                                    </WrapPanel>
-                                    <WrapPanel>
-                                        <Button Content="−" Tag="-1" Click="NudgeGauge" AutomationProperties.Name="Decrease one graduation"/>
-                                        <Button Content="+" Tag="1" Click="NudgeGauge" AutomationProperties.Name="Increase one graduation"/>
-                                        <CheckBox x:Name="GaugeCloseUp" Content="Scale close-up" Click="ChangeGaugeReadout" Margin="4,6,8,0"/>
-                                        <CheckBox x:Name="GaugeShowReading" Content="Show reading" Click="ChangeGaugeReadout" Margin="4,6,8,0"/>
-                                        <Button x:Name="GaugeWriteButton" Content="Add reading…" Click="WriteGaugeReading"/>
-                                    </WrapPanel>
-                                </StackPanel>
-                                <WrapPanel x:Name="CalculatorControls" Visibility="Collapsed">
-                                    <TextBox x:Name="CalculatorEntry" Width="185" MaxLength="280" Margin="0,0,5,5"
-                                        KeyDown="CalculatorKeyDown" ToolTip="Try (3/4)^2, sqrt(81) or sin(30)"
-                                        AutomationProperties.Name="Calculator expression"/>
-                                    <CheckBox x:Name="CalculatorDegrees" Content="Degrees" IsChecked="True" Margin="4,6,8,0"/>
-                                    <Button x:Name="CalculatorEvaluateButton" Content="Evaluate" Click="CalculateOnBoard"/>
-                                    <ComboBox x:Name="CalculatorHistory" Width="130" SelectionChanged="RestoreCalculation"
-                                        AutomationProperties.Name="Calculation history"/>
-                                    <CheckBox x:Name="ShowCalculatorKeys" Content="Keypad" Click="ToggleCalculatorKeys" Margin="4,6,8,0"/>
-                                </WrapPanel>
-                                <WrapPanel x:Name="CalculatorKeys" Visibility="Collapsed"/>
+                <Border Background="{DynamicResource Panel}" Padding="10,8,5,3" CornerRadius="9" Margin="0,0,0,8">
+                    <ScrollViewer x:Name="BoardToolbar" Style="{StaticResource ToolbarViewport}">
+                        <StackPanel>
+                            <studio:ToolbarPanel x:Name="BoardTools">
+                                <Button x:Name="BoardButton" Style="{StaticResource Primary}" Content="Board" Click="ShowBoard"
+                                    ToolTip="Return to the writing board (Ctrl+Shift+B from another app)"/>
+                                <Button x:Name="ResumeSourceButton" Content="Teaching source" Click="ResumeSource"
+                                    ToolTip="Switch back to the last file or captured window with its annotations"/>
+                                <Button x:Name="PenButton" Style="{StaticResource IconTool}" Content="{StaticResource RoundPenIcon}"
+                                    Click="ChooseTool" Tag="Pen" ToolTip="Round pen" AutomationProperties.Name="Round pen"/>
+                                <Button x:Name="SquarePenButton" Style="{StaticResource IconTool}" Content="{StaticResource SquarePenIcon}"
+                                    Click="ChooseTool" Tag="SquarePen" ToolTip="Square pen" AutomationProperties.Name="Square pen"/>
+                                <Button x:Name="MarkerButton" Style="{StaticResource IconTool}" Content="{StaticResource HighlighterIcon}"
+                                    Click="ChooseTool" Tag="Highlighter" ToolTip="Chisel highlighter" AutomationProperties.Name="Chisel highlighter"/>
+                                <Button x:Name="EraseButton" Style="{StaticResource IconTool}" Content="{StaticResource EraserIcon}"
+                                    Click="ChooseTool" Tag="Eraser" ToolTip="Erase whole objects" AutomationProperties.Name="Eraser"/>
+                                <Button x:Name="ArrowButton" Style="{StaticResource IconTool}" Content="{StaticResource ArrowIcon}"
+                                    Click="ChooseTool" Tag="Arrow" ToolTip="Draw an arrow" AutomationProperties.Name="Draw arrow"/>
+                                <Button x:Name="PointerButton" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}"
+                                    Click="ChooseTool" Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
+                                <Button x:Name="SelectButton" Content="Select" Click="ChooseTool" Tag="Select"
+                                    ToolTip="Drag an object to move it, or drag an edge or corner to resize"/>
+                                <Button x:Name="LineButton" Content="Ruler line" Click="ChooseTool" Tag="Line" ToolTip="Drag endpoints. Hold Shift for 15° snapping."/>
+                                <Button x:Name="CircleButton" Content="Compass circle" Click="ChooseTool" Tag="Circle" ToolTip="Drag from the center to set a radius"/>
+                                <Button x:Name="ArcButton" Content="Compass arc" Click="ChooseTool" Tag="Arc" ToolTip="Drag from the center to set radius and start. Then move and click the end."/>
+                                <Button x:Name="RectButton" Content="Rectangle" Click="ChooseTool" Tag="Rectangle"/>
+                                <Button x:Name="SmartInkButton" Content="Smart ink" Style="{StaticResource CreativeTool}" Click="ChooseTool" Tag="SmartInk"
+                                    ToolTip="Automatically tidy recognized shapes after you pause"/>
+                                <Button x:Name="SmartMathButton" Content="Smart math ink" Style="{StaticResource CreativeTool}" Click="ChooseTool" Tag="SmartMath"
+                                    ToolTip="Automatically typeset recognized equations, fractions, roots, and scripts"/>
+                                <Button x:Name="MathToolsButton" Content="▸ Instruments" Style="{StaticResource InstrumentTool}" AutomationProperties.Name="Instruments" Click="OpenMathTools"
+                                    ToolTip="Place a movable teaching instrument on the board"/>
+                                <ComboBox x:Name="Colors" MinWidth="91" SelectionChanged="UpdateInk" AutomationProperties.Name="Ink color"/>
+                                <ComboBox x:Name="Widths" MinWidth="68" SelectionChanged="UpdateInk" AutomationProperties.Name="Ink thickness"/>
+                                <CheckBox x:Name="SmoothInk" Content="Smooth" IsChecked="True" Click="UpdateInk" Margin="2,6,9,4"/>
+                                <Button x:Name="UndoButton" Content="Undo" Click="Undo" ToolTip="Undo (Ctrl+Z)"/>
+                                <Button x:Name="RedoButton" Content="Redo" Click="Redo" ToolTip="Redo (Ctrl+Y)"/>
+                                <Button Content="Clear" Click="ClearPage"/>
+                                <ComboBox x:Name="Paper" MinWidth="94" SelectionChanged="ChangePaper" AutomationProperties.Name="Board paper"/>
+                                <Button x:Name="BoardColorButton" Content="Board color…" Click="ChooseBoardColor"
+                                    ToolTip="Choose a background color for this page"/>
+                                <TextBlock Text="SUBJECT" Style="{StaticResource ToolbarLabel}"/>
+                                <ComboBox x:Name="SubjectChoice" MinWidth="122" SelectionChanged="ChangeSubject"
+                                    AutomationProperties.Name="Page subject"/>
+                                <ComboBox x:Name="SubjectTools" MinWidth="157" DisplayMemberPath="Label"
+                                    AutomationProperties.Name="Subject tools and shapes"/>
+                                <Button Content="Use tool" Click="UseSubjectTool"/>
+                            </studio:ToolbarPanel>
+                            <StackPanel x:Name="BoardInstrumentHost">
+                                <Border x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,5,4,3"
+                                        Padding="8,7,3,2" CornerRadius="8" Background="{DynamicResource Field}"
+                                        BorderBrush="{DynamicResource Line}" BorderThickness="1">
+                                    <StackPanel>
+                                        <studio:ToolbarPanel x:Name="InstrumentTools">
+                                            <ComboBox x:Name="InstrumentChoice" MinWidth="185" DisplayMemberPath="Label"
+                                                AutomationProperties.Name="Instrument type"/>
+                                            <Button x:Name="AddInstrumentButton" Content="Add instrument" Click="PlaceInstrument" Style="{StaticResource Primary}"/>
+                                            <ComboBox x:Name="PlacedInstruments" MinWidth="155" DisplayMemberPath="Label"
+                                                SelectionChanged="ChoosePlacedInstrument" AutomationProperties.Name="Active instrument"/>
+                                            <Button x:Name="UseInstrumentButton" Content="Use instrument" Click="UseMathInstrument"/>
+                                            <CheckBox x:Name="TraceInstrument" Content="Trace" Click="ChangeTraceMode"
+                                                ToolTip="Drag along an edge, curve, or compass path to draw"/>
+                                            <CheckBox x:Name="PublishInstrument" Content="Show on Program" Click="ChangeInstrumentPublication"/>
+                                            <Button x:Name="RemoveInstrumentButton" Content="Remove tool" Click="RemoveMathInstrument"/>
+                                            <Button x:Name="InstrumentDrawButton" Click="DrawFromInstrument"/>
+                                            <TextBlock x:Name="InstrumentStatus" Style="{StaticResource ToolbarLabel}"
+                                                TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/>
+                                        </studio:ToolbarPanel>
+                                        <studio:ToolbarPanel x:Name="RulerControls" Visibility="Collapsed">
+                                            <CheckBox x:Name="RulerInches" Content="Inches" Click="ChangeRulerUnits"/>
+                                            <CheckBox x:Name="RulerLabels" Content="Label length" Click="ChangeRulerLabels"/>
+                                            <TextBox x:Name="ReferenceLength" MinWidth="53" Text="5" MaxLength="12" Margin="0,0,5,5"
+                                                AutomationProperties.Name="Known ruler reference length in selected units"/>
+                                            <Button x:Name="CalibrateButton" Content="Calibrate…" Click="CalibrateRuler"
+                                                ToolTip="Drag along a known reference length"/>
+                                            <Button Content="Reset scale" Click="ResetRulerScale"/>
+                                        </studio:ToolbarPanel>
+                                        <studio:ToolbarPanel x:Name="GaugeControls" Visibility="Collapsed">
+                                            <ComboBox x:Name="GaugeModeChoice" MinWidth="92" DisplayMemberPath="Label"
+                                                SelectionChanged="ChangeGaugeMode" AutomationProperties.Name="Measurement mode"/>
+                                            <ComboBox x:Name="GaugeSampleChoice" MinWidth="130" DisplayMemberPath="Label"
+                                                SelectionChanged="ChangeGaugeSample" AutomationProperties.Name="Practice specimen"/>
+                                            <Button x:Name="GaugeAlignButton" Content="Measure board points…" Click="AlignGauge"
+                                                ToolTip="Drag between two board points using the ruler calibration"/>
+                                            <Button x:Name="GaugeContactButton" Content="Close to zero" Click="GaugeContact"/>
+                                            <Button Content="−" Tag="-1" Click="NudgeGauge" AutomationProperties.Name="Decrease one graduation"/>
+                                            <Button Content="+" Tag="1" Click="NudgeGauge" AutomationProperties.Name="Increase one graduation"/>
+                                            <CheckBox x:Name="GaugeCloseUp" Content="Scale close-up" Click="ChangeGaugeReadout"/>
+                                            <CheckBox x:Name="GaugeShowReading" Content="Show reading" Click="ChangeGaugeReadout"/>
+                                            <Button x:Name="GaugeWriteButton" Content="Add reading…" Click="WriteGaugeReading"/>
+                                        </studio:ToolbarPanel>
+                                        <studio:ToolbarPanel x:Name="CalculatorControls" Visibility="Collapsed">
+                                            <TextBox x:Name="CalculatorEntry" MinWidth="185" MaxLength="280" Margin="0,0,5,5"
+                                                KeyDown="CalculatorKeyDown" ToolTip="Try (3/4)^2, sqrt(81) or sin(30)"
+                                                AutomationProperties.Name="Calculator expression"/>
+                                            <CheckBox x:Name="CalculatorDegrees" Content="Degrees" IsChecked="True"/>
+                                            <Button x:Name="CalculatorEvaluateButton" Content="Evaluate" Click="CalculateOnBoard"/>
+                                            <ComboBox x:Name="CalculatorHistory" MinWidth="130" SelectionChanged="RestoreCalculation"
+                                                AutomationProperties.Name="Calculation history"/>
+                                            <CheckBox x:Name="ShowCalculatorKeys" Content="Keypad" Click="ToggleCalculatorKeys"/>
+                                        </studio:ToolbarPanel>
+                                        <studio:ToolbarPanel x:Name="CalculatorKeys" Visibility="Collapsed"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </StackPanel>
-                    </StackPanel>
+                    </ScrollViewer>
                 </Border>
 
-                <Border Grid.Row="1" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                <Border Grid.Row="1" Background="{DynamicResource Field}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                     CornerRadius="9" Padding="9" ClipToBounds="True">
                     <ScrollViewer x:Name="BoardScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                         PanningMode="None" Focusable="False" PreviewMouseDown="StartPan" PreviewMouseMove="Pan"
@@ -201,24 +199,24 @@
                 </Border>
                 <Grid Grid.Row="2" Margin="0,8,0,0">
                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <TextBlock x:Name="ToolHint" Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                    <WrapPanel Grid.Column="1">
+                    <TextBlock x:Name="ToolHint" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    <studio:ToolbarPanel Grid.Column="1">
                         <Button Content="−" Click="ZoomOut" ToolTip="Zoom teacher board out"/>
                         <Button x:Name="ZoomButton" Content="Fit" Click="FitBoard" ToolTip="Fit teacher board"/>
                         <Button Content="+" Click="ZoomIn" ToolTip="Zoom teacher board in"/>
-                    </WrapPanel>
+                    </studio:ToolbarPanel>
                 </Grid>
             </Grid>
 
             <GridSplitter Grid.Column="3" HorizontalAlignment="Stretch" Background="Transparent"/>
-            <Border Grid.Column="4" Background="{StaticResource Panel}" CornerRadius="9">
+            <Border Grid.Column="4" Background="{DynamicResource Panel}" CornerRadius="9">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="12,10,12,12">
                         <Grid Margin="0,0,0,6">
                             <TextBlock Text="PROGRAM" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
-                            <Border Background="{StaticResource AccentDark}" CornerRadius="5" Padding="8,4"
+                            <Border Background="{DynamicResource AccentDark}" CornerRadius="5" Padding="8,4"
                                 HorizontalAlignment="Right">
-                                <TextBlock x:Name="ProgramState" Foreground="{StaticResource Accent}" FontWeight="SemiBold" FontSize="10"/>
+                                <TextBlock x:Name="ProgramState" Foreground="{DynamicResource Accent}" FontWeight="SemiBold" FontSize="10"/>
                             </Border>
                         </Grid>
                         <Border Background="Black" Height="120" ClipToBounds="True" Margin="0,0,0,8">
@@ -227,58 +225,58 @@
                             </Viewbox>
                         </Border>
                         <ComboBox x:Name="DisplayChoice" DisplayMemberPath="Label" AutomationProperties.Name="Student display"/>
-                        <WrapPanel>
+                        <studio:ToolbarPanel>
                             <Button x:Name="StartButton" Style="{StaticResource Primary}" Content="Start display" Click="StartOutput"
                                 ToolTip="Open a clean student window (F5)"/>
                             <Button x:Name="StopButton" Content="Stop" Click="StopOutput" ToolTip="Close the student window (Shift+F5)"/>
-                            <ComboBox x:Name="AspectChoice" Width="61" SelectionChanged="ChangeAspect" SelectedIndex="0"
+                            <ComboBox x:Name="AspectChoice" MinWidth="61" SelectionChanged="ChangeAspect" SelectedIndex="0"
                                 AutomationProperties.Name="Output aspect">
                                 <ComboBoxItem Content="16:9"/><ComboBoxItem Content="4:3"/>
                             </ComboBox>
-                        </WrapPanel>
-                        <WrapPanel>
+                        </studio:ToolbarPanel>
+                        <studio:ToolbarPanel>
                             <Button x:Name="FreezeButton" Content="Freeze" Click="Freeze" ToolTip="Freeze or resume (F6)"/>
                             <Button x:Name="BlackButton" Content="Blackout" Click="Blackout" ToolTip="Blackout or restore (F7)"/>
                             <Button Content="PNG…" Click="ExportProgram" ToolTip="Export only the current Program frame"/>
-                        </WrapPanel>
-                        <WrapPanel>
+                        </studio:ToolbarPanel>
+                        <studio:ToolbarPanel>
                             <Button x:Name="StudioButton" Content="Studio &amp; clock…" Click="OpenStudio"/>
                             <Button x:Name="RecordingButton" Content="Record…" Click="RecordingAction"/>
                             <Button x:Name="LiveStreamButton" Content="Live stream…" Click="OpenLiveBroadcast"/>
                             <Button Content="Online window…" Click="OpenBroadcastSetup" ToolTip="Share a clean window in a video meeting"/>
-                        </WrapPanel>
-                        <WrapPanel>
+                        </studio:ToolbarPanel>
+                        <studio:ToolbarPanel>
                             <Button x:Name="BrowserButton" Content="Browser…" Click="OpenBrowser" ToolTip="Open a link or an interactive lesson file"/>
                             <Button x:Name="WindowCaptureButton" Content="Capture window…" Click="OpenWindowCapture" ToolTip="Preview an open app window for the class"/>
                             <Button Content="Media file…" Click="OpenMediaFromBoard" ToolTip="Play and share a local video or audio clip"/>
-                        </WrapPanel>
-                        <WrapPanel>
+                        </studio:ToolbarPanel>
+                        <studio:ToolbarPanel>
                             <CheckBox x:Name="LiveMode" Content="Live updates" IsChecked="True" Click="SetLive" Margin="0,7,9,4"/>
                             <Button x:Name="TakeButton" Style="{StaticResource Primary}" Content="Take preview" Click="Take"
                                 ToolTip="Publish the current draft (F8)"/>
-                        </WrapPanel>
-                        <Separator Margin="0,7,0,8" Background="{StaticResource Line}"/>
+                        </studio:ToolbarPanel>
+                        <Separator Margin="0,7,0,8" Background="{DynamicResource Line}"/>
 
                         <TextBlock Text="INSERT ON BOARD" Style="{StaticResource Caption}" Margin="0,0,0,6"/>
-                        <WrapPanel>
+                        <studio:ToolbarPanel>
                             <Button x:Name="InsertEquationButton" Content="Equation…" Click="InsertEquation"/>
                             <Button Content="Graph…" Click="InsertGraph"/>
                             <Button Content="Text…" Click="InsertText"/>
                             <Button x:Name="RevealButton" Content="Reveal answers" Click="RevealAnswers"/>
-                        </WrapPanel>
+                        </studio:ToolbarPanel>
 
                         <TextBlock Text="OBJECTS  /  VISIBILITY" Style="{StaticResource Caption}" Margin="0,10,0,6"/>
-                        <ListBox x:Name="Objects" Height="77" SelectionChanged="SelectObject" Background="{StaticResource Field}"
-                            Foreground="{StaticResource Ink}" BorderBrush="{StaticResource Line}" AutomationProperties.Name="Page objects"/>
-                        <WrapPanel Margin="0,6,0,0">
-                            <ComboBox x:Name="VisibilityChoice" Width="116" SelectionChanged="ChangeVisibility"
+                        <ListBox x:Name="Objects" Height="77" SelectionChanged="SelectObject" Background="{DynamicResource Field}"
+                            Foreground="{DynamicResource Ink}" BorderBrush="{DynamicResource Line}" AutomationProperties.Name="Page objects"/>
+                        <studio:ToolbarPanel Margin="0,6,0,0">
+                            <ComboBox x:Name="VisibilityChoice" MinWidth="116" SelectionChanged="ChangeVisibility"
                                 AutomationProperties.Name="Selected or new object visibility"/>
                             <CheckBox x:Name="Answer" Content="Answer" Click="ChangeAnswer" Margin="2,6,5,0"/>
-                        </WrapPanel>
-                        <WrapPanel>
+                        </studio:ToolbarPanel>
+                        <studio:ToolbarPanel>
                             <Button x:Name="EditObjectButton" Content="Edit…" Click="EditSelected"/>
                             <Button x:Name="DeleteButton" Content="Delete" Click="DeleteSelected"/>
-                        </WrapPanel>
+                        </studio:ToolbarPanel>
                         <TextBlock Text="PRIVATE NOTES" Style="{StaticResource Caption}" Margin="0,10,0,6"/>
                         <TextBox x:Name="Notes" Height="86" AcceptsReturn="True" TextWrapping="Wrap"
                             VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" MaxLength="16000"
@@ -288,7 +286,7 @@
             </Border>
         </Grid>
         <Grid Grid.Row="2" Margin="0,6,0,0">
-            <TextBlock x:Name="Status" Foreground="{StaticResource Muted}" AutomationProperties.LiveSetting="Polite"/>
+            <TextBlock x:Name="Status" Foreground="{DynamicResource Muted}" AutomationProperties.LiveSetting="Polite"/>
             <TextBlock x:Name="BuildVersion" HorizontalAlignment="Right" Style="{StaticResource Caption}"/>
         </Grid>
     </Grid>

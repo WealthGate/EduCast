@@ -58,8 +58,8 @@ public partial class TeacherWindow
 
     private void OpenGauge(InstrumentKind kind, object sender, RoutedEventArgs args)
     {
-        InstrumentBar.Visibility = System.Windows.Visibility.Visible;
         SetMathSurface(source: false);
+        SetInstrumentExpansion(true);
         InstrumentChoice.SelectedItem = InstrumentChoice.Items.OfType<InstrumentOption>().Single(item => item.Kind == kind);
         AddInstrument(kind);
     }

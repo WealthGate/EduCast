@@ -5,10 +5,16 @@ namespace EduCast.Studio;
 
 public partial class App : Application
 {
-    public App()
+    public App() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "EduCast Studio", "theme.txt")) { }
+
+    internal App(string appearancePath)
     {
+        Appearance = new Appearance(this, appearancePath);
         DispatcherUnhandledException += (_, args) => Log(args.Exception);
     }
+
+    public Appearance Appearance { get; }
 
     protected override async void OnStartup(StartupEventArgs args)
     {
@@ -32,6 +38,7 @@ public partial class App : Application
             return;
         }
 
+        Appearance.Load();
         MainWindow = new TeacherWindow();
         MainWindow.Show();
         _ = Task.Run(async () =>

@@ -1,6 +1,6 @@
 # On-board math and physics instruments
 
-Choose **Instruments…** on the board or in a teaching resource. Pick a type and choose **Add instrument** to place another tool. Use the active instrument list or click an instrument in instrument mode to switch between tools. Drag the body or **+** handle to move it, **↻** to rotate, and **↔** to resize where available. Hold **Shift** to align to the board grid while moving or to 15° steps while rotating. Press **Esc** for the selection cursor. Double-click an instrument to select and move it.
+Choose **Instruments…** on the board or in a teaching resource. Pick a type and choose **Add instrument** to place another tool. Use the active instrument list or click an instrument in instrument mode to switch between tools. Click **Instruments** again to collapse the settings. Use the active instrument’s **×** control to remove it directly from the canvas. Drag the body or **+** handle to move it, **↻** to rotate, and **↔** to resize where available. Hold **Shift** to align to the board grid while moving or to 15° steps while rotating. Press **Esc** for the selection cursor. Double-click an instrument to select and move it.
 
 ## Demonstrate to students
 

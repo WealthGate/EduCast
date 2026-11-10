@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
 using EduCast.Classroom;
@@ -17,16 +18,65 @@ internal sealed class TeacherInstrumentSurface : FrameworkElement
     private Content? trace;
     private bool tracing;
     private (ClockReading Reading, Vector Offset)? clock;
+    private double unit = 1;
+    public event Action? RemoveInstrument;
+    public event Action? RemoveClock;
 
-    public TeacherInstrumentSurface() => IsHitTestVisible = false;
+    public TeacherInstrumentSurface()
+    {
+        Cursor = System.Windows.Input.Cursors.Hand;
+        ToolTip = "Remove from this workspace";
+        MouseLeftButtonDown += (_, args) => args.Handled = CloseAt(args.GetPosition(this));
+    }
+
+    private Rect InstrumentBounds => active is null ? Rect.Empty : InstrumentDrawing.Bounds(active);
+    private Rect ClockBounds
+    {
+        get
+        {
+            if (clock is not { } visible)
+                return Rect.Empty;
+            var bounds = ProgramSurface.ClockBounds(visible.Reading);
+            bounds.Offset(visible.Offset);
+            return bounds;
+        }
+    }
+
+    public void ScaleControls(double handleUnit)
+    {
+        if (unit == handleUnit)
+            return;
+        unit = handleUnit;
+        InvalidateVisual();
+    }
+
+    public bool CloseAt(Point pointer)
+    {
+        if (CanvasClose.Hit(ClockBounds, pointer, unit))
+        {
+            RemoveClock?.Invoke();
+            return true;
+        }
+        if (CanvasClose.Hit(InstrumentBounds, pointer, unit))
+        {
+            RemoveInstrument?.Invoke();
+            return true;
+        }
+        return false;
+    }
+
+    protected override HitTestResult? HitTestCore(PointHitTestParameters parameters) =>
+        CanvasClose.Hit(ClockBounds, parameters.HitPoint, unit) ||
+        CanvasClose.Hit(InstrumentBounds, parameters.HitPoint, unit)
+            ? new PointHitTestResult(this, parameters.HitPoint) : null;
 
     public void Present(InstrumentDisplay[] next, InstrumentDisplay? selected, Content? pending,
-        bool traceMode, (ClockReading Reading, Vector Offset)? nextClock)
+        bool traceMode, (ClockReading Reading, Vector Offset)? nextClock, double handleUnit)
     {
         if (next.SequenceEqual(instruments) && ReferenceEquals(selected, active) && Equals(pending, trace) &&
-            traceMode == tracing && nextClock == clock)
+            traceMode == tracing && nextClock == clock && handleUnit == unit)
             return;
-        (instruments, active, trace, tracing, clock) = (next, selected, pending, traceMode, nextClock);
+        (instruments, active, trace, tracing, clock, unit) = (next, selected, pending, traceMode, nextClock, handleUnit);
         InvalidateVisual();
     }
 
@@ -41,13 +91,19 @@ internal sealed class TeacherInstrumentSurface : FrameworkElement
             InstrumentDrawing.Draw(dc, active, controls: true, tracing);
         if (trace is not null)
             BoardSurface.DrawItems(dc, [trace]);
+        if (active is not null)
+            CanvasClose.Draw(dc, InstrumentBounds, unit);
         if (clock is { } visible)
+        {
             ProgramSurface.DrawClock(dc, visible.Reading, visible.Offset);
+            CanvasClose.Draw(dc, ClockBounds, unit);
+        }
     }
 }
 
 internal static class InstrumentDrawing
 {
+    private static readonly ConditionalWeakTable<InstrumentDisplay, DrawingGroup> Drawings = new();
     private static readonly Brush Fill = ColorBrush(145, 174, 226, 232);
     private static readonly Brush Ink = ColorBrush(255, 17, 46, 60);
     private static readonly Brush Accent = ColorBrush(255, 23, 119, 115);
@@ -59,6 +115,14 @@ internal static class InstrumentDrawing
     private static readonly Pen Tick = MakePen(Ink, 1);
     private static readonly Pen Guide = MakePen(Accent, 2);
     private static readonly Pen Dashed = MakePen(Accent, 1.5, DashStyles.Dash);
+
+    internal static Rect Bounds(InstrumentDisplay display) => Drawings.GetValue(display, static item =>
+    {
+        var drawing = new DrawingGroup();
+        using (var dc = drawing.Open())
+            Draw(dc, item);
+        return drawing;
+    }).Bounds;
 
     public static (InstrumentHandle Handle, BoardPoint Position)[] Handles(InstrumentPose pose)
     {

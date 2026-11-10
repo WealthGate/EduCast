@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="Shell" Color="#101D2D"/>
+    <SolidColorBrush x:Key="Panel" Color="#172C40"/>
+    <SolidColorBrush x:Key="Line" Color="#476980"/>
+    <SolidColorBrush x:Key="Ink" Color="#F3FAFF"/>
+    <SolidColorBrush x:Key="Muted" Color="#C4D8E7"/>
+    <SolidColorBrush x:Key="Accent" Color="#7CE5FF"/>
+    <SolidColorBrush x:Key="AccentDark" Color="#224E68"/>
+    <SolidColorBrush x:Key="Field" Color="#112338"/>
+    <SolidColorBrush x:Key="Control" Color="#27455E"/>
+    <SolidColorBrush x:Key="ControlHover" Color="#355C7A"/>
+    <SolidColorBrush x:Key="CreativeInk" Color="#B9E8FF"/>
+    <SolidColorBrush x:Key="InstrumentInk" Color="#FFE0A1"/>
+    <SolidColorBrush x:Key="PrimaryInk" Color="#122735"/>
+    <SolidColorBrush x:Key="CreativeLine" Color="#608BA9"/>
+    <SolidColorBrush x:Key="InstrumentLine" Color="#9C7947"/>
+    <SolidColorBrush x:Key="WarningInk" Color="#FFBAA5"/>
+    <SolidColorBrush x:Key="SuccessInk" Color="#A9EFC6"/>
+</ResourceDictionary>

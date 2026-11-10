@@ -184,7 +184,7 @@ public partial class TeacherWindow
         CancelGesture();
         var panel = new StackPanel { Margin = new Thickness(16) };
         var dialog = BoardOptions("Board background color", panel);
-        var presets = new WrapPanel { Margin = new Thickness(0, 4, 0, 7) };
+        var presets = new ToolbarPanel { Margin = new Thickness(0, 4, 0, 7) };
         panel.Children.Add(presets);
         panel.Children.Add(new TextBlock { Text = "Hex color (#RRGGBB) · empty uses the paper default" });
         var entry = new TextBox { MaxLength = 7, Margin = new Thickness(0, 6, 0, 6) };
@@ -224,16 +224,22 @@ public partial class TeacherWindow
         Refresh();
     }
 
-    private Window BoardOptions(string title, Panel panel) => new()
+    private Window BoardOptions(string title, Panel panel)
     {
-        Owner = this, Title = title, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-        Width = 425, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false,
-        Background = (Brush)FindResource("Panel"), Foreground = (Brush)FindResource("Ink"), Content = panel
-    };
+        var dialog = new Window
+        {
+            Owner = this, Title = title, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Width = 425, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false,
+            Content = panel
+        };
+        dialog.SetResourceReference(BackgroundProperty, "Panel");
+        dialog.SetResourceReference(ForegroundProperty, "Ink");
+        return dialog;
+    }
 
     private Button AddDialogActions(Window dialog, Panel panel, string applyText)
     {
-        var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 7, 0, 0) };
+        var actions = new ToolbarPanel { HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 7, 0, 0) };
         var apply = new Button { Content = applyText, IsDefault = true, Style = (Style)FindResource("Primary") };
         apply.Click += (_, _) => dialog.DialogResult = true;
         actions.Children.Add(apply);

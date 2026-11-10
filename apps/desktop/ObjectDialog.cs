@@ -27,8 +27,8 @@ internal sealed class ObjectDialog : Window
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
-        Background = (Brush)Application.Current.FindResource("Panel");
-        Foreground = (Brush)Application.Current.FindResource("Ink");
+        SetResourceReference(BackgroundProperty, "Panel");
+        SetResourceReference(ForegroundProperty, "Ink");
         FontSize = 14;
 
         var root = new StackPanel { Margin = new Thickness(17) };
@@ -53,7 +53,7 @@ internal sealed class ObjectDialog : Window
         };
         AutomationProperties.SetName(entry, $"{kind} source");
         root.Children.Add(entry);
-        feedback = new TextBlock { Foreground = Brushes.LightSalmon, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 7, 0, 7) };
+        feedback = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 7, 0, 7) };
         root.Children.Add(feedback);
         var view = new Viewbox { Child = preview, Stretch = Stretch.Uniform };
         root.Children.Add(new Border
@@ -91,7 +91,7 @@ internal sealed class ObjectDialog : Window
             _ => Source.Length > 0
         };
         insert.IsEnabled = valid;
-        feedback.Foreground = valid && balanced != false ? Brushes.LightGreen : Brushes.LightSalmon;
+        feedback.SetResourceReference(TextBlock.ForegroundProperty, valid && balanced != false ? "SuccessInk" : "WarningInk");
         feedback.Text = balanced switch
         {
             true => "Balanced by atom count and net charge.",

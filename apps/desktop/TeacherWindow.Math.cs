@@ -47,6 +47,8 @@ public partial class TeacherWindow
     private readonly List<PlacedInstrument> instruments = [];
     private PlacedInstrument? activeInstrument;
     private bool mathOnSource;
+    private bool boardInstrumentsExpanded;
+    private bool sourceInstrumentsExpanded;
     private bool changingInstrument;
     private InstrumentDisplay? instrumentDisplay
     {
@@ -71,6 +73,8 @@ public partial class TeacherWindow
             new(InstrumentKind.VernierCaliper, "Vernier caliper"), new(InstrumentKind.Micrometer, "Micrometer screw gauge")
         };
         InstrumentChoice.SelectedIndex = 0;
+        TeacherInstrument.RemoveInstrument += () => RemoveActiveInstrument(source: false);
+        TeacherInstrument.RemoveClock += RemoveClock;
         foreach (var value in new[] { "7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "−",
             "0", ".", "+", "^", "(", ")", "⌫", "Clear" })
         {
@@ -80,16 +84,45 @@ public partial class TeacherWindow
         }
     }
 
-    private void OpenMathTools(object sender, RoutedEventArgs args) => OpenInstruments(source: false);
+    private void OpenMathTools(object sender, RoutedEventArgs args) => ToggleInstruments(source: false);
+
+    internal void ToggleInstruments(bool source)
+    {
+        SetMathSurface(source);
+        if (InstrumentBar.Visibility == System.Windows.Visibility.Visible)
+            SetInstrumentExpansion(false);
+        else
+            OpenInstruments(source);
+    }
 
     internal void OpenInstruments(bool source)
     {
         SetMathSurface(source);
-        InstrumentBar.Visibility = System.Windows.Visibility.Visible;
+        SetInstrumentExpansion(true);
         if (activeInstrument is null && InstrumentChoice.SelectedItem is InstrumentOption selected)
             AddInstrument(selected.Kind);
         else
             UseMathInstrument(this, new RoutedEventArgs());
+    }
+
+    private void SetInstrumentExpansion(bool expanded)
+    {
+        if (mathOnSource)
+            sourceInstrumentsExpanded = expanded;
+        else
+            boardInstrumentsExpanded = expanded;
+        RefreshInstrumentExpansion();
+        if (expanded)
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                new Action(() => InstrumentBar.BringIntoView()));
+    }
+
+    private void RefreshInstrumentExpansion()
+    {
+        var expanded = mathOnSource ? sourceInstrumentsExpanded : boardInstrumentsExpanded;
+        InstrumentBar.Visibility = expanded ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        MathToolsButton.Content = boardInstrumentsExpanded ? "▾ Instruments" : "▸ Instruments";
+        sourceWindow?.SetInstrumentExpansion(sourceInstrumentsExpanded);
     }
 
     internal void SetMathSurface(bool source)
@@ -111,6 +144,7 @@ public partial class TeacherWindow
             BoardInstrumentHost.Children.Add(InstrumentBar);
         }
         SelectInstrument(instruments.LastOrDefault(item => item.Source == source));
+        RefreshInstrumentExpansion();
         RefreshMathInstrument();
     }
 
@@ -155,8 +189,11 @@ public partial class TeacherWindow
         var pose = item?.Display.Pose;
         var shown = System.Windows.Visibility.Visible;
         var hidden = System.Windows.Visibility.Collapsed;
-        InstrumentActions.Visibility = pose is null ? hidden : shown;
-        InstrumentOptions.Visibility = InstrumentActions.Visibility;
+        foreach (var control in new UIElement[] { PlacedInstruments, UseInstrumentButton, PublishInstrument,
+            RemoveInstrumentButton, InstrumentStatus })
+            control.Visibility = pose is null ? hidden : shown;
+        TraceInstrument.Visibility = pose?.CanTrace == true ? shown : hidden;
+        InstrumentDrawButton.Visibility = pose is null || pose.Kind == InstrumentKind.Calculator || pose.IsGauge ? hidden : shown;
         ConfigureGaugeControls();
         TraceInstrument.IsEnabled = pose?.CanTrace == true;
         TraceInstrument.IsChecked = item?.Trace == true;
@@ -168,7 +205,6 @@ public partial class TeacherWindow
         ToggleCalculatorKeys(this, new RoutedEventArgs());
         if (pose is null)
             return;
-        InstrumentDrawButton.Visibility = pose.Kind == InstrumentKind.Calculator || pose.IsGauge ? hidden : shown;
         InstrumentDrawButton.Content = pose.Kind switch
         {
             InstrumentKind.Compass => "Draw circle",
@@ -194,8 +230,11 @@ public partial class TeacherWindow
         }
     }
 
-    private void RemoveMathInstrument(object sender, RoutedEventArgs args)
+    private void RemoveMathInstrument(object sender, RoutedEventArgs args) => RemoveActiveInstrument(mathOnSource);
+
+    internal void RemoveActiveInstrument(bool source)
     {
+        SetMathSurface(source);
         CancelMathDrag();
         if (activeInstrument is not null)
             instruments.Remove(activeInstrument);
@@ -212,7 +251,7 @@ public partial class TeacherWindow
         SelectInstrument(instruments.LastOrDefault(item => item.Source == mathOnSource));
         if (!mathOnSource)
         {
-            InstrumentBar.Visibility = System.Windows.Visibility.Collapsed;
+            SetInstrumentExpansion(false);
             if (tool == Tool.Instrument)
                 SetTool(Tool.Select);
         }
@@ -283,7 +322,7 @@ public partial class TeacherWindow
     {
         TeacherInstrument.Present(instruments.Where(item => !item.Source).Select(item => item.Display).ToArray(),
             !mathOnSource ? instrumentDisplay : null, !mathOnSource ? instrumentTrace : null,
-            !mathOnSource && activeInstrument?.Trace == true, TeacherClock);
+            !mathOnSource && activeInstrument?.Trace == true, TeacherClock, SelectionUnit);
         sourceWindow?.PresentInstruments(instruments.Where(item => item.Source).Select(item => item.Display).ToArray(),
             mathOnSource ? instrumentDisplay : null, mathOnSource ? instrumentTrace : null,
             mathOnSource && activeInstrument?.Trace == true, TeacherClock);

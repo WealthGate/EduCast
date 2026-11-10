@@ -24,7 +24,7 @@ internal sealed class BroadcastWindow : Window
     private readonly DestinationRow[] destinations = [new("YouTube"), new("Facebook"), new("X"), new("Twitch"), new("Custom")];
     private readonly ComboBox microphones = new()
     {
-        Width = 255, DisplayMemberPath = nameof(MicChoice.Label), ItemsSource = new[] { new MicChoice("No microphone", null) },
+        MinWidth = 255, DisplayMemberPath = nameof(MicChoice.Label), ItemsSource = new[] { new MicChoice("No microphone", null) },
         SelectedIndex = 0
     };
     private readonly Button scan = new() { Content = "Refresh microphones" };
@@ -49,11 +49,11 @@ internal sealed class BroadcastWindow : Window
         MinHeight = 430;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        Background = (Brush)FindResource("Shell");
-        Foreground = (Brush)FindResource("Ink");
+        SetResourceReference(BackgroundProperty, "Shell");
+        SetResourceReference(ForegroundProperty, "Ink");
         var panel = new StackPanel { Margin = new Thickness(18) };
         Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        var navigation = new WrapPanel();
+        var navigation = new ToolbarPanel();
         panel.Children.Add(navigation);
         AddButton(navigation, "← Board", teacher.ReturnToBoard);
         AddButton(navigation, "Camera preview…", teacher.ShowStudio);
@@ -64,7 +64,7 @@ internal sealed class BroadcastWindow : Window
                 "Paste each provider's ingest URL and stream key separately.",
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 9)
         });
-        var audio = new WrapPanel();
+        var audio = new ToolbarPanel();
         AutomationProperties.SetName(microphones, "Streaming microphone");
         audio.Children.Add(microphones);
         audio.Children.Add(scan);
@@ -77,7 +77,7 @@ internal sealed class BroadcastWindow : Window
         });
         foreach (var row in destinations)
             panel.Children.Add(BuildRow(row));
-        var controls = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
+        var controls = new ToolbarPanel { Margin = new Thickness(0, 10, 0, 0) };
         go.Style = (Style)FindResource("Primary");
         controls.Children.Add(go);
         controls.Children.Add(stop);

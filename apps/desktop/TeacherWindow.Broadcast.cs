@@ -33,7 +33,16 @@ public partial class TeacherWindow
     {
         LiveStreamButton.Content = stopping ? "Stopping stream…" : live > 0 ? $"● LIVE · {live}" :
             connecting ? "Connecting…" : "Live stream…";
-        LiveStreamButton.Background = live > 0 ? Brushes.Firebrick : (Brush)FindResource("Panel");
+        if (live > 0)
+        {
+            LiveStreamButton.Background = Brushes.Firebrick;
+            LiveStreamButton.Foreground = Brushes.White;
+        }
+        else
+        {
+            LiveStreamButton.ClearValue(Control.BackgroundProperty);
+            LiveStreamButton.ClearValue(Control.ForegroundProperty);
+        }
     }
 
     private void OpenBroadcastSetup(object sender, RoutedEventArgs args)

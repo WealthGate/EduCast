@@ -62,6 +62,8 @@ internal sealed class BoardSelection
         if (selected is null)
             return Cursors.Arrow;
         var bounds = BoardSurface.BoundsOf(selected);
+        if (CloseAt(selected, point, unit))
+            return Cursors.Hand;
         var edge = EdgeAt(bounds, point, unit);
         return edge.LengthSquared > 0 ? CursorFor(edge) : Outline(bounds, unit).Contains(point) ? Cursors.SizeAll : Cursors.Arrow;
     }
@@ -147,6 +149,9 @@ internal sealed class BoardSelection
         _ => edge.X == edge.Y ? Cursors.SizeNWSE : Cursors.SizeNESW
     };
 
+    internal static bool CloseAt(Content selected, Point point, double unit) =>
+        CanvasClose.Hit(Outline(BoardSurface.BoundsOf(selected), unit), point, unit);
+
     internal static void Draw(DrawingContext dc, Rect bounds, double unit)
     {
         var outline = Outline(bounds, unit);
@@ -164,5 +169,6 @@ internal sealed class BoardSelection
                 dc.DrawRectangle(Brushes.White, pen, new Rect(point.X - 4 * unit, point.Y - 4 * unit, 8 * unit, 8 * unit));
             }
         }
+        CanvasClose.Draw(dc, outline, unit);
     }
 }

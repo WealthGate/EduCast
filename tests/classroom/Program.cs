@@ -69,6 +69,7 @@ internal static partial class Checks
             ("Scientific calculator evaluates expressions and rejects undefined results", Calculator),
             ("DirectShow enumeration separates cameras and microphones", DeviceListing),
             ("Streaming destination validation and bounded audio mixing", BroadcastInputs),
+            ("WPF toolbar rows distribute controls and retain close targets", ToolbarRows),
             ("WPF teacher window, progressive ink and separate clean output", () => Desktop(args)),
             ("WPF selection overlay and committed move preserve object identity and pressure", SelectionMove),
             ("WPF edge and corner drags resize board objects while preserving their content", SelectionResize),
@@ -463,9 +464,12 @@ internal static partial class Checks
         Assert(!MathParser.TryCalculate("root(0,1)", true, out _, out _));
     }
 
-    private static void Desktop(string[] args)
+    private static void Desktop(string[] args) =>
+        InTemporaryDirectory(directory => Desktop(args, Path.Combine(directory, "theme.txt")));
+
+    private static void Desktop(string[] args, string appearancePath)
     {
-        var app = new App();
+        var app = new App(appearancePath);
         app.InitializeComponent();
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var installed = ReleaseCatalog.InstalledVersion;
@@ -488,6 +492,7 @@ internal static partial class Checks
 
         var program = Find<FrameworkElement>(teacher, "ProgramPreview");
         var clean = Pixel(program, 200, 200);
+        AppearanceChecks(app, teacher, program, appearancePath);
         var drawing = Find<LiveInkCanvas>(teacher, "DrawingInput");
         static StylusPointCollection Line(int y) => new(new[]
         {
@@ -564,6 +569,12 @@ internal static partial class Checks
         Assert(!Pixel(studentBoard, 800, 240).SequenceEqual(clean) &&
             Pixel(studentBoard, 1100, 80).SequenceEqual(clean), "clock did not move live");
         teacher.CancelClockDrag(source: false);
+        var clockClose = CanvasClose.Center(ProgramSurface.ClockBounds(new(ClockView.Digital, TimeSpan.Zero)),
+            BoardSelection.Unit(Find<FrameworkElement>(teacher, "BoardSlot").Width));
+        Assert(Find<TeacherInstrumentSurface>(teacher, "TeacherInstrument").CloseAt(clockClose));
+        Pump();
+        Assert(Pixel(studentBoard, 1100, 80).SequenceEqual(clean), "closed clock remained on Program");
+        teacher.ApplyStudioLayers(new ProgramLayers(red, Clock: new(ClockView.Digital, TimeSpan.FromHours(10))));
         Click(teacher, "FreezeButton");
         teacher.ApplyStudioLayers(new ProgramLayers(blue));
         Pump();
@@ -581,7 +592,7 @@ internal static partial class Checks
         Click(teacher, "FreezeButton");
         InstrumentDemonstration(teacher, studentBoard, clean);
         GaugeDemonstration(teacher, studentBoard, clean);
-        SourceInstruments(app, teacher);
+        SourceInstruments(app, teacher, args);
         Click(teacher, "StopButton");
         Assert(!app.Windows.Cast<Window>().Contains(student));
         Assert(online.IsVisible);
@@ -623,7 +634,7 @@ internal static partial class Checks
         app.Shutdown();
     }
 
-    private static void SourceInstruments(App app, TeacherWindow teacher)
+    private static void SourceInstruments(App app, TeacherWindow teacher, string[] args)
     {
         var choices = Find<ComboBox>(teacher, "InstrumentChoice");
         var placed = Find<ComboBox>(teacher, "PlacedInstruments");
@@ -638,6 +649,23 @@ internal static partial class Checks
         Assert(placed.Items.Count == 2 && Find<StackPanel>(source, "InstrumentHost").Children.Count == 1);
         Assert(teacher.BeginMathDrag(new BoardPoint(700, 412), source: true));
         teacher.EndMathDrag(new BoardPoint(750, 412), snap: false);
+        var sourceOverlay = Find<TeacherInstrumentSurface>(source, "SourceInstruments");
+        var movedRuler = new InstrumentDisplay(InstrumentPose.Create(InstrumentKind.Ruler, 40) with { Origin = new BoardPoint(505, 376) });
+        Assert(sourceOverlay.CloseAt(CanvasClose.Center(InstrumentDrawing.Bounds(movedRuler),
+            BoardSelection.Unit(Find<FrameworkElement>(source, "SourceStage").ActualWidth))) &&
+            placed.Items.Count == 1, "source instrument close button did not remove the active instrument");
+        CaptureLayouts(app, teacher, source, args);
+        var sourceTheme = Find<ComboBox>(source, "ThemePicker");
+        sourceTheme.SelectedItem = WorkspaceTheme.Daylight;
+        Pump();
+        Assert(app.Appearance.Selected == WorkspaceTheme.Daylight &&
+            Equals(Find<ComboBox>(teacher, "ThemePicker").SelectedItem, WorkspaceTheme.Daylight));
+        app.Appearance.Selected = WorkspaceTheme.Violet;
+        var sourceToggle = Find<Button>(source, "SourceMathToolsButton");
+        sourceToggle.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Assert(Find<FrameworkElement>(teacher, "InstrumentBar").Visibility == System.Windows.Visibility.Collapsed);
+        sourceToggle.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Assert(Find<FrameworkElement>(teacher, "InstrumentBar").Visibility == System.Windows.Visibility.Visible);
         teacher.ReturnToBoard();
         Pump();
         Assert(placed.Items.Count == 1 && Find<StackPanel>(teacher, "BoardInstrumentHost").Children.Count == 1);
@@ -656,6 +684,11 @@ internal static partial class Checks
 
         Click(teacher, "MathToolsButton");
         Pump();
+        var count = Find<ComboBox>(teacher, "PlacedInstruments").Items.Count;
+        Click(teacher, "MathToolsButton");
+        Assert(Find<FrameworkElement>(teacher, "InstrumentBar").Visibility == System.Windows.Visibility.Collapsed &&
+            Find<ComboBox>(teacher, "PlacedInstruments").Items.Count == count, "collapsing controls removed the instrument");
+        Click(teacher, "MathToolsButton");
         var overlay = Find<FrameworkElement>(teacher, "TeacherInstrument");
         Assert(Pixel(overlay, 650, 410)[3] > 0, "teacher ruler is missing");
         Assert(Pixel(student, 650, 410).SequenceEqual(paper), "private ruler leaked");
@@ -751,7 +784,7 @@ internal static partial class Checks
         choice.SelectedIndex = 7;
         Click(teacher, "AddInstrumentButton");
         Check(teacher, "ShowCalculatorKeys", true);
-        var keys = Find<WrapPanel>(teacher, "CalculatorKeys").Children.OfType<Button>().ToArray();
+        var keys = Find<Panel>(teacher, "CalculatorKeys").Children.OfType<Button>().ToArray();
         foreach (var value in new[] { "7", "+", "2" })
             keys.Single(button => (string)button.Content == value).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Assert(Find<TextBox>(teacher, "CalculatorEntry").Text == "7+2");

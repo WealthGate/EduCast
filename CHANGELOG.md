@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1
+
+- Toolbars distribute controls across the available width and wrap at smaller window sizes. Instrument settings expand into compact rows on both the board and teaching resources. Click **Instruments** again to collapse the settings.
+- Choose **Violet**, **Ocean**, or **Daylight** from the **Theme** picker in either workspace. EduCast remembers the choice and updates open teacher windows immediately.
+- Remove a selected object, the active instrument, or the shared clock with its visible **×** control on the teacher canvas.
+
 ## 0.13.0
 
 - Keep several rulers, compasses, protractors, set squares and other instruments on the board or a teaching resource. Select and share each instrument separately.
