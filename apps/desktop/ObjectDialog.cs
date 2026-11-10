@@ -6,7 +6,7 @@ using EduCast.Classroom;
 
 namespace EduCast.Studio;
 
-internal enum InsertKind { Equation, Graph, Text }
+internal enum InsertKind { Equation, Graph, Text, Chemistry }
 
 internal sealed class ObjectDialog : Window
 {
@@ -20,7 +20,8 @@ internal sealed class ObjectDialog : Window
     {
         this.kind = kind;
         Owner = owner;
-        Title = (editing ? "Edit " : "Insert ") + kind.ToString().ToLowerInvariant();
+        Title = (editing ? "Edit " : "Insert ") +
+            (kind == InsertKind.Chemistry ? "chemical equation" : kind.ToString().ToLowerInvariant());
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Width = 610;
         SizeToContent = SizeToContent.Height;
@@ -35,6 +36,7 @@ internal sealed class ObjectDialog : Window
         {
             InsertKind.Equation => "Use ^ and _ for scripts, / for fractions, sqrt(x), root(3,x), or matrix(a,b;c,d).",
             InsertKind.Graph => "Enter a function such as y = x^2 - 4x + 3. Trigonometry uses radians.",
+            InsertKind.Chemistry => "Type H2O, Ca(OH)2, or 2H2(g) + O2(g) -> 2H2O(l). Use ^ for charges (Fe^3+, Cl^-) and <=> for equilibrium.",
             _ => "Type the text you want to place on the board."
         };
         root.Children.Add(new TextBlock { Text = help, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 9) });
@@ -76,14 +78,22 @@ internal sealed class ObjectDialog : Window
     private void UpdatePreview()
     {
         var error = "";
+        bool? balanced = null;
         var valid = kind switch
         {
             InsertKind.Equation => MathParser.TryParse(Source, out _, out error),
             InsertKind.Graph => MathParser.TryParseGraph(Source, out _, out error),
+            InsertKind.Chemistry => Chemistry.TryFormat(Source, out _, out balanced, out error),
             _ => Source.Length > 0
         };
         insert.IsEnabled = valid;
-        feedback.Text = error;
+        feedback.Foreground = valid && balanced != false ? Brushes.LightGreen : Brushes.LightSalmon;
+        feedback.Text = balanced switch
+        {
+            true => "Balanced by atom count and net charge.",
+            false => "Unbalanced. Check the coefficients and charges.",
+            _ => error
+        };
         var origin = kind == InsertKind.Graph ? new BoardPoint(480, 184) : new BoardPoint(48, 270);
         var item = Create(kind, Source, origin, 0xff152b38, Classroom.Visibility.Both, false);
         preview.Edit(new Classroom.Page("", BoardPaper.Plain, false, valid ? [item] : []));
@@ -94,6 +104,7 @@ internal sealed class ObjectDialog : Window
     {
         InsertKind.Equation => new Equation(Guid.NewGuid(), visibility, answer, color, origin, 48, source),
         InsertKind.Graph => new Graph(Guid.NewGuid(), visibility, answer, 0xff155e76, origin, source),
+        InsertKind.Chemistry => new ChemicalEquation(Guid.NewGuid(), visibility, answer, color, origin, 43, source),
         _ => new BoardText(Guid.NewGuid(), visibility, answer, color, origin, 36, source)
     };
 }

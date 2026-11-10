@@ -20,7 +20,8 @@ namespace EduCast.Studio;
 
 public partial class TeacherWindow : Window
 {
-    private enum Tool { Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer, Select, Line, Circle, Arc, Rectangle, Place, Instrument }
+    private enum Tool { Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer, Select, Line, Circle, Arc, Rectangle,
+        Triangle, Ellipse, Resistor, Capacitor, Equal, DoubleBond, TripleBond, Place, Instrument, SmartInk }
     private sealed record ColorChoice(string Name, uint Argb);
     private sealed record OutputChoice(Display? Display)
     {
@@ -31,8 +32,10 @@ public partial class TeacherWindow : Window
 
     private static readonly ColorChoice[] Palette =
     [
-        new("Ink", 0xff172c39), new("Blue", 0xff145ac1), new("Teal", 0xff117969),
+        new("Auto ink", 0xff172c39), new("Blue", 0xff145ac1), new("Teal", 0xff117969),
         new("Red", 0xffb32f47), new("Amber", 0xffc06e15), new("Violet", 0xff8142bd),
+        new("Black", 0xff0e1118), new("Green", 0xff207b38), new("Pink", 0xffd54388),
+        new("Orange", 0xffe95823), new("Cyan", 0xff18bcd0), new("Yellow", 0xffffdc56),
         new("White", 0xfff5fbff)
     ];
 
@@ -63,7 +66,7 @@ public partial class TeacherWindow : Window
     private Guid? selectedId;
     private Tool tool = Tool.Pen;
     private Tool toolBeforePlacement;
-    private (InsertKind Kind, string Source)? placement;
+    private Func<BoardPoint, BoardItem>? placement;
     private Point? anchor;
     private BoardSelection? selectionDrag;
     private bool selectionPreview;
@@ -86,6 +89,7 @@ public partial class TeacherWindow : Window
         saved = session.Lesson;
         InitializeComponent();
         InitializeMathTools();
+        SubjectChoice.ItemsSource = Enum.GetValues<BoardSubject>();
         recordingClock = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background,
             (_, _) => RefreshRecordingStatus(), Dispatcher);
         recordingClock.Stop();
@@ -119,7 +123,11 @@ public partial class TeacherWindow : Window
                 SizeBoard();
         };
         SourceInitialized += (_, _) =>
-            ((HwndSource)PresentationSource.FromVisual(this)).AddHook(DisplayMessages);
+        {
+            var source = (HwndSource)PresentationSource.FromVisual(this);
+            source.AddHook(DisplayMessages);
+            RegisterBoardShortcut(source.Handle);
+        };
         LocationChanged += (_, _) => { if (ready) RefreshDisplays(); };
         Loaded += (_, _) =>
         {
@@ -164,9 +172,11 @@ public partial class TeacherWindow : Window
         {
             updateLifetime.Cancel();
             updateLifetime.Dispose();
+            UnregisterBoardShortcut();
             DrawingInput.CancelStroke();
             sourceWindow?.Close();
             output?.Close();
+            broadcastOutput?.Close();
         };
     }
 
@@ -183,7 +193,8 @@ public partial class TeacherWindow : Window
         get
         {
             var choice = (ColorChoice?)Colors.SelectedItem ?? Palette[0];
-            return choice == Palette[0] && session.Page.Paper == BoardPaper.Dark ? Palette[^1].Argb : choice.Argb;
+            return choice == Palette[0] && BoardSurface.DarkPaper(session.Page.Paper, session.Page.Background)
+                ? Palette[^1].Argb : choice.Argb;
         }
     }
 
@@ -326,6 +337,7 @@ public partial class TeacherWindow : Window
             Prev.IsEnabled = session.PageIndex > 0;
             Next.IsEnabled = session.PageIndex + 1 < session.Lesson.Pages.Length;
             Paper.SelectedItem = session.Page.Paper;
+            RefreshSubjectTools();
             UndoButton.IsEnabled = session.CanUndo;
             RedoButton.IsEnabled = session.CanRedo;
             RevealButton.Content = session.Page.AnswersRevealed ? "Hide answers" : "Reveal answers";
@@ -340,7 +352,7 @@ public partial class TeacherWindow : Window
             Objects.SelectedItem = Objects.Items.Cast<ObjectChoice>().FirstOrDefault(choice => choice.Id == selectedId);
             VisibilityChoice.SelectedValue = item?.Visibility ?? newVisibility;
             Answer.IsChecked = item?.IsAnswer ?? newAnswer;
-            EditObjectButton.IsEnabled = item is Equation or Graph or BoardText;
+            EditObjectButton.IsEnabled = item is Equation or Graph or BoardText or ChemicalEquation or TeachingDiagram;
             DeleteButton.IsEnabled = item is not null;
         }
         finally { updating = false; }
@@ -355,6 +367,8 @@ public partial class TeacherWindow : Window
         Ink => "Ink",
         Shape shape => shape.ShapeKind.ToString(),
         BoardText => "Text",
+        ChemicalEquation => "Chemical equation",
+        TeachingDiagram diagram => DiagramLabel(diagram.Diagram),
         _ => item.GetType().Name
     };
 
@@ -373,6 +387,7 @@ public partial class TeacherWindow : Window
             renderedOutput = frame;
             ProgramPreview.Present(frame);
             output?.SetFrame(frame);
+            broadcastOutput?.SetFrame(frame);
         }
         RefreshLiveInk();
         RefreshStudioLayers();
@@ -395,9 +410,16 @@ public partial class TeacherWindow : Window
         liveInkShown = projected is not null;
         ProgramPreview.PresentInk(projected);
         output?.SetLiveInk(projected);
+        broadcastOutput?.SetLiveInk(projected);
     }
 
     private void AddPage(object sender, RoutedEventArgs args)
+        => AddOrDuplicatePage(duplicate: false);
+
+    private void DuplicatePage(object sender, RoutedEventArgs args)
+        => AddOrDuplicatePage(duplicate: true);
+
+    private void AddOrDuplicatePage(bool duplicate)
     {
         if (session.Lesson.Pages.Length >= 200)
         {
@@ -407,7 +429,10 @@ public partial class TeacherWindow : Window
         CancelGesture();
         ClearSelection();
         CommitFields();
-        session.AddPage();
+        if (duplicate)
+            session.DuplicatePage();
+        else
+            session.AddPage();
         Notes.Text = session.Page.Notes;
         Refresh();
     }
@@ -524,6 +549,7 @@ public partial class TeacherWindow : Window
         if (dialog.FilterIndex == 2 || BrowserLesson.IsSupportedFile(dialog.FileName))
         {
             ShowSourceWindow().OpenFile(dialog.FileName);
+            SetSourceStage(true);
             return;
         }
         if (!ConfirmDiscard())
@@ -681,7 +707,13 @@ public partial class TeacherWindow : Window
         Refresh();
     }
 
-    private void InsertEquation(object sender, RoutedEventArgs args) => Prepare(InsertKind.Equation, "x^2 + 5x + 6 = 0");
+    private void InsertEquation(object sender, RoutedEventArgs args)
+    {
+        if (session.Page.Subject == BoardSubject.Chemistry)
+            Prepare(InsertKind.Chemistry, "2H2(g) + O2(g) -> 2H2O(l)");
+        else
+            Prepare(InsertKind.Equation, session.Page.Subject == BoardSubject.Physics ? "F = m a" : "x^2 + 5x + 6 = 0");
+    }
     private void InsertGraph(object sender, RoutedEventArgs args) => Prepare(InsertKind.Graph, "y = x^2 - 4x + 3");
     private void InsertText(object sender, RoutedEventArgs args) => Prepare(InsertKind.Text, "");
 
@@ -693,22 +725,36 @@ public partial class TeacherWindow : Window
         var dialog = new ObjectDialog(this, kind, initial, false);
         if (dialog.ShowDialog() != true)
             return;
+        BeginPlacement(origin => ObjectDialog.Create(kind, dialog.Source, origin, InkColor, newVisibility, newAnswer));
+    }
+
+    private void BeginPlacement(Func<BoardPoint, BoardItem> create)
+    {
+        CancelGesture();
+        ClearSelection();
         toolBeforePlacement = tool;
-        placement = (kind, dialog.Source);
+        placement = create;
         SetTool(Tool.Place);
+        Refresh();
     }
 
     private void EditSelected(object sender, RoutedEventArgs args)
     {
         var item = Selected;
+        if (item is TeachingDiagram diagram)
+        {
+            EditDiagram(diagram);
+            return;
+        }
         var kind = item switch
         {
-            Equation => InsertKind.Equation, Graph => InsertKind.Graph, _ => InsertKind.Text
+            Equation => InsertKind.Equation, Graph => InsertKind.Graph,
+            ChemicalEquation => InsertKind.Chemistry, _ => InsertKind.Text
         };
         var source = item switch
         {
             Equation equation => equation.Source, Graph graph => graph.Source,
-            BoardText text => text.Text, _ => null
+            BoardText text => text.Text, ChemicalEquation chemical => chemical.Source, _ => null
         };
         if (source is null)
             return;
@@ -721,6 +767,8 @@ public partial class TeacherWindow : Window
             Replace(graphItem with { Source = dialog.Source });
         if (item is BoardText textItem)
             Replace(textItem with { Text = dialog.Source });
+        if (item is ChemicalEquation chemicalItem)
+            Replace(chemicalItem with { Source = dialog.Source });
     }
 
     private void ChooseTool(object sender, RoutedEventArgs args)
@@ -736,13 +784,13 @@ public partial class TeacherWindow : Window
     private void SetTool(Tool choice)
     {
         tool = choice;
-        DrawingInput.EditingMode = choice is Tool.Pen or Tool.SquarePen or Tool.Highlighter
+        DrawingInput.EditingMode = IsInkTool(choice)
             ? InkCanvasEditingMode.Ink : InkCanvasEditingMode.None;
         DrawingInput.EditingModeInverted = DrawingInput.EditingMode;
         DrawingInput.UseCustomCursor = true;
         DrawingInput.Cursor = choice == Tool.Select ? Cursors.Arrow : Cursors.Cross;
         foreach (var button in new[] { PenButton, SquarePenButton, MarkerButton, EraseButton, ArrowButton, PointerButton,
-            SelectButton, LineButton, CircleButton, ArcButton, RectButton })
+            SelectButton, LineButton, CircleButton, ArcButton, RectButton, SmartInkButton })
             button.Background = (Brush)FindResource((string)button.Tag == choice.ToString() ? "AccentDark" : "Panel");
         ToolHint.Text = choice switch
         {
@@ -757,6 +805,11 @@ public partial class TeacherWindow : Window
             Tool.Circle => "Compass circle · drag from the center",
             Tool.Arc => "Compass arc · drag center to start, then click its end",
             Tool.Rectangle => "Rectangle · drag opposite corners",
+            Tool.Ellipse => "Ellipse · drag opposite corners of its bounds",
+            Tool.Triangle => "Triangle · drag opposite corners of its bounds",
+            Tool.Resistor or Tool.Capacitor or Tool.Equal => "Symbol · drag from one end to the other",
+            Tool.DoubleBond or Tool.TripleBond => "Bond · drag between two atom labels",
+            Tool.SmartInk => "Sketch a line, loop, polygon, arrow or symbol. Use the suggestion to clean it up.",
             Tool.Instrument => "Drag the instrument to move it. Use the handles to adjust it, or enable Trace to draw along it.",
             _ => "Click the board to place your object. Esc cancels."
         };
@@ -777,8 +830,15 @@ public partial class TeacherWindow : Window
     private void CollectInk(object sender, InkCanvasStrokeCollectedEventArgs args)
     {
         if (DrawingInput.FinishStroke(args.Stroke) is { } ink)
-            AddItem(ink);
+        {
+            if (tool == Tool.SmartInk)
+                CollectSketch(ink);
+            else
+                AddItem(ink);
+        }
     }
+
+    private static bool IsInkTool(Tool choice) => choice is Tool.Pen or Tool.SquarePen or Tool.Highlighter or Tool.SmartInk;
 
     private Ink NewInk(DrawingAttributes attributes) => LiveInkCanvas.Describe(attributes, newVisibility, newAnswer);
 
@@ -794,7 +854,7 @@ public partial class TeacherWindow : Window
                 CancelMathDrag();
             return;
         }
-        if (tool is Tool.Pen or Tool.SquarePen or Tool.Highlighter)
+        if (IsInkTool(tool))
         {
             if (Selected is not null)
             {
@@ -811,7 +871,7 @@ public partial class TeacherWindow : Window
         {
             placement = null;
             SetTool(toolBeforePlacement);
-            AddItem(ObjectDialog.Create(value.Kind, value.Source, PointOf(position), InkColor, newVisibility, newAnswer));
+            AddItem(value(PointOf(position)));
             return;
         }
         if (tool == Tool.Select)
@@ -963,6 +1023,9 @@ public partial class TeacherWindow : Window
         var kind = tool switch
         {
             Tool.Circle => ShapeKind.Circle, Tool.Rectangle => ShapeKind.Rectangle, Tool.Arc => ShapeKind.Arc,
+            Tool.Triangle => ShapeKind.Triangle, Tool.Ellipse => ShapeKind.Ellipse, Tool.Equal => ShapeKind.Equal,
+            Tool.Resistor => ShapeKind.Resistor, Tool.Capacitor => ShapeKind.Capacitor,
+            Tool.DoubleBond => ShapeKind.DoubleBond, Tool.TripleBond => ShapeKind.TripleBond,
             Tool.Arrow => ShapeKind.Arrow, _ => ShapeKind.Line
         };
         return new Shape(Guid.NewGuid(), newVisibility, newAnswer, InkColor, InkWidth,
@@ -1009,6 +1072,7 @@ public partial class TeacherWindow : Window
 
     private void CancelGesture()
     {
+        ClearSketch();
         SetBoardPointer(null);
         CancelMathDrag();
         DrawingInput.CancelStroke();
@@ -1103,6 +1167,11 @@ public partial class TeacherWindow : Window
 
     private IntPtr DisplayMessages(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (message == HotkeyMessage && wParam.ToInt32() == BoardHotkeyId)
+        {
+            ReturnToBoard();
+            handled = true;
+        }
         if (message is WindowsDisplays.DisplayChange or WindowsDisplays.DpiChange)
             Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(RefreshDisplays));
         return IntPtr.Zero;
@@ -1179,6 +1248,7 @@ public partial class TeacherWindow : Window
         try
         {
             window.SetFrame(session.Output);
+            window.SetLiveInk(programInk);
             window.SetLayers(visibleLayers);
             window.Show();
             output = window;
@@ -1222,6 +1292,8 @@ public partial class TeacherWindow : Window
     private void Freeze(object sender, RoutedEventArgs args)
     {
         frozenLayers = session.Frozen ? null : LiveStudioLayers(includeGestures: false);
+        if (!sourceOnStage && frozenLayers is { Source: not null } held)
+            frozenLayers = held with { Source = null };
         session.ToggleFreeze();
         RefreshProgram();
     }
@@ -1286,11 +1358,14 @@ public partial class TeacherWindow : Window
                 Instrument = live.Instrument is null ? null : held.Instrument
             };
         var next = session.Blackout ? new ProgramLayers() : frozenLayers ?? live;
+        if (!sourceOnStage && next.Source is not null)
+            next = next with { Source = null };
         if (next == visibleLayers)
             return;
         visibleLayers = next;
         ProgramPreview.PresentLayers(next);
         output?.SetLayers(next);
+        broadcastOutput?.SetLayers(next);
     }
 
     private ProgramLayers LiveStudioLayers(bool includeGestures = true) => studioLayers with
@@ -1400,6 +1475,7 @@ public partial class TeacherWindow : Window
             (ModifierKeys.Control, Key.O) => OpenLesson,
             (ModifierKeys.Control, Key.S) => SaveLesson,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.S) => SaveAs,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.B) when boardShortcutWindow == IntPtr.Zero => ShowBoard,
             (ModifierKeys.Control, Key.Z) when !editingText => Undo,
             (ModifierKeys.Control, Key.Y) when !editingText => Redo,
             (ModifierKeys.Alt, Key.Left) => PreviousPage,

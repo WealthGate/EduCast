@@ -13,6 +13,9 @@ The desktop is in Phase 6, multimedia integration, of the original roadmap. Earl
 - A classroom clock with digital, analog, stopwatch and countdown modes, with optional clean output.
 - Two private camera previews with explicit Program publishing. Clean Program MP4 recording at 720p, 1080p or UHD with an optional single DirectShow microphone through an external Windows FFmpeg installation.
 - Versioned Windows releases with in-app updates and replacement of the previous installed version.
+- Two-way board and teaching-source switching, page duplication, custom background colors, additional paper patterns, and subject-specific notation and diagrams.
+- Assisted recognition for a bounded set of shapes and symbols, with the original strokes recoverable through Undo.
+- A separate clean Online Program window alongside the projector, with an OBS virtual-camera and multistreaming workflow. [Online teaching guide](ONLINE_TEACHING.md)
 
 ## Open or partially implemented
 
@@ -21,7 +24,7 @@ The desktop is in Phase 6, multimedia integration, of the original roadmap. Earl
 | Classroom control | Physical projector hot-plug and mixed-DPI verification, on-screen display identification, selectable device resolution, output cursor, spotlight and independent compositions |
 | Whiteboard and ink | Infinite canvas, lasso, layer reorder, locking and grouping, copy/paste, image/PDF/media annotation, advanced nibs and stabilization, physical stylus verification, tilt, palm rejection, touch pan and stylus eraser |
 | Mathematics and geometry | Full LaTeX/MathML interchange and exports, symbol/template browser, calculus and advanced notation, recognition and correction, multiple simultaneous instruments, snapping to existing objects, calculator memory and unit conversions, advanced graphs and statistics |
-| Subject teaching | Curated CSEC/CXC resources and standards mapping, Physics, Chemistry, Biology and Geography tools and simulations |
+| Subject teaching | Curated CSEC/CXC resources and standards mapping, broader diagram libraries, editable simulation parameters, and full handwriting-to-notation recognition |
 | Production | Physical camera and audio device matrix, sustained hardware A/V sync, multiple microphones, system audio, media and slide import, scenes, hardware-accelerated 4K, streaming, native virtual camera, effects, integrations, network inputs and concurrent destinations |
 | Accounts and schools | Identity, owner administration, school membership, tenant isolation, dashboard, beta invites, entitlement signing and revocation, audit trails, cloud storage and synchronization |
 | Product and distribution | Mobile companion, optional AI, additional workspace presets and themes, signed deployment and school fleet support |

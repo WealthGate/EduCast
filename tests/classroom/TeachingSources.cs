@@ -27,6 +27,7 @@ internal static partial class Checks
         Assert(BrowserLesson.WebAddress("javascript:alert(1)") is null);
         Assert(BrowserLesson.WebAddress("https://user:pass@example.org") is null);
         Assert(BrowserLesson.IsSupportedFile("lesson.HTML") && BrowserLesson.IsSupportedFile("chapter.pdf") &&
+            BrowserLesson.IsSupportedFile("diagram.PNG") && BrowserLesson.IsSupportedFile("image.webp") &&
             !BrowserLesson.IsSupportedFile("lesson.educast"));
     }
 
@@ -111,6 +112,11 @@ internal static partial class Checks
         Pump();
         Assert(Pixel(program, 195, 200)[2] > 225 && !Pixel(program, 195, 200).SequenceEqual(clean),
             "the browser annotation must reach Program");
+        teacher.ReturnToBoard();
+        Pump();
+        Assert(!source.IsVisible && publish.IsChecked == true && Pixel(program, 25, 25).SequenceEqual(boardPixel));
+        Click(teacher, "ResumeSourceButton");
+        Assert(source.IsVisible && Pixel(program, 195, 200)[2] > 225, "resuming must keep browser annotations");
         teacher.SourceFreeze();
         Click(source, "ClearButton");
         Assert(Pixel(program, 195, 200)[2] > 225, "freeze must hold the source marks");

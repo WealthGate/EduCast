@@ -8,6 +8,10 @@ Open **Math instruments…** to put an interactive ruler, compass, protractor, s
 
 Open **Browser…** for web links and interactive HTML lessons, or choose **Capture window…** to preview another Windows app. Both support pen, highlighter, arrow, and pointer annotations before or during sharing. [Teaching sources](docs/STUDIO.md#teach-from-a-web-page-file-or-app-window)
 
+Use **Board** and **Resume source** to switch between the writing board and your current teaching material. Choose a subject above the board for science notation, diagrams and sketch recognition. [Subject board](docs/SUBJECT_BOARD.md)
+
+Choose **Zoom & streaming…** to open the clean Online Program feed. [Teach online with Zoom, OBS or Restream](docs/ONLINE_TEACHING.md)
+
 Get the installer or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). The teacher workspace checks for updates and can install newer versions when you click **Update**. For new-version notifications, choose **Watch → Custom → Releases** on GitHub.
 
 ## Start teaching

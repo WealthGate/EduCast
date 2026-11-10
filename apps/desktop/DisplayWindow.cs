@@ -87,9 +87,9 @@ internal sealed class DisplayWindow : Window
     private readonly ProgramSurface board = new();
     private readonly AspectMatte matte;
 
-    public DisplayWindow(Window teacher, Display? display)
+    public DisplayWindow(Window teacher, Display? display, bool online = false)
     {
-        Title = "EduCast · Student Output";
+        Title = online ? "EduCast · Online Program" : "EduCast · Student Output";
         Background = Brushes.Black;
         ShowActivated = false;
         matte = new AspectMatte { Background = Brushes.Black, IsHitTestVisible = false };
@@ -113,12 +113,13 @@ internal sealed class DisplayWindow : Window
         }
         else
         {
-            Owner = teacher;
+            if (!online)
+                Owner = teacher;
             Width = 800;
             Height = 490;
             MinWidth = 360;
             MinHeight = 250;
-            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            WindowStartupLocation = online ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner;
         }
     }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+- Switch between the board and the current file, web lesson or captured app with **Board** and **Resume source**. Use **Ctrl+Shift+B** to return from an external app. The source keeps its place and annotations.
+- Pick custom page colors and graph, isometric or music-staff paper. Duplicate a page to work through another example or teaching step.
+- Choose a subject per page. Chemistry formats and checks typed reactions and adds atoms, electron shells and bond diagrams. Biology, Physics, Geography and Mathematics add their own diagrams or notation tools.
+- Sketch common shapes, arrows, equals signs and some circuit symbols in **Smart ink**. Apply a suggested replacement or keep the original strokes. The shape library also offers manual tools.
+- Open and annotate common image files in the teaching browser.
+- Open a dedicated **Online Program** window for Zoom, Teams or OBS while the classroom projector stays active. The setup guide covers the OBS virtual camera and multistreaming through Restream.
+
 ## 0.8.0
 
 - Preview an open Windows app and share the selected window with the class.

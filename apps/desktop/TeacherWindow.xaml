@@ -49,6 +49,8 @@
                             AutomationProperties.Name="Lesson title"/>
                         <TextBlock Text="PAGES" Style="{StaticResource Caption}" Margin="0,0,0,7"/>
                         <Button Content="+  Add page" Click="AddPage" HorizontalContentAlignment="Left"/>
+                        <Button Content="Duplicate page" Click="DuplicatePage" HorizontalContentAlignment="Left"
+                            ToolTip="Copy this page so you can develop the next step separately"/>
                         <WrapPanel Margin="0,1,0,6">
                             <Button x:Name="Prev" Content="‹  Prev" Click="PreviousPage" ToolTip="Previous page (Alt+Left)"/>
                             <Button x:Name="Next" Content="Next  ›" Click="NextPage" ToolTip="Next page (Alt+Right)"/>
@@ -67,6 +69,10 @@
                 <Border Background="{StaticResource Panel}" Padding="10,8,5,3" CornerRadius="9" Margin="0,0,0,8">
                     <StackPanel>
                         <WrapPanel>
+                            <Button x:Name="BoardButton" Style="{StaticResource Primary}" Content="Board" Click="ShowBoard"
+                                ToolTip="Return to the writing board (Ctrl+Shift+B from another app)"/>
+                            <Button x:Name="ResumeSourceButton" Content="Teaching source" Click="ResumeSource"
+                                ToolTip="Switch back to the last file or captured window with its annotations"/>
                             <Button x:Name="PenButton" Style="{StaticResource IconTool}" Content="{StaticResource RoundPenIcon}"
                                 Click="ChooseTool" Tag="Pen" ToolTip="Round pen" AutomationProperties.Name="Round pen"/>
                             <Button x:Name="SquarePenButton" Style="{StaticResource IconTool}" Content="{StaticResource SquarePenIcon}"
@@ -85,6 +91,8 @@
                             <Button x:Name="CircleButton" Content="Compass circle" Click="ChooseTool" Tag="Circle" ToolTip="Drag from the center to set a radius"/>
                             <Button x:Name="ArcButton" Content="Compass arc" Click="ChooseTool" Tag="Arc" ToolTip="Drag from the center to set radius and start. Then move and click the end."/>
                             <Button x:Name="RectButton" Content="Rectangle" Click="ChooseTool" Tag="Rectangle"/>
+                            <Button x:Name="SmartInkButton" Content="Smart ink" Click="ChooseTool" Tag="SmartInk"
+                                ToolTip="Sketch a supported shape or symbol and choose whether to replace your ink"/>
                             <Button x:Name="MathToolsButton" Content="Math instruments…" Click="OpenMathTools"
                                 ToolTip="Place a movable teaching instrument on the board"/>
                         </WrapPanel>
@@ -95,7 +103,20 @@
                             <Button x:Name="UndoButton" Content="Undo" Click="Undo" ToolTip="Undo (Ctrl+Z)"/>
                             <Button x:Name="RedoButton" Content="Redo" Click="Redo" ToolTip="Redo (Ctrl+Y)"/>
                             <Button Content="Clear" Click="ClearPage"/>
-                            <ComboBox x:Name="Paper" Width="81" SelectionChanged="ChangePaper" AutomationProperties.Name="Board paper"/>
+                            <ComboBox x:Name="Paper" Width="94" SelectionChanged="ChangePaper" AutomationProperties.Name="Board paper"/>
+                            <Button x:Name="BoardColorButton" Content="Board color…" Click="ChooseBoardColor"
+                                ToolTip="Choose a background color for this page"/>
+                        </WrapPanel>
+                        <WrapPanel>
+                            <TextBlock Text="SUBJECT" Style="{StaticResource Caption}" Margin="0,6,8,0"/>
+                            <ComboBox x:Name="SubjectChoice" Width="122" SelectionChanged="ChangeSubject"
+                                AutomationProperties.Name="Page subject"/>
+                            <ComboBox x:Name="SubjectTools" Width="157" DisplayMemberPath="Label"
+                                AutomationProperties.Name="Subject tools and shapes"/>
+                            <Button Content="Use tool" Click="UseSubjectTool"/>
+                            <Button x:Name="AcceptSketchButton" Click="AcceptSketch" Visibility="Collapsed"
+                                Style="{StaticResource Primary}"/>
+                            <Button x:Name="KeepSketchButton" Content="Keep ink" Click="KeepSketch" Visibility="Collapsed"/>
                         </WrapPanel>
                         <StackPanel x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,4,0,0">
                             <WrapPanel>
@@ -199,6 +220,7 @@
                         <WrapPanel>
                             <Button x:Name="StudioButton" Content="Studio &amp; clock…" Click="OpenStudio"/>
                             <Button x:Name="RecordingButton" Content="Record…" Click="RecordingAction"/>
+                            <Button Content="Zoom &amp; streaming…" Click="OpenBroadcastSetup"/>
                         </WrapPanel>
                         <WrapPanel>
                             <Button x:Name="BrowserButton" Content="Browser…" Click="OpenBrowser" ToolTip="Open a link or an interactive lesson file"/>
@@ -213,7 +235,7 @@
 
                         <TextBlock Text="INSERT ON BOARD" Style="{StaticResource Caption}" Margin="0,0,0,6"/>
                         <WrapPanel>
-                            <Button Content="Equation…" Click="InsertEquation"/>
+                            <Button x:Name="InsertEquationButton" Content="Equation…" Click="InsertEquation"/>
                             <Button Content="Graph…" Click="InsertGraph"/>
                             <Button Content="Text…" Click="InsertText"/>
                             <Button x:Name="RevealButton" Content="Reveal answers" Click="RevealAnswers"/>

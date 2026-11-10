@@ -5,24 +5,25 @@ namespace EduCast.Classroom;
 // Frames contain only renderable, approved content. A consumer never receives a Lesson or Page.
 public sealed class ProgramFrame
 {
-    private ProgramFrame(BoardPaper paper, ImmutableArray<Content> items) =>
-        (Paper, Items) = (paper, items);
+    private ProgramFrame(BoardPaper paper, uint? background, ImmutableArray<Content> items) =>
+        (Paper, Background, Items) = (paper, background, items);
 
     public BoardPaper Paper { get; }
+    public uint? Background { get; }
     public ImmutableArray<Content> Items { get; }
 
     internal static bool IsApproved(Page page, Content item) =>
         (item.Visibility is Visibility.Both or Visibility.StudentOnly) &&
         (!item.IsAnswer || page.AnswersRevealed);
 
-    public static ProgramFrame From(Page page) => new(page.Paper, page.Items
+    public static ProgramFrame From(Page page) => new(page.Paper, page.Background, page.Items
         .Where(item => IsApproved(page, item))
         .Select(item => item.Visibility == Visibility.Both && !item.IsAnswer
             ? item : item with { Visibility = Visibility.Both, IsAnswer = false })
         .ToImmutableArray());
 
     internal ProgramFrame Without(HashSet<Guid> ids) => Items.Any(item => ids.Contains(item.Id))
-        ? new ProgramFrame(Paper, Items.Where(item => !ids.Contains(item.Id)).ToImmutableArray())
+        ? new ProgramFrame(Paper, Background, Items.Where(item => !ids.Contains(item.Id)).ToImmutableArray())
         : this;
 }
 
@@ -102,8 +103,18 @@ public sealed class Session
         Refresh(previous);
     }
 
-    public void AddPage() => Commit(Lesson with { Pages = Lesson.Pages.Add(Page.Empty()) },
+    public void AddPage() => Commit(Lesson with { Pages = Lesson.Pages.Add(Page.Empty() with { Subject = Page.Subject }) },
         Lesson.Pages.Length);
+
+    public void DuplicatePage()
+    {
+        var copy = Page with
+        {
+            Items = Page.Items.Select(item => item with { Id = Guid.NewGuid() }).ToImmutableArray()
+        };
+        var index = PageIndex + 1;
+        Commit(Lesson with { Pages = Lesson.Pages.Insert(index, copy) }, index);
+    }
 
     public void ChangePage(Page page) =>
         Commit(Lesson with { Pages = Lesson.Pages.SetItem(PageIndex, page) }, PageIndex);
@@ -149,7 +160,7 @@ public sealed class Session
 
     private void Refresh(Page previous)
     {
-        if (previous.Paper == Page.Paper && previous.Items == Page.Items &&
+        if (previous.Paper == Page.Paper && previous.Background == Page.Background && previous.Items == Page.Items &&
             previous.AnswersRevealed == Page.AnswersRevealed)
             return;
         // Revocation applies immediately, even to content already taken or held.

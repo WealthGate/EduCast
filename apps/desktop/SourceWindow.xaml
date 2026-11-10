@@ -7,6 +7,8 @@
     FontFamily="Segoe UI" FontSize="13">
     <DockPanel Margin="12">
         <WrapPanel DockPanel.Dock="Top">
+            <Button Content="← Board" Style="{StaticResource Primary}" Click="ReturnToBoard"
+                ToolTip="Return to the writing board and keep this source and its annotations (Ctrl+Shift+B)"/>
             <Button Content="Browser" Click="SelectBrowser"/>
             <Button Content="Capture window…" Click="SelectWindow"/>
             <CheckBox x:Name="Publish" Content="Show on Program" IsEnabled="False" Click="ChangePublication"

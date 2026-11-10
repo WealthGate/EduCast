@@ -17,7 +17,7 @@ internal sealed class BoardSurface : FrameworkElement
     public const double BoardHeight = 720;
     public static readonly Rect Bounds = new(0, 0, BoardWidth, BoardHeight);
     private static readonly ConditionalWeakTable<Content, DrawingGroup> Drawings = new();
-    private static readonly Dictionary<BoardPaper, DrawingGroup> Papers = [];
+    private static (BoardPaper Paper, uint? Color, DrawingGroup Drawing)? lastPaper;
     private readonly DrawingVisual board = new();
     private readonly DrawingVisual overlay = new();
 
@@ -44,21 +44,22 @@ internal sealed class BoardSurface : FrameworkElement
             dc.DrawRectangle(Brushes.Black, null, Bounds);
             return;
         }
-        Draw(dc, frame.Paper, frame.Items);
+        Draw(dc, frame.Paper, frame.Background, frame.Items);
     }
 
     public void Edit(Page page)
     {
         using var dc = board.RenderOpen();
-        Draw(dc, page.Paper, page.Items.Where(item => item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly));
+        Draw(dc, page.Paper, page.Background,
+            page.Items.Where(item => item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly));
     }
 
-    private static void Draw(DrawingContext dc, BoardPaper paper, IEnumerable<Content> items)
+    private static void Draw(DrawingContext dc, BoardPaper paper, uint? color, IEnumerable<Content> items)
     {
         dc.PushClip(new RectangleGeometry(Bounds));
-        if (!Papers.TryGetValue(paper, out var background))
-            Papers[paper] = background = MakePaper(paper);
-        dc.DrawDrawing(background);
+        if (lastPaper is not { } cached || cached.Paper != paper || cached.Color != color)
+            lastPaper = cached = (paper, color, MakePaper(paper, color));
+        dc.DrawDrawing(cached.Drawing);
         foreach (var item in items)
             dc.DrawDrawing(For(item));
         dc.Pop();
@@ -132,10 +133,15 @@ internal sealed class BoardSurface : FrameworkElement
         return item switch
         {
             Ink ink => ink with { Points = ink.Points.Select(Shift).ToImmutableArray() },
-            Shape shape => shape with { Start = Shift(shape.Start), End = Shift(shape.End) },
+            Shape shape => shape with
+            {
+                Start = Shift(shape.Start), End = Shift(shape.End), Corner = shape.Corner is { } corner ? Shift(corner) : null
+            },
             Equation equation => equation with { Origin = Shift(equation.Origin) },
             BoardText text => text with { Origin = Shift(text.Origin) },
             Graph graph => graph with { Origin = Shift(graph.Origin) },
+            ChemicalEquation equation => equation with { Origin = Shift(equation.Origin) },
+            TeachingDiagram diagram => diagram with { Origin = Shift(diagram.Origin) },
             _ => item
         };
     }
@@ -216,6 +222,19 @@ internal sealed class BoardSurface : FrameworkElement
                 case Graph graph:
                     DrawGraph(dc, graph, brush);
                     break;
+                case ChemicalEquation equation:
+                    if (Chemistry.TryFormat(equation.Source, out var notation, out _, out _))
+                    {
+                        var formula = Format(notation, equation.Size, brush);
+                        formula.MaxTextWidth = BoardWidth - 40;
+                        dc.DrawText(formula, ToPoint(equation.Origin));
+                    }
+                    break;
+                case TeachingDiagram diagram:
+                    dc.PushTransform(new TranslateTransform(diagram.Origin.X, diagram.Origin.Y));
+                    DiagramDrawing.Draw(dc, diagram, brush);
+                    dc.Pop();
+                    break;
             }
         }
         if (item.Placement is { } placement)
@@ -224,7 +243,7 @@ internal sealed class BoardSurface : FrameworkElement
         return drawing;
     }
 
-    private static Geometry ShapeGeometry(Shape shape)
+    internal static Geometry ShapeGeometry(Shape shape)
     {
         var a = ToPoint(shape.Start);
         var b = ToPoint(shape.End);
@@ -233,7 +252,13 @@ internal sealed class BoardSurface : FrameworkElement
         {
             ShapeKind.Line => new LineGeometry(a, b),
             ShapeKind.Arrow => ArrowGeometry(a, b, Math.Max(14, shape.Width * 3)),
+            ShapeKind.Rectangle when shape.Corner is { } corner =>
+                Polyline([a, b, b + (ToPoint(corner) - a), ToPoint(corner)], close: true),
             ShapeKind.Rectangle => new RectangleGeometry(new Rect(a, b)),
+            ShapeKind.Ellipse => new EllipseGeometry(new Rect(a, b)),
+            ShapeKind.Triangle => TriangleGeometry(a, b, shape.Corner),
+            ShapeKind.Resistor or ShapeKind.Capacitor or ShapeKind.Equal => SymbolGeometry(shape.ShapeKind, a, b),
+            ShapeKind.DoubleBond or ShapeKind.TripleBond => BondGeometry(shape, a, b),
             ShapeKind.Circle => new EllipseGeometry(a, radius, radius),
             ShapeKind.Arc when Math.Abs(shape.Sweep) >= 359.999 => new EllipseGeometry(a, radius, radius),
             ShapeKind.Arc => ArcGeometry(a, b, radius, shape.Sweep),
@@ -241,7 +266,62 @@ internal sealed class BoardSurface : FrameworkElement
         };
     }
 
-    private static Geometry ArrowGeometry(Point start, Point end, double headLength)
+    private static Geometry TriangleGeometry(Point a, Point b, BoardPoint? corner)
+    {
+        if (corner is { } point)
+            return Polyline([a, b, ToPoint(point)], close: true);
+        var bounds = new Rect(a, b);
+        return Polyline([bounds.BottomLeft, bounds.BottomRight, new Point(bounds.Left + bounds.Width / 2, bounds.Top)], close: true);
+    }
+
+    private static Geometry SymbolGeometry(ShapeKind kind, Point a, Point b)
+    {
+        var delta = b - a;
+        var normal = new Vector(-delta.Y, delta.X);
+        Point At(double along, double across = 0) => a + delta * along + normal * across;
+        return kind switch
+        {
+            ShapeKind.Resistor => Polyline([a, At(.18), At(.24, -.11), At(.34, .11), At(.44, -.11),
+                At(.54, .11), At(.64, -.11), At(.74, .11), At(.80), b]),
+            ShapeKind.Capacitor => new GeometryGroup
+            {
+                Children = { new LineGeometry(a, At(.44)), new LineGeometry(At(.56), b),
+                    new LineGeometry(At(.44, -.19), At(.44, .19)), new LineGeometry(At(.56, -.19), At(.56, .19)) }
+            },
+            _ => new GeometryGroup
+            {
+                Children = { new LineGeometry(At(0, -.15), At(1, -.15)), new LineGeometry(At(0, .15), At(1, .15)) }
+            }
+        };
+    }
+
+    internal static Geometry Polyline(IReadOnlyList<Point> points, bool close = false)
+    {
+        var line = new StreamGeometry();
+        using var geometry = line.Open();
+        geometry.BeginFigure(points[0], false, close);
+        geometry.PolyLineTo(points.Skip(1).ToArray(), true, false);
+        return line;
+    }
+
+    private static Geometry BondGeometry(Shape shape, Point start, Point end)
+    {
+        var axis = end - start;
+        if (axis.LengthSquared == 0)
+            return Geometry.Empty;
+        var normal = new Vector(-axis.Y, axis.X);
+        normal.Normalize();
+        var count = shape.ShapeKind == ShapeKind.TripleBond ? 3 : 2;
+        var bonds = new GeometryGroup();
+        for (var i = 0; i < count; i++)
+        {
+            var offset = normal * ((i - (count - 1) / 2d) * Math.Max(8, shape.Width * 1.7));
+            bonds.Children.Add(new LineGeometry(start + offset, end + offset));
+        }
+        return bonds;
+    }
+
+    internal static Geometry ArrowGeometry(Point start, Point end, double headLength)
     {
         var delta = end - start;
         var length = delta.Length;
@@ -290,32 +370,59 @@ internal sealed class BoardSurface : FrameworkElement
         return arc;
     }
 
-    private static DrawingGroup MakePaper(BoardPaper paper)
+    internal static uint PaperColor(BoardPaper paper, uint? color) =>
+        color ?? (paper == BoardPaper.Dark ? 0xff1a2532u : 0xfffafcfau);
+
+    internal static bool DarkPaper(BoardPaper paper, uint? color)
+    {
+        var value = PaperColor(paper, color);
+        return .2126 * ((value >> 16) & 255) + .7152 * ((value >> 8) & 255) + .0722 * (value & 255) < 130;
+    }
+
+    private static DrawingGroup MakePaper(BoardPaper paper, uint? color)
     {
         var drawing = new DrawingGroup();
         using (var dc = drawing.Open())
         {
-            var bg = paper == BoardPaper.Dark ? Color.FromRgb(26, 37, 50) : Color.FromRgb(250, 252, 250);
-            dc.DrawRectangle(new SolidColorBrush(bg), null, Bounds);
-            var rule = new SolidColorBrush(Color.FromRgb(211, 224, 226));
+            dc.DrawRectangle(new SolidColorBrush(ColorFrom(PaperColor(paper, color))), null, Bounds);
+            var dark = DarkPaper(paper, color);
+            var rule = new SolidColorBrush(dark ? Color.FromArgb(55, 226, 240, 245) : Color.FromArgb(45, 45, 83, 104));
             var pen = new Pen(rule, 1);
-            for (var y = 32; y < BoardHeight; y += 32)
+            var major = new Pen(rule, 2.5);
+            var step = paper == BoardPaper.Graph ? 16 : 32;
+            for (var y = step; y < BoardHeight; y += step)
             {
-                if (paper is BoardPaper.Grid or BoardPaper.Ruled)
-                    dc.DrawLine(pen, new Point(0, y), new Point(BoardWidth, y));
+                if (paper is BoardPaper.Grid or BoardPaper.Ruled or BoardPaper.Graph)
+                    dc.DrawLine(paper == BoardPaper.Graph && y % 80 == 0 ? major : pen, new Point(0, y), new Point(BoardWidth, y));
                 if (paper == BoardPaper.Dots)
                     for (var x = 32; x < BoardWidth; x += 32)
                         dc.DrawEllipse(rule, null, new Point(x, y), 1.5, 1.5);
             }
-            if (paper == BoardPaper.Grid)
-                for (var x = 32; x < BoardWidth; x += 32)
-                    dc.DrawLine(pen, new Point(x, 0), new Point(x, BoardHeight));
+            if (paper is BoardPaper.Grid or BoardPaper.Graph)
+                for (var x = step; x < BoardWidth; x += step)
+                    dc.DrawLine(paper == BoardPaper.Graph && x % 80 == 0 ? major : pen, new Point(x, 0), new Point(x, BoardHeight));
+            if (paper == BoardPaper.Isometric)
+            {
+                const double row = 32 * .8660254;
+                var run = BoardHeight / Math.Sqrt(3);
+                for (var y = row; y < BoardHeight; y += row)
+                    dc.DrawLine(pen, new Point(0, y), new Point(BoardWidth, y));
+                for (var x = -Math.Ceiling(run / 32) * 32; x < BoardWidth + run; x += 32)
+                {
+                    dc.DrawLine(pen, new Point(x, 0), new Point(x + run, BoardHeight));
+                    dc.DrawLine(pen, new Point(x, 0), new Point(x - run, BoardHeight));
+                }
+            }
+            if (paper == BoardPaper.Staff)
+                for (var y = 50; y < BoardHeight - 60; y += 116)
+                    for (var i = 0; i < 5; i++)
+                        dc.DrawLine(pen, new Point(28, y + i * 12), new Point(BoardWidth - 28, y + i * 12));
         }
         drawing.Freeze();
         return drawing;
     }
 
-    private static FormattedText Format(string text, double size, Brush brush) =>
+    internal static FormattedText Format(string text, double size, Brush brush) =>
         new(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, MathLayout.TextFace, size, brush, 1);
 
     private static void DrawGraph(DrawingContext dc, Graph graph, Brush brush)

@@ -38,6 +38,10 @@ internal static partial class Checks
             ("Invalid project content is rejected", BadFiles),
             ("Structured notation parses scripts, fractions, roots, matrices and chemistry", Notation),
             ("Malformed notation fails safely", InvalidNotation),
+            ("Chemistry formats and checks the atom counts and charges of reactions", ChemicalNotation),
+            ("Subject pages, backgrounds, privacy and editable diagram files", SubjectPages),
+            ("WPF smart ink recognizes supported shapes and keeps object visibility", SmartSketches),
+            ("WPF subject diagrams render and move as board objects", SubjectDrawing),
             ("Quadratic graph evaluates roots and vertex correctly", Quadratic),
             ("Release catalog offers only newer published Windows installers", ReleaseUpdates),
             ("Update download verifies bytes and checksum and rejects an unsafe redirect", DownloadUpdate),
@@ -480,12 +484,17 @@ internal static partial class Checks
             { Child: FrameworkElement }, "student visual root should contain only a matte and board view");
         var studentBoard = (FrameworkElement)((Viewbox)((Grid)student.Content).Children[0]).Child;
         Assert(Pixel(studentBoard, 200, 200).SequenceEqual(clean));
+        teacher.ShowBroadcastOutput();
+        var online = app.Windows.Cast<Window>().Single(window => window.Title == "EduCast · Online Program");
+        var onlineBoard = (FrameworkElement)((Viewbox)((Grid)online.Content).Children[0]).Child;
+        Assert(online.Owner is null && Pixel(onlineBoard, 200, 200).SequenceEqual(clean));
 
         drawing.BeginPreview();
         drawing.AddPreview(Line(200));
         Pump();
         Assert(!Pixel(studentBoard, 200, 200).SequenceEqual(clean), "live ink is missing before completion");
         Assert(!Pixel(program, 200, 200).SequenceEqual(clean));
+        Assert(!Pixel(onlineBoard, 200, 200).SequenceEqual(clean), "live ink is missing from Online Program");
         Assert(!Find<Button>(teacher, "UndoButton").IsEnabled, "preview must not write to lesson history");
         Click(teacher, "FreezeButton");
         Assert(Pixel(studentBoard, 200, 200).SequenceEqual(clean), "freeze must clear transient ink");
@@ -511,6 +520,7 @@ internal static partial class Checks
         Write(320);
         Pump();
         Assert(Pixel(studentBoard, 200, 320).SequenceEqual(clean), "private stroke reached student");
+        Assert(Pixel(onlineBoard, 200, 320).SequenceEqual(clean), "private stroke reached Online Program");
         Assert(!Pixel(Find<FrameworkElement>(teacher, "TeacherBoard"), 200, 320).SequenceEqual(clean));
 
         drawing.BeginPreview();
@@ -534,6 +544,7 @@ internal static partial class Checks
         Pump();
         Assert(Pixel(studentBoard, 200, 200).SequenceEqual(new byte[] { 0, 0, 0, 255 }));
         Assert(Pixel(studentBoard, 980, 555).SequenceEqual(new byte[] { 0, 0, 0, 255 }));
+        Assert(Pixel(onlineBoard, 980, 555).SequenceEqual(new byte[] { 0, 0, 0, 255 }));
         Click(teacher, "BlackButton");
         teacher.ApplyStudioLayers(new ProgramLayers());
         Pump();
@@ -542,6 +553,8 @@ internal static partial class Checks
         InstrumentDemonstration(teacher, studentBoard, clean);
         Click(teacher, "StopButton");
         Assert(!app.Windows.Cast<Window>().Contains(student));
+        Assert(online.IsVisible);
+        online.Close();
         ExtendedDisplay(app, teacher, program);
         Click(teacher, "StudioButton");
         Pump();

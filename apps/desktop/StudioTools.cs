@@ -63,7 +63,7 @@ internal sealed class StudioTools : Window
     public event Action<string, RecordingProfile, MicrophoneDevice?>? RecordRequested;
     public event Action? StopRequested;
 
-    public StudioTools(Window teacher)
+    public StudioTools(TeacherWindow teacher)
     {
         Owner = teacher;
         Title = "EduCast · Studio tools";
@@ -77,6 +77,9 @@ internal sealed class StudioTools : Window
         ShowInTaskbar = false;
 
         var root = new StackPanel { Margin = new Thickness(16) };
+        var board = new Button { Content = "← Board", HorizontalAlignment = HorizontalAlignment.Left };
+        board.Click += (_, _) => teacher.ReturnToBoard();
+        root.Children.Add(board);
         root.Children.Add(Label("CAMERAS  /  PRIVATE PREVIEW"));
         var setup = new WrapPanel();
         browse.Click += async (_, _) =>

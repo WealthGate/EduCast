@@ -51,6 +51,7 @@ public static class LessonFile
         foreach (var page in lesson.Pages)
         {
             if (page is null || !Text(page.Notes, 16000) || !Enum.IsDefined(page.Paper) ||
+                !Enum.IsDefined(page.Subject) || page.Background is uint background && background >> 24 != 0xff ||
                 page.Items.IsDefault || page.Items.Length > 3000)
                 throw new InvalidDataException("The lesson contains an invalid page.");
             foreach (var item in page.Items)
@@ -71,12 +72,18 @@ public static class LessonFile
         Ink ink => Enum.IsDefined(ink.Tip) && Range(ink.Width, 1, 60) && !ink.Points.IsDefaultOrEmpty &&
             ink.Points.Length <= 30000 && ink.Points.All(Point),
         Shape shape => Enum.IsDefined(shape.ShapeKind) && Range(shape.Width, 1, 60) &&
-            Point(shape.Start) && Point(shape.End) && Range(shape.Sweep, -360, 360),
+            Point(shape.Start) && Point(shape.End) && Range(shape.Sweep, -360, 360) &&
+            (shape.Corner is not { } corner || shape.ShapeKind is ShapeKind.Triangle or ShapeKind.Rectangle && Point(corner)),
         Equation eq => Point(eq.Origin) && Range(eq.Size, 12, 96) &&
             Text(eq.Source, MathParser.MaxLength) && MathParser.TryParse(eq.Source, out _, out _),
         BoardText text => Point(text.Origin) && Range(text.Size, 12, 96) && Text(text.Text, 2000),
         Graph graph => Point(graph.Origin) && Text(graph.Source, MathParser.MaxLength) &&
             MathParser.TryParseGraph(graph.Source, out _, out _),
+        ChemicalEquation equation => Point(equation.Origin) && Range(equation.Size, 12, 96) &&
+            Chemistry.TryFormat(equation.Source, out _, out _, out _),
+        TeachingDiagram diagram => Point(diagram.Origin) && Enum.IsDefined(diagram.Diagram) &&
+            (diagram.Diagram == DiagramKind.Atom ? Chemistry.AtomicNumber(diagram.Element) is >= 1 and <= 20 :
+                diagram.Element is null),
         _ => false
     };
 

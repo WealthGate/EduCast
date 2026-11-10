@@ -65,6 +65,11 @@ internal partial class SourceWindow : Window
         Deactivated += (_, _) => CancelAnnotation();
         PreviewKeyDown += (_, args) =>
         {
+            if (args.Key == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+            {
+                teacher.ReturnToBoard();
+                args.Handled = true;
+            }
             if (args.Key == Key.Escape && (selectionDrag is not null || arrowStart is not null))
             {
                 CancelAnnotation();
@@ -85,6 +90,7 @@ internal partial class SourceWindow : Window
     }
 
     private void SelectBrowser(object sender, RoutedEventArgs args) => ShowBrowser();
+    private void ReturnToBoard(object sender, RoutedEventArgs args) => teacher.ReturnToBoard();
     private void SelectWindow(object sender, RoutedEventArgs args) => ChooseWindow();
     private void TakePreview(object sender, RoutedEventArgs args) => teacher.SourceTake();
     private void FreezeProgram(object sender, RoutedEventArgs args) => teacher.SourceFreeze();
@@ -100,7 +106,7 @@ internal partial class SourceWindow : Window
             browserMode = true;
             BrowserSlot.Visibility = Visibility.Visible;
             SetTool(Tool.Interact);
-            Hint.Text = "Enter a web address or open a local HTML, SVG or PDF file.";
+            Hint.Text = "Enter a web address or open a local HTML, PDF or image file.";
         }
         Address.Focus();
         Address.SelectAll();
@@ -262,11 +268,13 @@ internal partial class SourceWindow : Window
                     Hint.Text = "The captured window is minimized. Restore it to preview it again.";
                     return;
                 }
+                if (!IsVisible)
+                    return;
                 next = await window.ReadAsync();
                 if (next is not null && image is null && revision == sourceRevision)
                     Hint.Text = $"{window.Target.Title} · use the drawing tools here and interact in the original window.";
             }
-            else if (browserMode && browser is { Ready: true } page && WindowState != WindowState.Minimized)
+            else if (IsVisible && browserMode && browser is { Ready: true } page && WindowState != WindowState.Minimized)
                 next = await page.ReadAsync();
             else
                 return;
@@ -278,7 +286,7 @@ internal partial class SourceWindow : Window
         }
         catch (Exception error) when (SourceError(error))
         {
-            if (!closed && revision == sourceRevision)
+            if (!closed && revision == sourceRevision && IsVisible)
             {
                 ResetSource();
                 Hint.Text = $"The source stopped. Reopen it to resume. {error.Message}";

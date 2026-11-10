@@ -8,9 +8,10 @@ namespace EduCast.Studio;
 
 internal sealed class BrowserLesson : IDisposable
 {
-    internal const string FileFilter = "Browser files (*.html;*.htm;*.svg;*.pdf)|*.html;*.htm;*.svg;*.pdf";
+    internal const string FileFilter = "Teaching files (*.html;*.pdf;*.svg;*.png;*.jpg;*.gif;*.webp)|" +
+        "*.html;*.htm;*.pdf;*.svg;*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp";
     private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".html", ".htm", ".svg", ".pdf" };
+        { ".html", ".htm", ".svg", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" };
     private string? localHost;
     private ulong navigation;
     private bool disposed;
@@ -101,7 +102,7 @@ internal sealed class BrowserLesson : IDisposable
     public void OpenFile(string path)
     {
         if (!IsSupportedFile(path) || !File.Exists(path))
-            throw new IOException("Choose an existing HTML, SVG or PDF file.");
+            throw new IOException("Choose an existing HTML, PDF or supported image file.");
         ClearLocalFolder();
         localHost = $"lesson-{Guid.NewGuid():N}.educast.invalid";
         View.CoreWebView2.SetVirtualHostNameToFolderMapping(localHost, Path.GetDirectoryName(path)!,
