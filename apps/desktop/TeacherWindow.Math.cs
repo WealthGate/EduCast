@@ -372,34 +372,31 @@ public partial class TeacherWindow
 
     private static BoardPoint Pointer(Point point) => new(point.X, point.Y);
 
-    internal bool SelectInstrumentAt(BoardPoint point, bool source)
+    private PlacedInstrument? InstrumentAt(BoardPoint pointer, bool source)
     {
-        if (!BeginMathDrag(point, source, selectOnly: true))
+        if (activeInstrument is { } current && current.Source == source && OverInstrument(current.Display, pointer))
+            return current;
+        return instruments.LastOrDefault(item => item.Source == source && OverInstrument(item.Display, pointer));
+    }
+
+    internal bool SelectInstrument(Guid id, bool source)
+    {
+        if (instruments.FirstOrDefault(item => item.Id == id && item.Source == source) is not { } hit)
             return false;
-        CancelMathDrag();
+        SelectInstrument(hit);
+        RefreshMathInstrument();
         return true;
     }
 
-    internal bool BeginMathDrag(BoardPoint pointer, bool source = false, bool selectOnly = false)
+    internal bool BeginMathDrag(BoardPoint pointer, bool source = false)
     {
         if (mathOnSource != source)
             return false;
-        if (selectOnly || !alignGauge && calibrationLength is null)
+        if (!alignGauge && calibrationLength is null)
         {
-            var hit = instruments.Where(item => item.Source == source && item != activeInstrument)
-                .Reverse().FirstOrDefault(item => OverInstrument(item.Display, pointer));
-            if (activeInstrument is { } current && OverInstrument(current.Display, pointer))
-                hit = current;
+            var hit = InstrumentAt(pointer, source);
             if (hit is not null && hit != activeInstrument)
                 SelectInstrument(hit);
-            if (selectOnly)
-            {
-                if (hit is null)
-                    return false;
-                mathDrag = new MathDrag(hit.Display, pointer, InstrumentHandle.Move, null, false, ConstructionInk());
-                RefreshMathInstrument();
-                return true;
-            }
         }
         if (instrumentDisplay is not { Pose: var pose } display)
             return false;
@@ -456,9 +453,6 @@ public partial class TeacherWindow
         mathDrag = new MathDrag(display, pointer, InstrumentHandle.Move, null, false, ConstructionInk());
         return true;
     }
-
-    internal bool OverInstrument(BoardPoint pointer, bool source) =>
-        instruments.Any(item => item.Source == source && OverInstrument(item.Display, pointer));
 
     private static bool OverInstrument(InstrumentDisplay display, BoardPoint pointer)
     {

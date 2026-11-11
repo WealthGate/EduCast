@@ -12,11 +12,11 @@ internal static partial class Checks
         var dot = new Ink(Guid.NewGuid(), Visibility.Both, false, InkColor, 4, true, false, [new(100, 100)]);
         var dots = new List<Ink>();
         var taps = new InkTap(dots.Add);
-        var existing = Guid.NewGuid();
+        var existing = new CanvasTarget(CanvasTargetKind.Content, Guid.NewGuid());
 
         taps.Begin(1, null, physicalMouse: true);
         Assert(taps.Collect(dot) is null && dots.Count == 1);
-        taps.Begin(2, dot.Id, physicalMouse: true);
+        taps.Begin(2, new(CanvasTargetKind.Content, dot.Id), physicalMouse: true);
         Assert(taps.Collect(dot) is null && dots.Count == 2, "a just-drawn dot cannot be the first selection target");
 
         taps.Begin(1, existing, physicalMouse: false);
@@ -34,7 +34,32 @@ internal static partial class Checks
         taps.Begin(1, existing, physicalMouse: true);
         Assert(taps.Collect(dot) is null);
         taps.Begin(2, existing, physicalMouse: true);
-        Assert(Equals(taps.Collect(dot), existing) && dots.Count == 6);
+        Assert(taps.Collect(dot) == existing && dots.Count == 6);
+    }
+
+    private static void ObjectDoubleClicks()
+    {
+        var clicks = new CanvasClick();
+        var first = new CanvasTarget(CanvasTargetKind.Content, Guid.NewGuid());
+        var second = new CanvasTarget(CanvasTargetKind.Instrument, Guid.NewGuid());
+        var origin = new Point(100, 100);
+        var placements = 0;
+
+        Assert(!clicks.Begin(1, first, origin));
+        clicks.Single(() => placements++);
+        Assert(placements == 0 && clicks.Begin(2, first, origin) && placements == 0,
+            "a double-click must select the original object without placing another one");
+
+        Assert(!clicks.Begin(1, first, origin));
+        clicks.Single(() => placements++);
+        Assert(!clicks.Begin(2, second, origin) && placements == 1, "the two clicks must hit the same object");
+
+        Assert(!clicks.Begin(1, first, origin));
+        var end = origin + new Vector(4, 0);
+        clicks.Move(end, 1);
+        Assert(!clicks.Begin(2, first, end), "a drag cannot be the first click in a selection");
+        Assert(!CanvasClick.IsDrag(origin, origin + new Vector(1, 0), 1) && CanvasClick.IsDrag(origin, end, 1),
+            "eraser clicks preserve the target for selection while a sweep erases");
     }
 
     private static void CanvasSweeps()

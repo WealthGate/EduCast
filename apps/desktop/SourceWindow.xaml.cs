@@ -26,6 +26,7 @@ internal partial class SourceWindow : Window
     private readonly TeacherWindow teacher;
     private readonly SmartInkGroup smartInk;
     private readonly InkTap inkTap;
+    private readonly CanvasClick canvasClick = new();
     private readonly CanvasEraser eraser;
     private BrowserLesson? browser;
     private Task? browserInitialization;
@@ -48,6 +49,7 @@ internal partial class SourceWindow : Window
     private bool reading;
     private bool closed;
     private bool temporaryInteraction;
+    private bool marqueeEnabled;
     private int sourceRevision;
 
     public event Action<bool>? ProgramChanged;
@@ -79,6 +81,8 @@ internal partial class SourceWindow : Window
             });
         eraser.Attach();
         Input.NewStroke = attributes => LiveInkCanvas.Describe(attributes);
+        AnnotationHits.ContainsAnnotation = AnnotationAt;
+        AnnotationHits.Cursor = Cursors.Hand;
         Input.StrokeStarted += smartInk.Pause;
         Input.PreviewChanged += next =>
         {
@@ -109,7 +113,7 @@ internal partial class SourceWindow : Window
             if (args.Key == Key.Escape)
             {
                 selectedIds = [];
-                SetTool(Tool.Select);
+                SetTool(Tool.Select, enableMarquee: true);
                 args.Handled = true;
             }
         };
@@ -487,7 +491,7 @@ internal partial class SourceWindow : Window
             ActivateCapturedApp(window);
             return;
         }
-        SetTool(next);
+        SetTool(next, enableMarquee: next == Tool.Select);
         if (next == Tool.Interact)
             browser?.View.Focus();
     }
@@ -519,7 +523,7 @@ internal partial class SourceWindow : Window
         else if (browserMode)
         {
             args.Handled = true;
-            if (temporaryInteraction || tool == Tool.Interact)
+            if (temporaryInteraction)
                 return;
             CancelAnnotation();
             temporaryInteraction = true;
@@ -545,19 +549,35 @@ internal partial class SourceWindow : Window
 
     private void UpdateAnnotationInput()
     {
-        var enabled = tool != Tool.Interact && !temporaryInteraction;
-        Drawing.IsHitTestVisible = enabled;
-        SourceInstruments.IsHitTestVisible = enabled;
-        eraser.Activate(enabled && tool == Tool.Eraser);
+        var fullCanvas = !temporaryInteraction && tool != Tool.Interact && !BrowserClickThrough;
+        Drawing.IsHitTestVisible = fullCanvas;
+        AnnotationHits.IsHitTestVisible = BrowserClickThrough;
+        SourceInstruments.IsHitTestVisible = fullCanvas;
+        eraser.Activate(fullCanvas && tool == Tool.Eraser);
     }
 
-    private void SetTool(Tool next, bool cancelGesture = true)
+    private bool BrowserClickThrough => browserMode && !temporaryInteraction &&
+        (tool is Tool.Interact or Tool.Pointer || tool == Tool.Select && !marqueeEnabled);
+
+    private FrameworkElement AnnotationInput => BrowserClickThrough ? AnnotationHits : Drawing;
+
+    private bool AnnotationCaptured => Drawing.IsMouseCaptured || AnnotationHits.IsMouseCaptured;
+
+    private void ReleaseAnnotationCapture()
+    {
+        if (Drawing.IsMouseCaptured)
+            Drawing.ReleaseMouseCapture();
+        if (AnnotationHits.IsMouseCaptured)
+            AnnotationHits.ReleaseMouseCapture();
+    }
+
+    private void SetTool(Tool next, bool enableMarquee = false)
     {
         if (next != Tool.Select)
             selectedIds = [];
-        if (cancelGesture)
-            CancelAnnotation();
+        CancelAnnotation();
         tool = next;
+        marqueeEnabled = enableMarquee;
         Input.Cursor = tool switch { Tool.Pointer => Cursors.None, Tool.Select => Cursors.Arrow, _ => Cursors.Cross };
         EraserSize.Visibility = tool == Tool.Eraser ? Visibility.Visible : Visibility.Collapsed;
         UpdateAnnotationInput();
@@ -579,7 +599,7 @@ internal partial class SourceWindow : Window
             _ => ""
         };
         var interactHint = capture is not null ? "Press F4 to use the captured app."
-            : browserMode && tool != Tool.Interact ? "Hold F4 to use the page." : "";
+            : browserMode ? "Hold F4 to use the page through annotations." : "";
         if (hint.Length > 0 || interactHint.Length > 0)
             Hint.Text = (hint + " " + interactHint).Trim();
     }
@@ -615,12 +635,52 @@ internal partial class SourceWindow : Window
     private void CollectAnnotation(object sender, InkCanvasStrokeCollectedEventArgs args)
     {
         if (Input.FinishStroke(args.Stroke) is not { Points.IsEmpty: false } stroke || image is null ||
-            inkTap.Collect(stroke) is not { } hit)
+            inkTap.Collect(stroke, SelectionUnit) is not { } hit)
             return;
-        SetTool(hit is InkTap.Overlay.Instrument && teacher.SelectInstrumentAt(stroke.Points[0], source: true)
+        SelectCanvasTarget(hit);
+    }
+
+    private void SelectCanvasTarget(CanvasTarget hit)
+    {
+        teacher.SetMathSurface(source: true);
+        SetTool(hit.Kind == CanvasTargetKind.Instrument && teacher.SelectInstrument(hit.Id, source: true)
             ? Tool.Instrument : Tool.Select);
-        selectedIds = hit is Guid id ? [id] : [];
+        selectedIds = hit.Kind == CanvasTargetKind.Content ? [hit.Id] : [];
         RefreshOverlay();
+    }
+
+    internal bool TrySelectAt(Point position, int clickCount)
+    {
+        var target = teacher.TargetAt(marks, position, source: true);
+        if (!canvasClick.Begin(clickCount, target, position) || target is not { } hit)
+            return false;
+        SelectCanvasTarget(hit);
+        return true;
+    }
+
+    private bool AnnotationAt(Point position)
+    {
+        if (image is null)
+            return false;
+        if (tool == Tool.Select)
+        {
+            var cursor = BoardSelection.Hover(BoardSelection.BoundsOf(Selected), position, SelectionUnit);
+            if (cursor != Cursors.Arrow)
+                return true;
+        }
+        return teacher.TargetAt(marks, position, source: true).HasValue;
+    }
+
+    private void ResourceMove(object sender, MouseEventArgs args)
+    {
+        var position = args.GetPosition(Drawing);
+        if (args.LeftButton == MouseButtonState.Pressed)
+            canvasClick.Move(position, SelectionUnit);
+        if (tool == Tool.Pointer && BrowserClickThrough && image is not null)
+        {
+            pointer = position;
+            RefreshOverlay();
+        }
     }
 
     private void CommitInk(Ink stroke)
@@ -637,8 +697,6 @@ internal partial class SourceWindow : Window
             args.Handled = true;
             return;
         }
-        if (tool == Tool.Eraser)
-            return;
         var position = args.GetPosition(Drawing);
         teacher.SetMathSurface(source: true);
         if (tool == Tool.Select && BoardSelection.CloseAt(BoardSelection.BoundsOf(Selected), position, SelectionUnit))
@@ -650,65 +708,63 @@ internal partial class SourceWindow : Window
             args.Handled = true;
             return;
         }
-        if (tool == Tool.Place && readingToPlace is { } text)
+        if (Input.EditingMode == InkCanvasEditingMode.Ink)
         {
-            SetTool(Tool.Select);
-            EditMarks(marks.Add(new BoardText(Guid.NewGuid(), ItemVisibility.Both, false, InkColor, ToBoardPoint(position), 26, text)));
+            var mouse = args.StylusDevice is null;
+            var target = mouse ? teacher.TargetAt(marks, position, source: true) : null;
+            inkTap.Begin(args.ClickCount, target, mouse);
+            return;
+        }
+        if (TrySelectAt(position, args.ClickCount))
+        {
             args.Handled = true;
             return;
         }
-        var writing = Input.EditingMode == System.Windows.Controls.InkCanvasEditingMode.Ink;
-        var mouse = args.StylusDevice is null;
-        object? target = writing && mouse
-            ? teacher.OverClock(position) ? InkTap.Overlay.Clock
-            : teacher.OverInstrument(ToBoardPoint(position), source: true) ? InkTap.Overlay.Instrument
-            : BoardSelection.Hit(marks, position)?.Id
-            : null;
-        if (writing)
-            inkTap.Begin(args.ClickCount, target, mouse);
-        var doubleSelect = tool == Tool.Select && args.ClickCount == 2;
-        if ((tool == Tool.Select || doubleSelect) && teacher.BeginClockDrag(position, source: true))
+        if (BrowserClickThrough && tool != Tool.Select)
         {
-            if (tool != Tool.Select)
+            args.Handled = true;
+            return;
+        }
+        if (tool == Tool.Eraser)
+            return;
+        if (tool == Tool.Place && readingToPlace is { } text)
+        {
+            canvasClick.Single(() =>
             {
-                selectedIds = [];
-                Input.CancelStroke();
-                SetTool(Tool.Select, cancelGesture: false);
-            }
-            if (!Drawing.CaptureMouse())
+                SetTool(Tool.Select);
+                EditMarks(marks.Add(new BoardText(Guid.NewGuid(), ItemVisibility.Both, false,
+                    InkColor, ToBoardPoint(position), 26, text)));
+            });
+            args.Handled = true;
+            return;
+        }
+        if (tool == Tool.Select && teacher.BeginClockDrag(position, source: true))
+        {
+            if (!AnnotationInput.CaptureMouse())
                 teacher.CancelClockDrag(source: true);
             args.Handled = true;
             return;
         }
-        if ((tool == Tool.Instrument || doubleSelect) &&
-            teacher.BeginMathDrag(ToBoardPoint(position), source: true, selectOnly: tool != Tool.Instrument))
+        if (tool == Tool.Instrument && teacher.BeginMathDrag(ToBoardPoint(position), source: true))
         {
-            if (tool != Tool.Instrument)
-            {
-                Input.CancelStroke();
-                SetTool(Tool.Instrument, cancelGesture: false);
-                RefreshOverlay();
-            }
-            if (!Drawing.CaptureMouse())
+            if (!AnnotationInput.CaptureMouse())
                 teacher.CancelSourceInstrumentDrag();
-            args.Handled = true;
-            return;
-        }
-        if (doubleSelect && BoardSelection.Hit(marks, position) is { } hit)
-        {
-            SetTool(Tool.Select);
-            selectedIds = [hit.Id];
-            RefreshOverlay();
             args.Handled = true;
             return;
         }
         if (tool == Tool.Select)
         {
-            if (Drawing.CaptureMouse())
+            var selection = BoardSelection.BeginSelected(Selected, position, SelectionUnit);
+            if (selection is null && BrowserClickThrough)
             {
-                selectionDrag = BoardSelection.BeginSelected(Selected, position, SelectionUnit);
+                args.Handled = true;
+                return;
+            }
+            if (AnnotationInput.CaptureMouse())
+            {
+                selectionDrag = selection;
                 if (selectionDrag is { } drag)
-                    Input.Cursor = drag.Cursor;
+                    SetSelectionCursor(drag.Cursor);
                 else
                 {
                     marqueeStart = position;
@@ -719,7 +775,7 @@ internal partial class SourceWindow : Window
             args.Handled = true;
             return;
         }
-        if (tool == Tool.Arrow && Drawing.CaptureMouse())
+        if (tool == Tool.Arrow && AnnotationInput.CaptureMouse())
             arrowStart = position;
         args.Handled = tool is Tool.Arrow or Tool.Pointer or Tool.Instrument;
     }
@@ -729,24 +785,24 @@ internal partial class SourceWindow : Window
         if (image is null || tool == Tool.Eraser)
             return;
         var position = args.GetPosition(Drawing);
-        if (teacher.ClockDragging(source: true) && Drawing.IsMouseCaptured)
+        if (teacher.ClockDragging(source: true) && AnnotationCaptured)
         {
             teacher.MoveClock(position);
             return;
         }
-        if (teacher.InstrumentDragging(source: true) && Drawing.IsMouseCaptured)
+        if (teacher.InstrumentDragging(source: true) && AnnotationCaptured)
         {
             teacher.UpdateMathDrag(new BoardPoint(position.X, position.Y), Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
             return;
         }
         if (tool == Tool.Select)
         {
-            if (selectionDrag is not { } drag || !Drawing.IsMouseCaptured)
+            if (selectionDrag is not { } drag || !AnnotationCaptured)
             {
                 if (marqueeStart is { } origin)
                     AnnotationFeedback.ShowMarquee(new Rect(origin, position), SelectionUnit);
                 else
-                    Input.Cursor = BoardSelection.Hover(BoardSelection.BoundsOf(Selected), position, SelectionUnit);
+                    SetSelectionCursor(BoardSelection.Hover(BoardSelection.BoundsOf(Selected), position, SelectionUnit));
                 return;
             }
             var moved = drag.CommitAll(position);
@@ -754,7 +810,7 @@ internal partial class SourceWindow : Window
                 return;
             selectionPreview = moved == drag.Items ? [] : moved;
         }
-        else if (tool == Tool.Pointer)
+        else if (tool == Tool.Pointer && !BrowserClickThrough)
             pointer = position;
         else if (arrowStart is { } start)
             gesture = MakeArrow(start, position);
@@ -772,7 +828,7 @@ internal partial class SourceWindow : Window
         {
             teacher.MoveClock(pointerPosition);
             teacher.FinishClockDrag();
-            Drawing.ReleaseMouseCapture();
+            ReleaseAnnotationCapture();
             args.Handled = true;
             return;
         }
@@ -780,46 +836,58 @@ internal partial class SourceWindow : Window
         {
             teacher.EndMathDrag(new BoardPoint(pointerPosition.X, pointerPosition.Y),
                 Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
-            Drawing.ReleaseMouseCapture();
+            ReleaseAnnotationCapture();
             args.Handled = true;
             return;
         }
         if (selectionDrag is { } drag)
         {
             (selectionDrag, selectionPreview) = (null, []);
-            Drawing.ReleaseMouseCapture();
+            ReleaseAnnotationCapture();
             var moved = drag.CommitAll(pointerPosition);
             if (moved != drag.Items)
                 EditMarks(BoardSelection.Apply(marks, moved));
             else
                 RefreshOverlay();
-            Input.Cursor = BoardSelection.Hover(BoardSelection.BoundsOf(Selected), pointerPosition, SelectionUnit);
+            SetSelectionCursor(BoardSelection.Hover(BoardSelection.BoundsOf(Selected), pointerPosition, SelectionUnit));
             args.Handled = true;
             return;
         }
         if (marqueeStart is { } origin)
         {
             marqueeStart = null;
-            Drawing.ReleaseMouseCapture();
+            ReleaseAnnotationCapture();
             AnnotationFeedback.ShowMarquee(Rect.Empty, SelectionUnit);
             selectedIds = BoardSelection.Within(marks, origin, pointerPosition, SelectionUnit)
                 .Select(item => item.Id).ToImmutableHashSet();
             RefreshOverlay();
-            Input.Cursor = BoardSelection.Hover(BoardSelection.BoundsOf(Selected), pointerPosition, SelectionUnit);
+            SetSelectionCursor(BoardSelection.Hover(BoardSelection.BoundsOf(Selected), pointerPosition, SelectionUnit));
             args.Handled = true;
             return;
         }
         if (arrowStart is not { } start)
             return;
         var end = args.GetPosition(Drawing);
-        CancelAnnotation();
-        if ((start - end).Length >= 2 && image is not null)
+        (arrowStart, gesture) = (null, null);
+        ReleaseAnnotationCapture();
+        if (CanvasClick.IsDrag(start, end, SelectionUnit) && image is not null)
+        {
+            canvasClick.Clear();
             EditMarks(marks.Add(MakeArrow(start, end)));
+        }
+        else
+            RefreshOverlay();
         args.Handled = true;
     }
 
     private Shape MakeArrow(Point start, Point end) => new(Guid.NewGuid(), ItemVisibility.Both, false,
         InkColor, InkWidth, ShapeKind.Arrow, ToBoardPoint(start), ToBoardPoint(end));
+
+    private void SetSelectionCursor(Cursor cursor)
+    {
+        Input.Cursor = cursor;
+        AnnotationHits.Cursor = cursor == Cursors.Arrow ? Cursors.Hand : cursor;
+    }
 
     private static BoardPoint ToBoardPoint(Point point) => new(
         Math.Clamp(point.X, 0, BoardSurface.BoardWidth), Math.Clamp(point.Y, 0, BoardSurface.BoardHeight));
@@ -842,12 +910,13 @@ internal partial class SourceWindow : Window
     private void AnnotationCaptureLost(object sender, MouseEventArgs args)
     {
         if ((arrowStart is not null || marqueeStart is not null || selectionDrag is not null || teacher.ClockDragging(source: true) ||
-            teacher.InstrumentDragging(source: true)) && !Drawing.IsMouseCaptured)
+            teacher.InstrumentDragging(source: true)) && !AnnotationCaptured)
             CancelAnnotation();
     }
 
     private void CancelAnnotation()
     {
+        canvasClick.Clear();
         inkTap.Flush();
         smartInk.Complete();
         teacher.CancelClockDrag(source: true);
@@ -858,8 +927,7 @@ internal partial class SourceWindow : Window
         (arrowStart, gesture, pointer) = (null, null, null);
         (marqueeStart, selectionDrag, selectionPreview) = (null, null, []);
         AnnotationFeedback.ShowMarquee(Rect.Empty, SelectionUnit);
-        if (Drawing.IsMouseCaptured)
-            Drawing.ReleaseMouseCapture();
+        ReleaseAnnotationCapture();
         RefreshOverlay();
     }
 

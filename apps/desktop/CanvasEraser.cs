@@ -13,6 +13,7 @@ internal sealed class CanvasEraser(
 {
     private static readonly double[] Diameters = [12, 24, 40, 64];
     private Point? previous;
+    private Point? start;
     private StylusDevice? stylus;
     private Point? pointer;
     private bool active;
@@ -110,7 +111,7 @@ internal sealed class CanvasEraser(
     {
         var drawing = Draft.HasValue;
         var pen = stylus;
-        (Draft, previous, stylus, pointer) = (null, null, null, null);
+        (Draft, start, previous, stylus, pointer) = (null, null, null, null, null);
         if (active)
             feedback.ShowEraser(null, Diameter, scale());
         if (!drawing)
@@ -125,6 +126,7 @@ internal sealed class CanvasEraser(
     private void Begin(Point point)
     {
         Draft = read();
+        start = point;
         previous = null;
         Follow(point);
     }
@@ -133,9 +135,10 @@ internal sealed class CanvasEraser(
     {
         pointer = point;
         feedback.ShowEraser(point, Diameter, scale(), Draft.HasValue);
-        if (Draft is not { } items || previous == point)
+        if (Draft is not { } items || previous == point ||
+            previous is null && start is { } origin && !CanvasClick.IsDrag(origin, point, scale()))
             return;
-        var next = BoardSurface.Erase(items, previous ?? point, point, Diameter);
+        var next = BoardSurface.Erase(items, previous ?? start ?? point, point, Diameter);
         previous = point;
         if (next != items)
         {
@@ -148,7 +151,7 @@ internal sealed class CanvasEraser(
     {
         Follow(point);
         var next = Draft!.Value;
-        (Draft, previous, stylus) = (null, null, null);
+        (Draft, start, previous, stylus) = (null, null, null, null);
         feedback.ShowEraser(BoardSurface.Bounds.Contains(point) ? point : null, Diameter, scale());
         commit(next);
     }

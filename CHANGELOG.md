@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.3
+
+- Double-click an existing board object or annotation from any canvas tool, then drag it to move. The eraser starts on a sweep, so a double-click can still select the writing.
+- Click browser controls outside annotations even when an annotation was selected by double-click. The annotation under the cursor receives the click ahead of the page underneath. Hold **F4** to use a covered control, or click **Select** to draw a selection box.
+
 ## 0.13.2
 
 - Pen taps and mouse dots stay in drawing mode. Double-click existing writing with the mouse or use **Select** to box a group, then drag to move or resize the selection.

@@ -85,17 +85,21 @@
             TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
         <Border Grid.Row="1" Background="Black" BorderBrush="{DynamicResource Line}" BorderThickness="1" ClipToBounds="True">
             <Grid SizeChanged="SourceAreaSizeChanged">
-                <Grid x:Name="SourceStage" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="True">
+                <Grid x:Name="SourceStage" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="True"
+                      PreviewMouseMove="ResourceMove" MouseLeave="AnnotationLeave">
                     <Grid x:Name="BrowserSlot"/>
                     <Viewbox Stretch="Fill">
                         <Grid x:Name="Viewport" Width="1280" Height="720" ClipToBounds="True">
                             <studio:SourceSurface x:Name="Surface"/>
                             <Grid x:Name="Drawing" Background="Transparent" PreviewMouseLeftButtonDown="AnnotationDown"
                                   Stylus.IsPressAndHoldEnabled="False" Stylus.IsFlicksEnabled="False"
-                                  PreviewMouseMove="AnnotationMove" PreviewMouseLeftButtonUp="AnnotationUp" MouseLeave="AnnotationLeave"
+                                  PreviewMouseMove="AnnotationMove" PreviewMouseLeftButtonUp="AnnotationUp"
                                   LostMouseCapture="AnnotationCaptureLost" PreviewMouseWheel="AnnotationWheel">
                                 <studio:LiveInkCanvas x:Name="Input" Background="Transparent" StrokeCollected="CollectAnnotation"/>
                             </Grid>
+                            <studio:AnnotationHitLayer x:Name="AnnotationHits" PreviewMouseLeftButtonDown="AnnotationDown"
+                                PreviewMouseMove="AnnotationMove" PreviewMouseLeftButtonUp="AnnotationUp"
+                                LostMouseCapture="AnnotationCaptureLost"/>
                             <studio:TeacherInstrumentSurface x:Name="SourceInstruments"/>
                             <studio:CanvasFeedback x:Name="AnnotationFeedback"/>
                         </Grid>

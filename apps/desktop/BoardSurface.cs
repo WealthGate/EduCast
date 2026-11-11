@@ -174,6 +174,12 @@ internal sealed class BoardSurface : FrameworkElement
         .Where(item => item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly)
         .FirstOrDefault(item =>
         {
+            var bounds = For(item).Bounds;
+            if (bounds.IsEmpty)
+                return false;
+            bounds.Inflate(7, 7);
+            if (!bounds.Contains(point))
+                return false;
             var scale = item.Placement?.Scale ?? 1;
             var local = item.Placement is { } placement
                 ? new Point((point.X - placement.X) / scale, (point.Y - placement.Y) / scale) : point;
@@ -181,9 +187,7 @@ internal sealed class BoardSurface : FrameworkElement
                 return ToStroke(ink).HitTest(local, 14 / scale);
             if (item is Shape shape)
                 return ShapeGeometry(shape).StrokeContains(new Pen(Brushes.Black, shape.Width + 14 / scale), local);
-            var bounds = For(item).Bounds;
-            bounds.Inflate(7, 7);
-            return bounds.Contains(point);
+            return true;
         });
 
     public static Content Move(Content item, Vector offset)

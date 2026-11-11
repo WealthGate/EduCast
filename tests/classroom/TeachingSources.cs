@@ -126,16 +126,30 @@ internal static partial class Checks
         Pump();
         Assert(Pixel(program, 195, 200)[2] > 225 && !Pixel(program, 195, 200).SequenceEqual(clean),
             "the browser annotation must reach Program");
-        Click(source, "SelectAnnotation");
+        Click(source, "Interact");
+        Pump();
         var drawing = Find<Grid>(source, "Drawing");
+        var annotationPoint = new Point(200, 200);
+        var stage = Find<Grid>(source, "SourceStage");
+        var hits = Find<AnnotationHitLayer>(source, "AnnotationHits");
+        IInputElement? HitAt(Point point) => stage.InputHitTest(drawing.TranslatePoint(point, stage));
+        var clearPoint = new Point(900, 550);
+        var browserHit = HitAt(clearPoint);
+        Assert(browserHit is not null && browserHit != drawing && browserHit != hits,
+            $"uncovered source should reach browser, hit {browserHit}, stage {stage.ActualWidth}×{stage.ActualHeight}");
+        Assert(HitAt(annotationPoint) == hits, "a click on an annotation must hit the overlay before the browser");
+        Assert(!source.TrySelectAt(annotationPoint, 1) && source.TrySelectAt(annotationPoint, 2),
+            "an annotation must be selectable from browser interaction");
+        Assert(HitAt(clearPoint) == browserHit, "double-click selection must leave the rest of the browser interactive");
         var presentation = PresentationSource.FromVisual(source);
         source.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, presentation, 0, Key.F4)
             { RoutedEvent = Keyboard.PreviewKeyDownEvent });
         Assert(!drawing.IsHitTestVisible && !Find<TeacherInstrumentSurface>(source, "SourceInstruments").IsHitTestVisible,
             "F4 must let the browser receive pointer input through the annotation layer");
+        Assert(HitAt(annotationPoint) == browserHit, "F4 must let the page receive input through an existing annotation");
         source.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, presentation, 0, Key.F4)
             { RoutedEvent = Keyboard.PreviewKeyUpEvent });
-        Assert(drawing.IsHitTestVisible && input.EditingMode == InkCanvasEditingMode.None,
+        Assert(hits.IsHitTestVisible && input.EditingMode == InkCanvasEditingMode.None,
             "releasing F4 must return to selection");
         teacher.ReturnToBoard();
         Pump();

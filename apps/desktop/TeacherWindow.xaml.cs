@@ -75,6 +75,7 @@ public partial class TeacherWindow : Window
     private ImmutableArray<BoardItem> selectionPreview = [];
     private readonly SmartInkGroup smartInk;
     private readonly InkTap inkTap;
+    private readonly CanvasClick canvasClick = new();
     private readonly CanvasEraser eraser;
     private Shape? pendingArc;
     private ArcGesture? arcGesture;
@@ -892,18 +893,41 @@ public partial class TeacherWindow : Window
     private void CollectInk(object sender, InkCanvasStrokeCollectedEventArgs args)
     {
         if (DrawingInput.FinishStroke(args.Stroke) is not { Points.IsEmpty: false } ink ||
-            inkTap.Collect(ink) is not { } hit)
+            inkTap.Collect(ink, SelectionUnit) is not { } hit)
             return;
+        SelectCanvasTarget(hit);
+    }
+
+    internal CanvasTarget? TargetAt(IEnumerable<BoardItem> items, Point position, bool source)
+    {
+        if (OverClock(position))
+            return new(CanvasTargetKind.Clock);
+        if (InstrumentAt(Pointer(position), source) is { } instrument)
+            return new(CanvasTargetKind.Instrument, instrument.Id);
+        return BoardSelection.Hit(items, position) is { } item ? new(CanvasTargetKind.Content, item.Id) : null;
+    }
+
+    private void SelectCanvasTarget(CanvasTarget hit)
+    {
         CancelGesture();
         ClearSelection();
-        if (hit is InkTap.Overlay.Instrument && SelectInstrumentAt(ink.Points[0], source: false))
+        if (hit.Kind == CanvasTargetKind.Instrument && SelectInstrument(hit.Id, source: false))
             SetTool(Tool.Instrument);
         else
         {
-            selectedId = hit is Guid id ? id : null;
+            selectedId = hit.Kind == CanvasTargetKind.Content ? hit.Id : null;
             SetTool(Tool.Select);
         }
         Refresh();
+    }
+
+    internal bool TrySelectAt(Point position, int clickCount)
+    {
+        var target = TargetAt(session.Page.Items, position, source: false);
+        if (!canvasClick.Begin(clickCount, target, position) || target is not { } hit)
+            return false;
+        SelectCanvasTarget(hit);
+        return true;
     }
 
     private void CommitInk(Ink ink)
@@ -924,11 +948,9 @@ public partial class TeacherWindow : Window
 
     private void BoardDown(object sender, MouseButtonEventArgs args)
     {
-        if (tool == Tool.Eraser)
-            return;
         var position = args.GetPosition(BoardInput);
         SetMathSurface(source: false);
-        if (TeacherInstrument.CloseAt(position))
+        if (tool != Tool.Eraser && TeacherInstrument.CloseAt(position))
         {
             args.Handled = true;
             return;
@@ -940,40 +962,31 @@ public partial class TeacherWindow : Window
             args.Handled = true;
             return;
         }
-        var writing = IsInkTool(tool);
-        var mouse = args.StylusDevice is null;
-        object? target = writing && mouse
-            ? OverClock(position) ? InkTap.Overlay.Clock
-            : OverInstrument(Pointer(position), source: false) ? InkTap.Overlay.Instrument
-            : BoardSelection.Hit(session.Page.Items, position)?.Id
-            : null;
-        if (writing)
-            inkTap.Begin(args.ClickCount, target, mouse);
-        var doubleSelect = tool == Tool.Select && args.ClickCount == 2;
-        if ((tool == Tool.Select || doubleSelect) && BeginClockDrag(position, source: false) ||
-            (tool == Tool.Instrument || doubleSelect) &&
-            BeginMathDrag(Pointer(position), source: false, selectOnly: tool != Tool.Instrument))
+        if (!IsInkTool(tool) && TrySelectAt(position, args.ClickCount))
         {
             args.Handled = true;
-            if (tool != Tool.Instrument || ClockDragging(source: false))
+            return;
+        }
+        if (IsInkTool(tool))
+        {
+            var mouse = args.StylusDevice is null;
+            var target = mouse ? TargetAt(session.Page.Items, position, source: false) : null;
+            inkTap.Begin(args.ClickCount, target, mouse);
+            return;
+        }
+        if (tool == Tool.Eraser)
+            return;
+        if (tool == Tool.Select && BeginClockDrag(position, source: false) ||
+            tool == Tool.Instrument && BeginMathDrag(Pointer(position), source: false))
+        {
+            args.Handled = true;
+            if (ClockDragging(source: false))
             {
-                DrawingInput.CancelStroke();
                 ClearSelection();
-                SetTool(ClockDragging(source: false) ? Tool.Select : Tool.Instrument);
                 Refresh();
             }
             if (!BoardInput.CaptureMouse())
                 CancelGesture();
-            return;
-        }
-        if (doubleSelect && BoardSelection.Hit(session.Page.Items, position) is { } hit)
-        {
-            CancelGesture();
-            ClearSelection();
-            selectedId = hit.Id;
-            SetTool(Tool.Select);
-            Refresh();
-            args.Handled = true;
             return;
         }
         if (tool == Tool.Instrument)
@@ -981,16 +994,17 @@ public partial class TeacherWindow : Window
             args.Handled = true;
             return;
         }
-        if (writing)
-            return;
         args.Handled = true;
         if (tool == Tool.Pointer)
             return;
         if (tool == Tool.Place && placement is { } value)
         {
-            placement = null;
-            SetTool(toolBeforePlacement);
-            AddItem(value(PointOf(position)));
+            canvasClick.Single(() =>
+            {
+                placement = null;
+                SetTool(toolBeforePlacement);
+                AddItem(value(PointOf(position)));
+            });
             return;
         }
         if (tool == Tool.Select)
@@ -1009,15 +1023,18 @@ public partial class TeacherWindow : Window
             }
             return;
         }
-        if (tool == Tool.Arc && pendingArc is { } arc)
+        if (tool == Tool.Arc && pendingArc is { } arc && arcGesture is { } sweep)
         {
-            arcGesture!.Follow(PointOf(position));
-            var completed = arcGesture.Apply(arc);
-            (pendingArc, arcGesture, boardGesture) = (null, null, null);
-            if (Math.Abs(completed.Sweep) >= 1)
-                AddItem(completed);
-            Refresh();
-            ToolHint.Text = "Arc · drag out the radius, sweep, then click to finish";
+            sweep.Follow(PointOf(position));
+            var completed = sweep.Apply(arc);
+            canvasClick.Single(() =>
+            {
+                (pendingArc, arcGesture, boardGesture) = (null, null, null);
+                if (Math.Abs(completed.Sweep) >= 1)
+                    AddItem(completed);
+                Refresh();
+                ToolHint.Text = "Arc · drag out the radius, sweep, then click to finish";
+            });
             return;
         }
 
@@ -1027,9 +1044,11 @@ public partial class TeacherWindow : Window
 
     private void BoardMove(object sender, MouseEventArgs args)
     {
+        var position = args.GetPosition(BoardInput);
+        if (args.LeftButton == MouseButtonState.Pressed)
+            canvasClick.Move(position, SelectionUnit);
         if (tool == Tool.Eraser)
             return;
-        var position = args.GetPosition(BoardInput);
         if (ClockDragging(source: false) && BoardInput.IsMouseCaptured)
         {
             MoveClock(position);
@@ -1137,11 +1156,12 @@ public partial class TeacherWindow : Window
             return;
         }
 
-        if ((start - position).Length < 2)
+        if (!CanvasClick.IsDrag(start, position, SelectionUnit))
         {
             Refresh();
             return;
         }
+        canvasClick.Clear();
         var shape = MakeShape(start, position);
         if (tool == Tool.Arc)
         {
@@ -1215,6 +1235,7 @@ public partial class TeacherWindow : Window
 
     private void CancelGesture()
     {
+        canvasClick.Clear();
         inkTap.Flush();
         smartInk.Complete();
         CancelClockDrag(source: false);

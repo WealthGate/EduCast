@@ -74,6 +74,7 @@ internal static partial class Checks
             ("WPF selection overlay and committed move preserve object identity and pressure", SelectionMove),
             ("WPF edge and corner drags resize board objects while preserving their content", SelectionResize),
             ("WPF rapid dots keep writing and only a completed double-click selects", InkTapGestures),
+            ("WPF double-click selection takes precedence over a pending placement or eraser tap", ObjectDoubleClicks),
             ("WPF eraser sweeps split scaled ink and preserve private output", CanvasSweeps),
             ("WPF a marquee selects and moves visible objects as a group", MarqueeSelection),
             ("WPF Program PNG encodes visible content and excludes private objects", Snapshot),
@@ -533,6 +534,16 @@ internal static partial class Checks
         Write(200);
         Pump();
         Assert(drawing.Strokes.Count == 0 && !Pixel(studentBoard, 200, 200).SequenceEqual(clean));
+        var objects = Find<ListBox>(teacher, "Objects");
+        foreach (var tool in new[] { "PointerButton", "EraseButton", "LineButton", "ArcButton" })
+        {
+            Click(teacher, tool);
+            var point = new Point(200, 200);
+            Assert(!teacher.TrySelectAt(point, 1) && objects.SelectedItem is null);
+            Assert(teacher.TrySelectAt(point, 2) && objects.SelectedItem is not null && objects.Items.Count == 1,
+                $"double-click with {tool} must select the existing stroke");
+        }
+        Click(teacher, "PenButton");
         Click(teacher, "FreezeButton");
         Write(260);
         Pump();
