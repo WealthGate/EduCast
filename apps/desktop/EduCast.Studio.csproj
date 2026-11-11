@@ -10,6 +10,7 @@
   <ItemGroup>
     <Resource Include="Assets/EduCast.ico" />
     <Resource Include="Assets/EduCast.png" />
+    <EmbeddedResource Include="TeachingResources/*" WithCulture="false" />
     <ProjectReference Include="../../packages/classroom/EduCast.Classroom.csproj" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <InternalsVisibleTo Include="EduCast.Checks" />

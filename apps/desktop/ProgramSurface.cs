@@ -134,7 +134,7 @@ internal sealed class ProgramSurface : Grid
         };
         dc.DrawRoundedRectangle(Panel, new Pen(Border, 2), ClockBounds(clock), 10, 10);
         dc.DrawText(Format(label, 15, Border), new Point(1046, 31));
-        dc.DrawText(Format(clock.Text, 38, Brushes.White), new Point(1046, 51));
+        dc.DrawText(Format(clock.Text, clock.View == ClockView.Stopwatch ? 32 : 38, Brushes.White), new Point(1046, 51));
     }
 
     private static Point At(Point center, double turns, double radius)

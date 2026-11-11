@@ -1,0 +1,68 @@
+:root {
+    font: 16px/1.4 system-ui, sans-serif;
+    color: #18344a;
+    background: #eff5fa;
+    color-scheme: light;
+    --ink: #18344a;
+    --accent: #125e82;
+    --line: #abc2d3;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+h1, p { margin: 0; }
+h1 { font-size: clamp(1.25rem, 3.4vw, 1.9rem); line-height: 1.1; }
+button, select, input { font: inherit; }
+button, select, input[type="search"], input[type="number"] {
+    min-height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: .24rem .62rem;
+    background: #fff;
+    color: var(--ink);
+}
+button { cursor: pointer; font-weight: 650; }
+button:hover { border-color: var(--accent); background: #e2f3fb; }
+button[aria-pressed="true"], .primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+button[aria-pressed="true"]:hover, .primary:hover { background: #084c70; }
+:focus-visible { outline: 3px solid #c4631b; outline-offset: 2px; }
+a { color: #115c82; font-weight: 650; }
+output { font-weight: 700; font-variant-numeric: tabular-nums; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .65rem; }
+.segmented { display: inline-flex; gap: .25rem; }
+.title { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.panel {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: .7rem;
+    min-width: 0;
+}
+.instrument {
+    display: grid;
+    min-height: 100vh;
+    gap: .65rem;
+    grid-template-rows: auto auto minmax(180px, 1fr) auto;
+    padding: .75rem;
+}
+.instrument header p { font-size: .9rem; margin-top: .25rem; }
+.instrument main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, .47fr); gap: .65rem; }
+.instrument figure { margin: 0; display: grid; place-items: center; overflow: hidden; }
+.instrument svg, .instrument canvas { width: 100%; height: 100%; max-height: 64vh; }
+.instrument aside { display: grid; align-content: start; gap: .6rem; }
+.instrument aside label { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .15rem .4rem; }
+.instrument aside input[type="range"] { width: 100%; grid-column: 1 / -1; }
+.instrument footer { font-size: .85rem; color: #36556a; }
+.readout { background: #e9f4f9; padding: .45rem .6rem; border-radius: 6px; }
+.readout output { display: block; font-size: 1.15rem; }
+
+@media (max-width: 610px) {
+    :root { font-size: 14px; }
+    .instrument { padding: .45rem; }
+    .instrument main { grid-template-columns: minmax(0, 1fr) minmax(135px, .55fr); gap: .4rem; }
+    .panel { padding: .45rem; }
+}

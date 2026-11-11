@@ -11,7 +11,8 @@ namespace EduCast.Studio;
 public partial class TeacherWindow
 {
     private sealed record SubjectTool(string Label, Tool? Shape = null, DiagramKind? Diagram = null,
-        string? Symbol = null, int Sides = 0, InstrumentKind? Instrument = null);
+        string? Symbol = null, int Sides = 0, InstrumentKind? Instrument = null, TeachingResource? Resource = null,
+        bool Stopwatch = false);
 
     private static readonly SubjectTool[] Shapes =
     [
@@ -35,6 +36,8 @@ public partial class TeacherWindow
         {
             BoardSubject.Chemistry =>
             [
+                new("Measuring cylinder", Resource: TeachingResource.MeasuringCylinder),
+                new("Stopwatch", Stopwatch: true),
                 new(DiagramLabel(DiagramKind.Atom), Diagram: DiagramKind.Atom),
                 new(DiagramLabel(DiagramKind.HydrogenMolecule), Diagram: DiagramKind.HydrogenMolecule),
                 new(DiagramLabel(DiagramKind.OxygenMolecule), Diagram: DiagramKind.OxygenMolecule),
@@ -48,6 +51,8 @@ public partial class TeacherWindow
             ],
             BoardSubject.Biology =>
             [
+                new("Quadrat sampling", Resource: TeachingResource.Quadrat),
+                new("Stopwatch", Stopwatch: true),
                 new(DiagramLabel(DiagramKind.PlantCell), Diagram: DiagramKind.PlantCell),
                 new(DiagramLabel(DiagramKind.AnimalCell), Diagram: DiagramKind.AnimalCell),
                 new(DiagramLabel(DiagramKind.PunnettSquare), Diagram: DiagramKind.PunnettSquare),
@@ -55,6 +60,8 @@ public partial class TeacherWindow
             ],
             BoardSubject.Physics =>
             [
+                new("Simple pendulum", Resource: TeachingResource.Pendulum),
+                new("Stopwatch", Stopwatch: true),
                 new("Resistor", Tool.Resistor), new("Capacitor", Tool.Capacitor),
                 new(DiagramLabel(DiagramKind.SeriesCircuit), Diagram: DiagramKind.SeriesCircuit),
                 new(DiagramLabel(DiagramKind.TransverseWave), Diagram: DiagramKind.TransverseWave),
@@ -66,6 +73,8 @@ public partial class TeacherWindow
             ],
             BoardSubject.Geography =>
             [
+                new("World map", Resource: TeachingResource.WorldMap),
+                new("World globe", Resource: TeachingResource.WorldGlobe),
                 new(DiagramLabel(DiagramKind.CompassRose), Diagram: DiagramKind.CompassRose),
                 new(DiagramLabel(DiagramKind.ContourMap), Diagram: DiagramKind.ContourMap),
                 new(DiagramLabel(DiagramKind.WaterCycle), Diagram: DiagramKind.WaterCycle)
@@ -148,6 +157,14 @@ public partial class TeacherWindow
             BeginPlacement(origin => new BoardText(Guid.NewGuid(), newVisibility, newAnswer, InkColor, origin, 43, symbol));
         else if (choice.Instrument is { } instrument)
             OpenGauge(instrument, sender, args);
+        else if (choice.Resource is { } resource)
+        {
+            var window = ShowSourceWindow();
+            SetSourceStage(true);
+            window.OpenResource(resource);
+        }
+        else if (choice.Stopwatch)
+            ShowStudio(stopwatch: true);
     }
 
     private void EditDiagram(TeachingDiagram diagram)

@@ -24,6 +24,7 @@ internal partial class SourceWindow : Window
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(125) };
     private readonly Stack<ImmutableArray<Classroom.Content>> undo = new();
     private readonly TeacherWindow teacher;
+    private readonly TeachingResources resources = new();
     private readonly SmartInkGroup smartInk;
     private readonly InkTap inkTap;
     private readonly CanvasClick canvasClick = new();
@@ -250,6 +251,19 @@ internal partial class SourceWindow : Window
 
     public void OpenFile(string path) => OpenPage(page => page.OpenFile(path), path);
 
+    internal void OpenResource(TeachingResource resource)
+    {
+        try
+        {
+            var (path, view) = resources.Open(resource);
+            OpenPage(page => page.OpenFile(path, view), path);
+        }
+        catch (Exception error) when (SourceError(error))
+        {
+            Hint.Text = $"Could not open the teaching resource. {error.Message}";
+        }
+    }
+
     private void ChooseFile(object sender, RoutedEventArgs args)
     {
         var dialog = new OpenFileDialog { Filter = TeachingFile.Filter, CheckFileExists = true };
@@ -318,7 +332,7 @@ internal partial class SourceWindow : Window
         ShowBrowser();
         ResetSource();
         browserFile = file;
-        OpenInDesktopApp.Visibility = file is null ? Visibility.Collapsed : Visibility.Visible;
+        OpenInDesktopApp.Visibility = file is null || resources.Contains(file) ? Visibility.Collapsed : Visibility.Visible;
         if (file is not null)
             Address.Text = file;
         SetTool(Tool.Interact);
@@ -346,7 +360,8 @@ internal partial class SourceWindow : Window
                     Address.Text = page.Address;
                     Hint.Text = message;
                     browserFile = page.LocalFile;
-                    OpenInDesktopApp.Visibility = browserFile is null ? Visibility.Collapsed : Visibility.Visible;
+                    OpenInDesktopApp.Visibility = browserFile is null || resources.Contains(browserFile)
+                        ? Visibility.Collapsed : Visibility.Visible;
                 };
                 browserInitialization = page.InitializeAsync();
             }
@@ -980,6 +995,7 @@ internal partial class SourceWindow : Window
         timer.Stop();
         ResetSource();
         browser?.Dispose();
+        resources.Dispose();
         base.OnClosed(args);
     }
 }

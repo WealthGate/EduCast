@@ -4,7 +4,7 @@ public enum ClockView { Digital, Analog, Stopwatch, Countdown }
 
 public sealed record ClockReading(ClockView View, TimeSpan Value)
 {
-    public string Text => Value.ToString(@"hh\:mm\:ss");
+    public string Text => Value.ToString(View == ClockView.Stopwatch ? @"hh\:mm\:ss\.ff" : @"hh\:mm\:ss");
 }
 
 public sealed class ClassroomClock(TimeProvider time)
@@ -31,7 +31,12 @@ public sealed class ClassroomClock(TimeProvider time)
             value = TimeSpan.Zero;
         }
 
-        // Stopwatch displays completed seconds and countdown displays remaining seconds.
+        if (View == ClockView.Stopwatch)
+        {
+            const long centisecond = TimeSpan.TicksPerMillisecond * 10;
+            return new ClockReading(View, TimeSpan.FromTicks(value.Ticks / centisecond * centisecond));
+        }
+        // Countdown displays remaining seconds.
         var seconds = View == ClockView.Countdown ? Math.Ceiling(value.TotalSeconds) : Math.Floor(value.TotalSeconds);
         return new ClockReading(View, TimeSpan.FromSeconds(seconds));
     }

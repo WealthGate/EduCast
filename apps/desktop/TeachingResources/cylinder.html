@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Measuring cylinder</title>
+    <link rel="stylesheet" href="resource.css">
+    <script defer src="instrument.js"></script>
+    <script defer src="cylinder.js"></script>
+</head>
+<body class="instrument">
+    <header>
+        <h1>Measuring cylinder</h1>
+        <p>Read water volume at the bottom of the meniscus with your eye at the same level.</p>
+    </header>
+    <nav class="toolbar" aria-label="Cylinder controls">
+        <button id="random">New reading</button>
+        <button id="reveal" class="primary" aria-pressed="false">Show reading</button>
+    </nav>
+    <main>
+        <figure class="panel">
+            <canvas id="cylinder" aria-label="A 100 millilitre graduated cylinder with a concave meniscus"></canvas>
+        </figure>
+        <aside class="panel" aria-label="Cylinder settings">
+            <label>Adjust water level
+                <input id="water" type="range" min="5" max="98" value="53" step="1">
+            </label>
+            <div class="readout">Scale division <output>2 mL</output></div>
+            <div class="readout">Volume <output id="volume">—</output></div>
+        </aside>
+    </main>
+    <footer>Simulation of a graduated cylinder containing water. Estimate between adjacent graduations. <a href="https://openstax.org/books/chemistry-2e/pages/1-5-measurement-uncertainty-accuracy-and-precision">Volume measurement reference</a></footer>
+</body>
+</html>

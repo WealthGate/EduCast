@@ -1504,7 +1504,9 @@ public partial class TeacherWindow : Window
 
     private void OpenStudio(object sender, RoutedEventArgs args) => ShowStudio();
 
-    internal void ShowStudio()
+    internal void ShowStudio() => ShowStudio(stopwatch: false);
+
+    private void ShowStudio(bool stopwatch)
     {
         if (studio is null)
         {
@@ -1513,6 +1515,8 @@ public partial class TeacherWindow : Window
             studio.RecordRequested += StartRecording;
             studio.StopRequested += StopRecording;
         }
+        if (stopwatch)
+            studio.SelectStopwatch();
         studio.Show();
         studio.Activate();
     }

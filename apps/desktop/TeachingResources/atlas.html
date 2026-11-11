@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>World atlas</title>
+    <link rel="stylesheet" href="resource.css">
+    <style>
+        body { height: 100dvh; display: grid; grid-template-rows: auto auto minmax(100px, 1fr) auto; gap: .5rem; padding: .65rem; }
+        form { display: inline-flex; gap: .25rem; }
+        input[type="search"] { width: min(14rem, 42vw); }
+        #map { width: 100%; height: 100%; min-height: 0; border: 1px solid #88aabc; border-radius: 8px; touch-action: none; cursor: grab; background: #d9eaf5; }
+        #map:active { cursor: grabbing; }
+        footer { font-size: .77rem; display: flex; align-items: baseline; flex-wrap: wrap; gap: .15rem 1rem; }
+        #location { font-size: .88rem; }
+        #status:empty { display: none; }
+    </style>
+    <script defer src="d3-array.min.js"></script>
+    <script defer src="d3-geo.min.js"></script>
+    <script defer src="atlas.js"></script>
+</head>
+<body>
+    <header class="title">
+        <h1 id="title">World map</h1>
+        <output id="location" aria-label="Map centre"></output>
+    </header>
+    <nav class="toolbar" aria-label="Map controls">
+        <div class="segmented">
+            <button id="flat" type="button" aria-pressed="true">Map</button>
+            <button id="globe" type="button" aria-pressed="false">Globe</button>
+        </div>
+        <form id="find">
+            <input id="place" type="search" list="places" aria-label="Country, territory or city" placeholder="Country, territory or city" autocomplete="off">
+            <datalist id="places"></datalist>
+            <button class="primary">Find</button>
+        </form>
+        <div class="segmented">
+            <button id="less" type="button" aria-label="Zoom out">−</button>
+            <button id="more" type="button" aria-label="Zoom in">+</button>
+            <button id="reset" type="button">Reset view</button>
+        </div>
+        <label><input id="labels" type="checkbox" checked> Labels</label>
+        <label><input id="grid" type="checkbox" checked> Grid</label>
+    </nav>
+    <canvas id="map" tabindex="0" aria-label="World atlas. Drag or use the arrow keys to pan. Use plus and minus to zoom."></canvas>
+    <footer>
+        <span id="status" role="status">Loading atlas…</span>
+        <span>Natural Earth 1:50m · Dashed lines show disputed boundaries or claims</span>
+        <a href="https://www.naturalearthdata.com/downloads/50m-cultural-vectors/">Data and boundary conventions</a>
+        <a id="online" href="https://www.openstreetmap.org/">Open current area in OpenStreetMap ↗</a>
+    </footer>
+</body>
+</html>

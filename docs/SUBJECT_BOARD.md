@@ -4,11 +4,26 @@ Choose a subject above the board, then select a tool from the list beside it and
 
 | Subject | Tools |
 | --- | --- |
-| Chemistry | Typed formulas and reactions, shell diagrams for neutral atoms H through Ca, single, double and triple covalent bonds, water and carbon dioxide diagrams, and ionic attraction in sodium chloride |
-| Physics | Circuit components, a series circuit, transverse wave and refraction diagrams, and common notation such as Ω, Δ, θ and λ |
-| Biology | Plant and animal cells, a worked monohybrid Punnett square and the cross symbol |
-| Geography | Compass rose, sample contour map and water cycle |
+| Chemistry | Measuring cylinder, stopwatch, typed formulas and reactions, neutral atom shells, bonds and molecule diagrams |
+| Physics | Simple pendulum, stopwatch, caliper, micrometer, circuits, waves, refraction and notation |
+| Biology | Quadrat sampling, stopwatch, plant and animal cells, and a worked monohybrid Punnett square |
+| Geography | World map and globe, compass rose, sample contour map and water cycle |
 | Mathematics | Equation editor, graphing, instruments, geometry and commonly used symbols |
+
+## World map and globe
+
+In **Geography**, choose **World map** or **World globe**, then **Use tool**. Drag to pan or rotate. Use the wheel or **+** and **−** to zoom. Search for a country, territory, or city to centre it. Use **Labels** and **Grid** to change the view. Choose **Show on Program** to share the atlas with the class.
+
+The offline atlas uses the 1:50 million Natural Earth v5.1.2 vector release. Its generalized borders reflect Natural Earth’s de facto conventions, and dashed lines show its mapped disputes and claims. Some labels follow current UN naming, including **Türkiye** and **Naoero**. Search also accepts their former names. For street detail and a more recently maintained map, choose **Open current area in OpenStreetMap**. This opens an online teaching source. [Natural Earth data and terms](https://www.naturalearthdata.com/downloads/50m-cultural-vectors/), [Natural Earth v5.1.2 files](https://github.com/nvkelso/natural-earth-vector/tree/v5.1.2/geojson), [UN member states](https://www.un.org/about-us/member-states), [OpenStreetMap attribution](https://www.openstreetmap.org/copyright)
+
+Natural Earth’s map data is public domain. The projection code uses D3 Geo 3.1.1 and D3 Array 3.2.4. [Natural Earth terms](https://www.naturalearthdata.com/about/terms-of-use/), [D3 Geo license](../apps/desktop/TeachingResources/d3-geo-LICENSE.txt), [D3 Array license](../apps/desktop/TeachingResources/d3-array-LICENSE.txt)
+
+## Interactive instruments
+
+- **Simple pendulum** measures a simulated period and compares it with the small-angle formula. Adjust length, gravity or release angle to start a new run. [Pendulum model](https://openstax.org/books/university-physics-volume-1/pages/15-4-pendulums)
+- **Quadrat sampling** lets you place a square in a simulated field and record the number of plants inside it. Take several random samples and compare counts per square metre. [Quadrat method](https://openstax.org/books/biology-2e/pages/45-1-population-demography)
+- **Measuring cylinder** lets you set or randomize a water level on a 100 mL scale and reveal the reading at the bottom of the meniscus. [Graduated cylinder readings](https://openstax.org/books/chemistry-2e/pages/1-5-measurement-uncertainty-accuracy-and-precision)
+- **Stopwatch** opens the classroom clock in stopwatch mode. Use **Start**, **Pause**, and **Reset** in Studio. Choose **Show clock on Program** when the class should see it.
 
 ## Type chemistry
 

@@ -79,6 +79,7 @@ internal static partial class Checks
             ("WPF a marquee selects and moves visible objects as a group", MarqueeSelection),
             ("WPF Program PNG encodes visible content and excludes private objects", Snapshot),
             ("Teaching browser accepts web addresses and supported lesson files", TeachingAddresses),
+            ("Bundled teaching resources include offline data and instrument assets", BundledTeachingResources),
             ("WPF source composition renders arrows, pen marks and a transient pointer", SourceComposition),
             ("WPF clean Program camera and clock composition rasterizes at UHD", StudioComposition),
             ("WPF optional FFmpeg capture and 720p/1080p/UHD recording smoke test", MediaSmoke)
@@ -393,10 +394,10 @@ internal static partial class Checks
         clock.Toggle();
         time.Monotonic += TimeSpan.FromMilliseconds(2400);
         time.Wall += TimeSpan.FromHours(4);
-        Assert(clock.Read().Text == "00:00:02");
+        Assert(clock.Read().Text == "00:00:02.40");
         clock.Toggle();
         time.Monotonic += TimeSpan.FromSeconds(2);
-        Assert(clock.Read().Text == "00:00:02");
+        Assert(clock.Read().Text == "00:00:02.40");
         clock.Select(ClockView.Countdown, TimeSpan.FromSeconds(3));
         clock.Toggle();
         time.Monotonic += TimeSpan.FromMilliseconds(1100);
@@ -627,7 +628,10 @@ internal static partial class Checks
         Assert(Find<TextBox>(teacher, "Notes").Text.Contains("CSEC", StringComparison.Ordinal));
         var sources = Array.IndexOf(args, "--teaching-sources");
         if (sources >= 0 && sources + 1 < args.Length)
+        {
             TeachingSources(app, teacher, program, args[sources + 1]);
+            TeachingResourceBrowser(app, teacher);
+        }
         var capture = Array.IndexOf(args, "--capture");
         if (capture >= 0 && capture + 1 < args.Length)
         {

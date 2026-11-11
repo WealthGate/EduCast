@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.4
+
+- **Geography** includes an offline world map and rotatable globe. Search for a country, territory, or city, zoom and pan, and show coordinate grid lines. The atlas uses Natural Earth data and can open the current area in OpenStreetMap for online detail.
+- **Physics** adds an interactive simple pendulum. Change the length, release angle, and gravity, and compare its measured period with the small-angle prediction.
+- **Biology** adds a quadrat for sampling a simulated field. **Chemistry** adds a graduated cylinder for reading water volume. Open the classroom **Stopwatch** directly from the Biology, Chemistry, or Physics tool list and read elapsed time to hundredths of a second.
+
 ## 0.13.3
 
 - Double-click an existing board object or annotation from any canvas tool, then drag it to move. The eraser starts on a sweep, so a double-click can still select the writing.

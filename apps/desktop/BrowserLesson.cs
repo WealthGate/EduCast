@@ -101,7 +101,7 @@ internal sealed class BrowserLesson : IDisposable
         View.CoreWebView2.Navigate(uri.AbsoluteUri);
     }
 
-    public void OpenFile(string path)
+    public void OpenFile(string path, string? view = null)
     {
         if (!IsSupportedFile(path) || !File.Exists(path))
             throw new IOException("Choose an existing HTML, PDF or supported image file.");
@@ -112,7 +112,11 @@ internal sealed class BrowserLesson : IDisposable
         View.CoreWebView2.SetVirtualHostNameToFolderMapping(localHost, localFolder,
             CoreWebView2HostResourceAccessKind.Deny);
         Ready = false;
-        View.CoreWebView2.Navigate($"https://{localHost}/{Uri.EscapeDataString(Path.GetFileName(path))}");
+        var address = new UriBuilder($"https://{localHost}/{Uri.EscapeDataString(Path.GetFileName(path))}")
+        {
+            Fragment = view ?? ""
+        };
+        View.CoreWebView2.Navigate(address.Uri.AbsoluteUri);
     }
 
     public async Task<BitmapSource?> ReadAsync()

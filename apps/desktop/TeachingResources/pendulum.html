@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Simple pendulum</title>
+    <link rel="stylesheet" href="resource.css">
+    <script defer src="instrument.js"></script>
+    <script defer src="pendulum.js"></script>
+</head>
+<body class="instrument">
+    <header>
+        <h1>Simple pendulum</h1>
+        <p>Compare the measured period with the small-angle prediction.</p>
+    </header>
+    <nav class="toolbar" aria-label="Simulation controls">
+        <button id="start" class="primary">Start</button>
+        <button id="reset">Reset</button>
+        <span>Elapsed <output id="elapsed">0.00 s</output></span>
+        <span>Oscillations <output id="cycles">0</output></span>
+    </nav>
+    <main>
+        <figure class="panel">
+            <canvas id="diagram" aria-label="Pendulum with angular scale, pivot, rod, and bob"></canvas>
+        </figure>
+        <aside class="panel" aria-label="Pendulum settings">
+            <label>Length <output id="lengthValue"></output>
+                <input id="length" type="range" min=".2" max="2" value="1" step=".05">
+            </label>
+            <label>Release angle <output id="angleValue"></output>
+                <input id="angle" type="range" min="5" max="65" value="15" step="1">
+            </label>
+            <label>Gravity <output id="gravityValue"></output>
+                <input id="gravity" type="range" min="1" max="20" value="9.81" step=".01">
+            </label>
+            <div class="readout">Measured period <output id="period">—</output></div>
+            <div class="readout">2π√(L/g) <output id="prediction"></output></div>
+        </aside>
+    </main>
+    <footer>Ideal point mass, rigid massless rod, and no air resistance. The prediction assumes a small release angle. <a href="https://openstax.org/books/university-physics-volume-1/pages/15-4-pendulums">Pendulum reference</a></footer>
+</body>
+</html>

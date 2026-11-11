@@ -305,6 +305,8 @@ internal sealed class StudioTools : Window
         slot.Start.Content = "Start private preview";
     }
 
+    internal void SelectStopwatch() => clockMode.SelectedItem = ClockView.Stopwatch;
+
     private bool ConfigureClock()
     {
         if (clockMode.SelectedItem is not ClockView view)

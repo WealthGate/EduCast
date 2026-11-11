@@ -118,7 +118,7 @@
                                     AutomationProperties.Name="Page subject"/>
                                 <ComboBox x:Name="SubjectTools" MinWidth="157" DisplayMemberPath="Label"
                                     AutomationProperties.Name="Subject tools and shapes"/>
-                                <Button Content="Use tool" Click="UseSubjectTool"/>
+                                <Button x:Name="UseSubjectToolButton" Content="Use tool" Click="UseSubjectTool"/>
                             </studio:ToolbarPanel>
                             <StackPanel x:Name="BoardInstrumentHost">
                                 <Border x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,5,4,3"
