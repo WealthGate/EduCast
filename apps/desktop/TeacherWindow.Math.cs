@@ -372,6 +372,14 @@ public partial class TeacherWindow
 
     private static BoardPoint Pointer(Point point) => new(point.X, point.Y);
 
+    internal bool SelectInstrumentAt(BoardPoint point, bool source)
+    {
+        if (!BeginMathDrag(point, source, selectOnly: true))
+            return false;
+        CancelMathDrag();
+        return true;
+    }
+
     internal bool BeginMathDrag(BoardPoint pointer, bool source = false, bool selectOnly = false)
     {
         if (mathOnSource != source)

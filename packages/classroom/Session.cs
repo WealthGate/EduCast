@@ -39,6 +39,11 @@ public sealed class ProgramFrame
     internal ProgramFrame Without(HashSet<Guid> ids) => Items.Any(item => ids.Contains(item.Id))
         ? new ProgramFrame(Paper, Background, Items.Where(item => !ids.Contains(item.Id)).ToImmutableArray())
         : this;
+
+    internal ProgramFrame WithMoves(Dictionary<Guid, Content> moved) => Items.Any(item => moved.ContainsKey(item.Id))
+        ? new ProgramFrame(Paper, Background, Items.Select(item => moved.TryGetValue(item.Id, out var replacement)
+            ? replacement with { Visibility = Visibility.Both, IsAnswer = false } : item).ToImmutableArray())
+        : this;
 }
 
 public sealed class ProgramInk
@@ -84,6 +89,15 @@ public sealed class Session
         ProgramFrame.IsApproved(Page, stroke)
             ? new ProgramInk(stroke with { Visibility = Visibility.Both, IsAnswer = false })
             : null;
+
+    public ProgramFrame? ProjectMoves(ImmutableArray<Content> moved)
+    {
+        var frame = Output;
+        if (frame is null || !Live || Frozen || moved.IsEmpty)
+            return frame;
+        var approved = moved.Where(item => ProgramFrame.IsApproved(Page, item)).ToDictionary(item => item.Id);
+        return frame.WithMoves(approved);
+    }
 
     public bool Live
     {

@@ -108,16 +108,16 @@ internal sealed class LiveInkCanvas : InkCanvas
 
         var ink = template ?? NewStroke(stroke.DrawingAttributes);
         ClearPreview();
-        var points = stroke.StylusPoints;
-        return ink with
-        {
-            Points = Sample(points.Count, ProjectPoints, index =>
-            {
-                var point = points[index];
-                return ToBoardPoint(point.X, point.Y, point.PressureFactor);
-            })
-        };
+        return ink with { Points = ReadPoints(stroke.StylusPoints, clamp: true) };
     }
+
+    internal static ImmutableArray<BoardPoint> ReadPoints(StylusPointCollection points, bool clamp = false) =>
+        Sample(points.Count, ProjectPoints, index =>
+        {
+            var point = points[index];
+            return clamp ? ToBoardPoint(point.X, point.Y, point.PressureFactor)
+                : new BoardPoint(point.X, point.Y, point.PressureFactor);
+        });
 
     internal static Ink Describe(DrawingAttributes attributes, ItemVisibility visibility = ItemVisibility.Both, bool answer = false)
     {

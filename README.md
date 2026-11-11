@@ -16,6 +16,10 @@ Choose **Live stream…** to broadcast from EduCast to multiple destinations, or
 
 Get the installer or portable ZIP from [EduCast Releases](https://github.com/WealthGate/EduCast/releases). The teacher workspace checks for updates and can install newer versions when you click **Update**. For new-version notifications, choose **Watch → Custom → Releases** on GitHub.
 
+## Terms and privacy
+
+Read the [Terms and Conditions](TERMS.md) and [Privacy Notice](PRIVACY.md) for EduCast Studio.
+
 ## Start teaching
 
 1. Open EduCast Studio and choose **Sample lesson** for a quadratic with a graph, private teacher notes, and a hidden answer.

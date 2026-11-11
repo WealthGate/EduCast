@@ -126,6 +126,17 @@ internal static partial class Checks
         Pump();
         Assert(Pixel(program, 195, 200)[2] > 225 && !Pixel(program, 195, 200).SequenceEqual(clean),
             "the browser annotation must reach Program");
+        Click(source, "SelectAnnotation");
+        var drawing = Find<Grid>(source, "Drawing");
+        var presentation = PresentationSource.FromVisual(source);
+        source.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, presentation, 0, Key.F4)
+            { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+        Assert(!drawing.IsHitTestVisible && !Find<TeacherInstrumentSurface>(source, "SourceInstruments").IsHitTestVisible,
+            "F4 must let the browser receive pointer input through the annotation layer");
+        source.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, presentation, 0, Key.F4)
+            { RoutedEvent = Keyboard.PreviewKeyUpEvent });
+        Assert(drawing.IsHitTestVisible && input.EditingMode == InkCanvasEditingMode.None,
+            "releasing F4 must return to selection");
         teacher.ReturnToBoard();
         Pump();
         Assert(!source.IsVisible && publish.IsChecked == true && Pixel(program, 25, 25).SequenceEqual(boardPixel));

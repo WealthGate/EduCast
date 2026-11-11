@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.2
+
+- Pen taps and mouse dots stay in drawing mode. Double-click existing writing with the mouse or use **Select** to box a group, then drag to move or resize the selection.
+- Sweep the eraser across the board or a teaching resource to remove the parts of strokes it touches. Choose from four sizes and follow the visible eraser outline and trail. Undo restores the entire sweep.
+- Hold **F4** to use the teaching browser with an annotation tool or selection still active. Press **F4** to switch to a captured app.
+
 ## 0.13.1
 
 - Toolbars distribute controls across the available width and wrap at smaller window sizes. Instrument settings expand into compact rows on both the board and teaching resources. Click **Instruments** again to collapse the settings.

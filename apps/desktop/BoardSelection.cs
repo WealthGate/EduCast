@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -15,15 +16,16 @@ internal sealed class BoardSelection
     private readonly Vector axis;
     private readonly double unit;
 
-    public Content Item { get; }
+    public ImmutableArray<Content> Items { get; }
+    public Content Item => Items[0];
     public Cursor Cursor { get; }
 
-    private BoardSelection(Content item, Point start, double unit, Vector edge)
+    private BoardSelection(ImmutableArray<Content> items, Point start, double unit, Vector edge)
     {
-        Item = item;
+        Items = items;
         this.start = start;
         this.unit = unit;
-        bounds = BoardSurface.BoundsOf(item);
+        bounds = BoundsOf(items);
         Cursor = CursorFor(edge);
         if (edge.LengthSquared == 0)
             return;
@@ -42,27 +44,64 @@ internal sealed class BoardSelection
         {
             var edge = EdgeAt(BoardSurface.BoundsOf(selected), point, unit);
             if (edge.LengthSquared > 0)
-                return new BoardSelection(selected, point, unit, edge);
+                return new BoardSelection([selected], point, unit, edge);
         }
         var hit = BoardSurface.Hit(items, point);
         if (hit is null && selected is not null && Outline(BoardSurface.BoundsOf(selected), unit).Contains(point))
             hit = selected;
         hit ??= HitBounds(items, point);
-        return hit is null ? null : new BoardSelection(hit, point, unit, default);
+        return hit is null ? null : new BoardSelection([hit], point, unit, default);
+    }
+
+    internal static BoardSelection? BeginSelected(ImmutableArray<Content> items, Point point, double unit)
+    {
+        var bounds = BoundsOf(items);
+        var edge = EdgeAt(bounds, point, unit);
+        return edge.LengthSquared > 0 || Outline(bounds, unit).Contains(point)
+            ? new BoardSelection(items, point, unit, edge) : null;
+    }
+
+    internal static ImmutableArray<Content> Within(IEnumerable<Content> items, Point start, Point end, double unit)
+    {
+        if ((end - start).Length < 3 * unit)
+            return [];
+        var area = new Rect(start, end);
+        return items.Where(item => item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly &&
+            Rect.Intersect(BoardSurface.BoundsOf(item), BoardSurface.Bounds) is { IsEmpty: false } visible &&
+            area.Contains(visible)).ToImmutableArray();
+    }
+
+    internal static Rect BoundsOf(IEnumerable<Content> items)
+    {
+        var bounds = Rect.Empty;
+        foreach (var item in items)
+            bounds.Union(BoardSurface.BoundsOf(item));
+        return bounds;
+    }
+
+    internal static ImmutableArray<Content> Apply(ImmutableArray<Content> items, ImmutableArray<Content> replacements)
+    {
+        if (replacements.IsEmpty)
+            return items;
+        var byId = replacements.ToDictionary(item => item.Id);
+        return items.Select(item => byId.GetValueOrDefault(item.Id, item)).ToImmutableArray();
     }
 
     internal static Content? Hit(IEnumerable<Content> items, Point point) =>
         BoardSurface.Hit(items, point) ?? HitBounds(items, point);
 
     private static Content? HitBounds(IEnumerable<Content> items, Point point) => items.Reverse().FirstOrDefault(item =>
-        item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly && BoardSurface.BoundsOf(item).Contains(point));
+        item is not Ink && item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly &&
+        BoardSurface.BoundsOf(item).Contains(point));
 
-    internal static Cursor Hover(Content? selected, Point point, double unit)
+    internal static Cursor Hover(Content? selected, Point point, double unit) =>
+        Hover(selected is null ? Rect.Empty : BoardSurface.BoundsOf(selected), point, unit);
+
+    internal static Cursor Hover(Rect bounds, Point point, double unit)
     {
-        if (selected is null)
+        if (bounds.IsEmpty)
             return Cursors.Arrow;
-        var bounds = BoardSurface.BoundsOf(selected);
-        if (CloseAt(selected, point, unit))
+        if (CloseAt(bounds, point, unit))
             return Cursors.Hand;
         var edge = EdgeAt(bounds, point, unit);
         return edge.LengthSquared > 0 ? CursorFor(edge) : Outline(bounds, unit).Contains(point) ? Cursors.SizeAll : Cursors.Arrow;
@@ -79,24 +118,28 @@ internal sealed class BoardSelection
             return new Matrix(1, 0, 0, 1, offset.X, offset.Y);
         }
 
-        var scale = Item.Placement?.Scale ?? 1;
-        var minimum = Math.Max(ObjectPlacement.MinimumScale / scale,
+        var minimum = Math.Max(Items.Max(item => ObjectPlacement.MinimumScale / (item.Placement?.Scale ?? 1)),
             Math.Min(1, 12 * unit / Math.Max(bounds.Width, bounds.Height)));
-        var maximum = Math.Min(ObjectPlacement.MaximumScale / scale, GrowthLimit());
+        var maximum = Math.Min(Items.Min(item => ObjectPlacement.MaximumScale / (item.Placement?.Scale ?? 1)), GrowthLimit());
         var factor = Math.Clamp(1 + Vector.Multiply(delta, axis) / axis.LengthSquared, minimum, maximum);
         return new Matrix(factor, 0, 0, factor, pivot.X * (1 - factor), pivot.Y * (1 - factor));
     }
 
-    internal Content Commit(Point point)
+    internal Content Commit(Point point) => CommitAll(point)[0];
+
+    internal ImmutableArray<Content> CommitAll(Point point)
     {
         var transform = Preview(point);
         if (transform.IsIdentity)
-            return Item;
-        if (axis.LengthSquared == 0)
-            return BoardSurface.Move(Item, point - start);
-        var placement = Item.Placement ?? new ObjectPlacement(1, 0, 0);
-        var offset = transform.Transform(new Point(placement.X, placement.Y));
-        return Item with { Placement = new ObjectPlacement(placement.Scale * transform.M11, offset.X, offset.Y) };
+            return Items;
+        if (Items.Length == 1 && axis.LengthSquared == 0)
+            return [BoardSurface.Move(Item, point - start)];
+        return Items.Select(item =>
+        {
+            var placement = item.Placement ?? new ObjectPlacement(1, 0, 0);
+            var offset = transform.Transform(new Point(placement.X, placement.Y));
+            return item with { Placement = new ObjectPlacement(placement.Scale * transform.M11, offset.X, offset.Y) };
+        }).ToImmutableArray();
     }
 
     private double GrowthLimit()
@@ -150,7 +193,10 @@ internal sealed class BoardSelection
     };
 
     internal static bool CloseAt(Content selected, Point point, double unit) =>
-        CanvasClose.Hit(Outline(BoardSurface.BoundsOf(selected), unit), point, unit);
+        CloseAt(BoardSurface.BoundsOf(selected), point, unit);
+
+    internal static bool CloseAt(Rect bounds, Point point, double unit) =>
+        CanvasClose.Hit(Outline(bounds, unit), point, unit);
 
     internal static void Draw(DrawingContext dc, Rect bounds, double unit)
     {

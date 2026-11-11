@@ -53,7 +53,7 @@
                     <Button x:Name="Interact" Content="Interact" Click="SelectTool" Tag="Interact"
                         ToolTip="Use the page's links, buttons, sliders and other controls"/>
                     <Button x:Name="SelectAnnotation" Content="Select" Click="SelectTool" Tag="Select"
-                        ToolTip="Drag an annotation to move it, or drag an edge or corner to resize"/>
+                        ToolTip="Double-click an annotation or drag a box around a group, then drag to move or resize"/>
                     <Button x:Name="RoundPen" Style="{StaticResource IconTool}" Content="{StaticResource RoundPenIcon}" Click="SelectTool"
                         Tag="Pen" ToolTip="Round pen" AutomationProperties.Name="Round pen"/>
                     <Button x:Name="SquarePen" Style="{StaticResource IconTool}" Content="{StaticResource SquarePenIcon}" Click="SelectTool"
@@ -61,7 +61,9 @@
                     <Button x:Name="Marker" Style="{StaticResource IconTool}" Content="{StaticResource HighlighterIcon}" Click="SelectTool"
                         Tag="Highlighter" ToolTip="Chisel highlighter" AutomationProperties.Name="Chisel highlighter"/>
                     <Button x:Name="Eraser" Style="{StaticResource IconTool}" Content="{StaticResource EraserIcon}" Click="SelectTool"
-                        Tag="Eraser" ToolTip="Click to erase an annotation" AutomationProperties.Name="Eraser"/>
+                        Tag="Eraser" ToolTip="Drag the eraser over writing" AutomationProperties.Name="Eraser"/>
+                    <ComboBox x:Name="EraserSize" Visibility="Collapsed" MinWidth="100" ToolTip="Eraser size"
+                        AutomationProperties.Name="Eraser size"/>
                     <Button x:Name="Arrow" Style="{StaticResource IconTool}" Content="{StaticResource ArrowIcon}" Click="SelectTool"
                         Tag="Arrow" ToolTip="Draw an arrow from tail to tip" AutomationProperties.Name="Draw arrow"/>
                     <Button x:Name="Pointer" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}" Click="SelectTool"
@@ -89,11 +91,13 @@
                         <Grid x:Name="Viewport" Width="1280" Height="720" ClipToBounds="True">
                             <studio:SourceSurface x:Name="Surface"/>
                             <Grid x:Name="Drawing" Background="Transparent" PreviewMouseLeftButtonDown="AnnotationDown"
+                                  Stylus.IsPressAndHoldEnabled="False" Stylus.IsFlicksEnabled="False"
                                   PreviewMouseMove="AnnotationMove" PreviewMouseLeftButtonUp="AnnotationUp" MouseLeave="AnnotationLeave"
                                   LostMouseCapture="AnnotationCaptureLost" PreviewMouseWheel="AnnotationWheel">
                                 <studio:LiveInkCanvas x:Name="Input" Background="Transparent" StrokeCollected="CollectAnnotation"/>
                             </Grid>
                             <studio:TeacherInstrumentSurface x:Name="SourceInstruments"/>
+                            <studio:CanvasFeedback x:Name="AnnotationFeedback"/>
                         </Grid>
                     </Viewbox>
                 </Grid>

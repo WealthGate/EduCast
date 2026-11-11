@@ -66,13 +66,15 @@ internal sealed class BoardSurface : FrameworkElement
     }
 
     public void Mark(Content? selected, Shape? ghost = null, double handleUnit = 1)
+        => Mark(selected is null ? Rect.Empty : BoundsOf(selected), ghost, handleUnit);
+
+    public void Mark(Rect selection, Shape? ghost = null, double handleUnit = 1)
     {
         using var dc = overlay.RenderOpen();
         dc.PushClip(new RectangleGeometry(Bounds));
         if (ghost is not null)
             dc.DrawDrawing(For(ghost));
-        if (selected is not null)
-            BoardSelection.Draw(dc, BoundsOf(selected), handleUnit);
+        BoardSelection.Draw(dc, selection, handleUnit);
         dc.Pop();
     }
 
@@ -104,6 +106,69 @@ internal sealed class BoardSurface : FrameworkElement
     }
 
     public static Content? Hit(Page page, Point point) => Hit(page.Items, point);
+
+    internal static ImmutableArray<Content> Erase(ImmutableArray<Content> items, Point start, Point end, double diameter)
+    {
+        var bounds = new Rect(start, end);
+        bounds.Inflate(diameter / 2, diameter / 2);
+        Geometry? sweep = null;
+        ImmutableArray<Content>.Builder? next = null;
+        for (var i = 0; i < items.Length; i++)
+        {
+            var item = items[i];
+            if (item.Visibility is not (ItemVisibility.Both or ItemVisibility.TeacherOnly) ||
+                !bounds.IntersectsWith(BoundsOf(item)))
+            {
+                next?.Add(item);
+                continue;
+            }
+            if (item is Ink ink)
+            {
+                var placement = ink.Placement ?? new ObjectPlacement(1, 0, 0);
+                Point Local(Point point) => new((point.X - placement.X) / placement.Scale, (point.Y - placement.Y) / placement.Scale);
+                Point[] path = start == end ? [Local(end)] : [Local(start), Local(end)];
+                var tip = new EllipseStylusShape(diameter / placement.Scale, diameter / placement.Scale);
+                var stroke = ToStroke(ink);
+                if (!stroke.HitTest(path, tip))
+                {
+                    next?.Add(item);
+                    continue;
+                }
+                next ??= items[..i].ToBuilder();
+                var first = true;
+                foreach (var fragment in stroke.GetEraseResult(path, tip))
+                {
+                    next.Add(ink with
+                    {
+                        Id = first ? ink.Id : Guid.NewGuid(),
+                        Smooth = fragment.DrawingAttributes.FitToCurve,
+                        Points = LiveInkCanvas.ReadPoints(fragment.StylusPoints)
+                    });
+                    first = false;
+                }
+                continue;
+            }
+            sweep ??= start == end ? new EllipseGeometry(end, diameter / 2, diameter / 2) :
+                new LineGeometry(start, end).GetWidenedPathGeometry(RoundPen(diameter));
+            Geometry target = item is Shape shape
+                ? ShapeGeometry(shape).GetWidenedPathGeometry(RoundPen(shape.Width))
+                : new RectangleGeometry(BoundsOf(item));
+            if (item is Shape && item.Placement is { } transform)
+                target.Transform = new MatrixTransform(transform.Scale, 0, 0, transform.Scale, transform.X, transform.Y);
+            if (sweep.FillContainsWithDetail(target) == IntersectionDetail.Empty)
+            {
+                next?.Add(item);
+                continue;
+            }
+            next ??= items[..i].ToBuilder();
+        }
+        return next?.ToImmutable() ?? items;
+    }
+
+    private static Pen RoundPen(double width, Brush? brush = null) => new(brush ?? Brushes.Black, width)
+    {
+        StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round
+    };
 
     internal static Content? Hit(IEnumerable<Content> items, Point point) => items.Reverse()
         .Where(item => item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly)
@@ -205,11 +270,7 @@ internal sealed class BoardSurface : FrameworkElement
                         stroke.Draw(dc);
                     break;
                 case Shape shape:
-                    var pen = new Pen(brush, shape.Width)
-                    {
-                        StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round
-                    };
-                    dc.DrawGeometry(null, pen, ShapeGeometry(shape));
+                    dc.DrawGeometry(null, RoundPen(shape.Width, brush), ShapeGeometry(shape));
                     break;
                 case Equation equation:
                     MathParser.TryParse(equation.Source, out var expression, out _);

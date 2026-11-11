@@ -3,13 +3,12 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using EduCast.Classroom;
-using Matrix = System.Windows.Media.Matrix;
 
 namespace EduCast.Studio;
 
 internal sealed record SourceInk(ImmutableArray<Content> Marks, Content? Gesture = null, Point? Pointer = null);
 internal sealed record SourceFrame(BitmapSource Image, SourceInk Ink, Guid? MediaId = null);
-internal sealed record AnnotationSelection(Content Item, Matrix? Transform, double Unit);
+internal sealed record AnnotationSelection(Rect Bounds, double Unit);
 
 internal sealed class SourceSurface : FrameworkElement
 {
@@ -30,10 +29,8 @@ internal sealed class SourceSurface : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         Draw(dc, image, ink);
-        if (selection is { Transform: { } transform } moving)
-            BoardSurface.DrawManipulation(dc, moving.Item, transform, moving.Unit);
-        else if (selection is { } selected)
-            BoardSelection.Draw(dc, BoardSurface.BoundsOf(selected.Item), selected.Unit);
+        if (selection is { } selected)
+            BoardSelection.Draw(dc, selected.Bounds, selected.Unit);
     }
 
     internal static void Draw(DrawingContext dc, BitmapSource? image, SourceInk ink)

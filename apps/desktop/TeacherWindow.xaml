@@ -85,13 +85,15 @@
                                 <Button x:Name="MarkerButton" Style="{StaticResource IconTool}" Content="{StaticResource HighlighterIcon}"
                                     Click="ChooseTool" Tag="Highlighter" ToolTip="Chisel highlighter" AutomationProperties.Name="Chisel highlighter"/>
                                 <Button x:Name="EraseButton" Style="{StaticResource IconTool}" Content="{StaticResource EraserIcon}"
-                                    Click="ChooseTool" Tag="Eraser" ToolTip="Erase whole objects" AutomationProperties.Name="Eraser"/>
+                                    Click="ChooseTool" Tag="Eraser" ToolTip="Drag the eraser over writing" AutomationProperties.Name="Eraser"/>
+                                <ComboBox x:Name="EraserSize" Visibility="Collapsed" MinWidth="100" ToolTip="Eraser size"
+                                    AutomationProperties.Name="Eraser size"/>
                                 <Button x:Name="ArrowButton" Style="{StaticResource IconTool}" Content="{StaticResource ArrowIcon}"
                                     Click="ChooseTool" Tag="Arrow" ToolTip="Draw an arrow" AutomationProperties.Name="Draw arrow"/>
                                 <Button x:Name="PointerButton" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}"
                                     Click="ChooseTool" Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
                                 <Button x:Name="SelectButton" Content="Select" Click="ChooseTool" Tag="Select"
-                                    ToolTip="Drag an object to move it, or drag an edge or corner to resize"/>
+                                    ToolTip="Double-click an object or drag a box around a group, then drag to move or resize"/>
                                 <Button x:Name="LineButton" Content="Ruler line" Click="ChooseTool" Tag="Line" ToolTip="Drag endpoints. Hold Shift for 15° snapping."/>
                                 <Button x:Name="CircleButton" Content="Compass circle" Click="ChooseTool" Tag="Circle" ToolTip="Drag from the center to set a radius"/>
                                 <Button x:Name="ArcButton" Content="Compass arc" Click="ChooseTool" Tag="Arc" ToolTip="Drag from the center to set radius and start. Then move and click the end."/>
@@ -187,11 +189,13 @@
                         <Border x:Name="BoardSlot" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Viewbox Stretch="Uniform">
                                 <Grid x:Name="BoardInput" Width="1280" Height="720" ClipToBounds="True"
+                                    Stylus.IsPressAndHoldEnabled="False" Stylus.IsFlicksEnabled="False"
                                     PreviewMouseLeftButtonDown="BoardDown" PreviewMouseMove="BoardMove"
                                     PreviewMouseLeftButtonUp="BoardUp" LostMouseCapture="BoardCaptureLost" MouseLeave="BoardLeave">
                                     <studio:BoardSurface x:Name="TeacherBoard"/>
                                     <studio:LiveInkCanvas x:Name="DrawingInput" Background="Transparent" StrokeCollected="CollectInk"/>
                                     <studio:TeacherInstrumentSurface x:Name="TeacherInstrument"/>
+                                    <studio:CanvasFeedback x:Name="BoardFeedback"/>
                                 </Grid>
                             </Viewbox>
                         </Border>

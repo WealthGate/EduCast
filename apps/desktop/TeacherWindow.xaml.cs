@@ -65,21 +65,20 @@ public partial class TeacherWindow : Window
     private Display? activeDisplay;
     private string? preferredDisplay;
     private Guid? selectedId;
+    private ImmutableHashSet<Guid> groupIds = [];
     private Tool tool = Tool.Pen;
     private int polygonSides = 5;
     private Tool toolBeforePlacement;
     private Func<BoardPoint, BoardItem>? placement;
     private Point? anchor;
     private BoardSelection? selectionDrag;
-    private bool selectionPreview;
+    private ImmutableArray<BoardItem> selectionPreview = [];
     private readonly SmartInkGroup smartInk;
     private readonly InkTap inkTap;
+    private readonly CanvasEraser eraser;
     private Shape? pendingArc;
     private ArcGesture? arcGesture;
     private BoardItem? boardGesture;
-    private BoardItem? originalGesture;
-    private HashSet<Guid>? erasing;
-    private Point? previousErase;
     private Point? panStart;
     private Vector panOffset;
     private double zoom = 1;
@@ -107,6 +106,9 @@ public partial class TeacherWindow : Window
             Refresh();
         });
         inkTap = new InkTap(CommitInk);
+        eraser = new CanvasEraser(BoardInput, BoardFeedback, EraserSize, () => SelectionUnit,
+            () => session.Page.Items, PreviewErase, CommitErase);
+        eraser.Attach();
         DrawingInput.NewStroke = NewInk;
         DrawingInput.StrokeStarted += smartInk.Pause;
         DrawingInput.PreviewChanged += stroke =>
@@ -202,6 +204,11 @@ public partial class TeacherWindow : Window
 
     private BoardItem? VisibleSelection => Selected is { Visibility: ItemVisibility.Both or ItemVisibility.TeacherOnly } item
         ? item : null;
+
+    private ImmutableArray<BoardItem> CanvasSelection => !groupIds.IsEmpty
+        ? session.Page.Items.Where(item => groupIds.Contains(item.Id) &&
+            item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly).ToImmutableArray()
+        : VisibleSelection is { } item ? [item] : [];
 
     private double SelectionUnit => BoardSelection.Unit(BoardSlot.Width);
 
@@ -336,7 +343,7 @@ public partial class TeacherWindow : Window
             renderedPage = session.Page;
         }
         var item = Selected;
-        TeacherBoard.Mark(VisibleSelection, handleUnit: SelectionUnit);
+        TeacherBoard.Mark(BoardSelection.BoundsOf(CanvasSelection), handleUnit: SelectionUnit);
         if (selectedId is not null && item is null)
             selectedId = null;
 
@@ -370,7 +377,7 @@ public partial class TeacherWindow : Window
             VisibilityChoice.SelectedValue = item?.Visibility ?? newVisibility;
             Answer.IsChecked = item?.IsAnswer ?? newAnswer;
             EditObjectButton.IsEnabled = item is Equation or Graph or BoardText or ChemicalEquation or TeachingDiagram;
-            DeleteButton.IsEnabled = item is not null;
+            DeleteButton.IsEnabled = item is not null || !CanvasSelection.IsEmpty;
         }
         finally { updating = false; }
 
@@ -411,16 +418,16 @@ public partial class TeacherWindow : Window
         StopButton.IsEnabled = output is not null;
     }
 
-    private void SetBoardGesture(BoardItem? item, BoardItem? original = null)
+    private void SetBoardGesture(BoardItem? item)
     {
-        (boardGesture, originalGesture) = (item, original);
+        boardGesture = item;
         RefreshProgramBoard();
     }
 
     private void RefreshProgramBoard()
     {
-        var frame = !mathOnSource && instrumentTrace is Shape arc
-            ? session.ProjectGesture(arc) : session.ProjectGesture(boardGesture, originalGesture);
+        var frame = !selectionPreview.IsEmpty ? session.ProjectMoves(selectionPreview)
+            : session.ProjectGesture(!mathOnSource && instrumentTrace is Shape arc ? arc : boardGesture);
         if (!ReferenceEquals(renderedOutput, frame))
         {
             renderedOutput = frame;
@@ -688,6 +695,7 @@ public partial class TeacherWindow : Window
         if (!ready || updating)
             return;
         CancelGesture();
+        groupIds = [];
         selectedId = (Objects.SelectedItem as ObjectChoice)?.Id;
         if (VisibleSelection is not null && tool != Tool.Select)
             SetTool(Tool.Select);
@@ -697,6 +705,7 @@ public partial class TeacherWindow : Window
     private void ClearSelection()
     {
         selectedId = null;
+        groupIds = [];
     }
 
     private void ChangeVisibility(object sender, SelectionChangedEventArgs args)
@@ -729,9 +738,10 @@ public partial class TeacherWindow : Window
 
     private void DeleteSelected(object sender, RoutedEventArgs args)
     {
-        if (Selected is not { } item)
+        ImmutableArray<BoardItem> selected = Selected is { } item ? [item] : CanvasSelection;
+        if (selected.IsEmpty)
             return;
-        session.ChangePage(session.Page with { Items = session.Page.Items.Remove(item) });
+        session.ChangePage(session.Page with { Items = session.Page.Items.RemoveRange(selected) });
         ClearSelection();
         Refresh();
     }
@@ -833,6 +843,8 @@ public partial class TeacherWindow : Window
         DrawingInput.EditingModeInverted = DrawingInput.EditingMode;
         DrawingInput.UseCustomCursor = true;
         DrawingInput.Cursor = choice == Tool.Select ? Cursors.Arrow : Cursors.Cross;
+        EraserSize.Visibility = choice == Tool.Eraser ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        eraser.Activate(choice == Tool.Eraser);
         foreach (var button in new[] { PenButton, SquarePenButton, MarkerButton, EraseButton, ArrowButton, PointerButton,
             SelectButton, LineButton, CircleButton, ArcButton, RectButton, SmartInkButton, SmartMathButton })
             button.SetResourceReference(Control.BackgroundProperty, (string)button.Tag == choice.ToString() ? "AccentDark" : "Control");
@@ -841,10 +853,10 @@ public partial class TeacherWindow : Window
             Tool.Pen => "Round pen · mouse, touch or stylus",
             Tool.SquarePen => "Square pen · mouse, touch or stylus",
             Tool.Highlighter => "Chisel highlighter · draw to emphasize",
-            Tool.Eraser => "Eraser · sweep across objects",
+            Tool.Eraser => "Eraser · choose a size and drag across writing",
             Tool.Arrow => "Draw arrow · drag from tail to tip. Hold Shift to snap the angle.",
             Tool.Pointer => "Arrow pointer · move over the board to point without leaving a mark",
-            Tool.Select => "Select · drag an object to move it, or drag its edge or corner to resize",
+            Tool.Select => "Double-click an object or drag a box around a group. Then drag to move or resize.",
             Tool.Line => "Ruler line · drag endpoints, Shift snaps to 15°",
             Tool.Circle => "Compass circle · drag from the center",
             Tool.Arc => "Arc · drag out the radius, sweep, then click to finish",
@@ -879,9 +891,19 @@ public partial class TeacherWindow : Window
 
     private void CollectInk(object sender, InkCanvasStrokeCollectedEventArgs args)
     {
-        if (DrawingInput.FinishStroke(args.Stroke) is { Points.IsEmpty: false } ink)
-            inkTap.Collect(ink, point => OverClock(new Point(point.X, point.Y)) || OverInstrument(point, source: false) ||
-                BoardSelection.Hit(session.Page.Items, new Point(point.X, point.Y)) is not null);
+        if (DrawingInput.FinishStroke(args.Stroke) is not { Points.IsEmpty: false } ink ||
+            inkTap.Collect(ink) is not { } hit)
+            return;
+        CancelGesture();
+        ClearSelection();
+        if (hit is InkTap.Overlay.Instrument && SelectInstrumentAt(ink.Points[0], source: false))
+            SetTool(Tool.Instrument);
+        else
+        {
+            selectedId = hit is Guid id ? id : null;
+            SetTool(Tool.Select);
+        }
+        Refresh();
     }
 
     private void CommitInk(Ink ink)
@@ -902,6 +924,8 @@ public partial class TeacherWindow : Window
 
     private void BoardDown(object sender, MouseButtonEventArgs args)
     {
+        if (tool == Tool.Eraser)
+            return;
         var position = args.GetPosition(BoardInput);
         SetMathSurface(source: false);
         if (TeacherInstrument.CloseAt(position))
@@ -909,19 +933,25 @@ public partial class TeacherWindow : Window
             args.Handled = true;
             return;
         }
-        if (VisibleSelection is { } selected && BoardSelection.CloseAt(selected, position, SelectionUnit))
+        if (tool == Tool.Select && BoardSelection.CloseAt(BoardSelection.BoundsOf(CanvasSelection), position, SelectionUnit))
         {
             CancelGesture();
             DeleteSelected(sender, args);
             args.Handled = true;
             return;
         }
-        if (args.ClickCount == 2)
-            inkTap.Clear();
-        else
-            inkTap.Flush();
-        if ((tool == Tool.Select || args.ClickCount == 2) && BeginClockDrag(position, source: false) ||
-            (tool == Tool.Instrument || args.ClickCount == 2 && tool != Tool.Place && pendingArc is null) &&
+        var writing = IsInkTool(tool);
+        var mouse = args.StylusDevice is null;
+        object? target = writing && mouse
+            ? OverClock(position) ? InkTap.Overlay.Clock
+            : OverInstrument(Pointer(position), source: false) ? InkTap.Overlay.Instrument
+            : BoardSelection.Hit(session.Page.Items, position)?.Id
+            : null;
+        if (writing)
+            inkTap.Begin(args.ClickCount, target, mouse);
+        var doubleSelect = tool == Tool.Select && args.ClickCount == 2;
+        if ((tool == Tool.Select || doubleSelect) && BeginClockDrag(position, source: false) ||
+            (tool == Tool.Instrument || doubleSelect) &&
             BeginMathDrag(Pointer(position), source: false, selectOnly: tool != Tool.Instrument))
         {
             args.Handled = true;
@@ -936,26 +966,23 @@ public partial class TeacherWindow : Window
                 CancelGesture();
             return;
         }
-        if (args.ClickCount == 2 && tool != Tool.Place && pendingArc is null &&
-            BoardSelection.Hit(session.Page.Items, position) is not null)
+        if (doubleSelect && BoardSelection.Hit(session.Page.Items, position) is { } hit)
         {
             CancelGesture();
+            ClearSelection();
+            selectedId = hit.Id;
             SetTool(Tool.Select);
+            Refresh();
+            args.Handled = true;
+            return;
         }
         if (tool == Tool.Instrument)
         {
             args.Handled = true;
             return;
         }
-        if (IsInkTool(tool))
-        {
-            if (Selected is not null)
-            {
-                ClearSelection();
-                Refresh();
-            }
+        if (writing)
             return;
-        }
         args.Handled = true;
         if (tool == Tool.Pointer)
             return;
@@ -968,14 +995,17 @@ public partial class TeacherWindow : Window
         }
         if (tool == Tool.Select)
         {
-            var selection = BoardSelection.Begin(session.Page.Items, VisibleSelection, position, SelectionUnit);
-            selectedId = selection?.Item.Id;
-            Refresh();
-            if (selection is not null && BoardInput.CaptureMouse())
+            if (BoardInput.CaptureMouse())
             {
                 anchor = position;
-                selectionDrag = selection;
-                DrawingInput.Cursor = selection.Cursor;
+                selectionDrag = BoardSelection.BeginSelected(CanvasSelection, position, SelectionUnit);
+                if (selectionDrag is { } drag)
+                    DrawingInput.Cursor = drag.Cursor;
+                else
+                {
+                    ClearSelection();
+                    Refresh();
+                }
             }
             return;
         }
@@ -983,7 +1013,7 @@ public partial class TeacherWindow : Window
         {
             arcGesture!.Follow(PointOf(position));
             var completed = arcGesture.Apply(arc);
-            (pendingArc, arcGesture, boardGesture, originalGesture) = (null, null, null, null);
+            (pendingArc, arcGesture, boardGesture) = (null, null, null);
             if (Math.Abs(completed.Sweep) >= 1)
                 AddItem(completed);
             Refresh();
@@ -991,18 +1021,14 @@ public partial class TeacherWindow : Window
             return;
         }
 
-        anchor = position;
-        BoardInput.CaptureMouse();
-        if (tool == Tool.Eraser)
-        {
-            erasing = [];
-            previousErase = null;
-            EraseAt(position);
-        }
+        if (BoardInput.CaptureMouse())
+            anchor = position;
     }
 
     private void BoardMove(object sender, MouseEventArgs args)
     {
+        if (tool == Tool.Eraser)
+            return;
         var position = args.GetPosition(BoardInput);
         if (ClockDragging(source: false) && BoardInput.IsMouseCaptured)
         {
@@ -1034,39 +1060,38 @@ public partial class TeacherWindow : Window
         }
         if (anchor is not Point start || !BoardInput.IsMouseCaptured)
             return;
-        if (tool == Tool.Eraser)
-            EraseAt(position);
-        else
-        {
-            var preview = MakeShape(start, position);
-            TeacherBoard.Mark(null, tool == Tool.Arc ? preview with { ShapeKind = ShapeKind.Circle } : preview);
-            if (tool != Tool.Arc)
-                SetBoardGesture(preview);
-        }
+        var shape = MakeShape(start, position);
+        TeacherBoard.Mark(null, tool == Tool.Arc ? shape with { ShapeKind = ShapeKind.Circle } : shape);
+        if (tool != Tool.Arc)
+            SetBoardGesture(shape);
     }
 
     private void PreviewSelection(Point position)
     {
-        if (selectionDrag is not { } drag || !BoardInput.IsMouseCaptured)
+        if (anchor is not Point start || !BoardInput.IsMouseCaptured)
         {
-            DrawingInput.Cursor = BoardSelection.Hover(VisibleSelection, position, SelectionUnit);
+            DrawingInput.Cursor = BoardSelection.Hover(BoardSelection.BoundsOf(CanvasSelection), position, SelectionUnit);
             return;
         }
-        var transform = drag.Preview(position);
-        if (!selectionPreview && transform.IsIdentity)
-            return;
-        if (!selectionPreview)
+        if (selectionDrag is not { } drag)
         {
-            selectionPreview = true;
-            TeacherBoard.Edit(session.Page with { Items = session.Page.Items.Remove(drag.Item) });
-            renderedPage = null;
+            BoardFeedback.ShowMarquee(new Rect(start, position), SelectionUnit);
+            return;
         }
-        TeacherBoard.MarkManipulation(drag.Item, transform, SelectionUnit);
-        SetBoardGesture(transform.IsIdentity ? null : drag.Commit(position), drag.Item);
+        var moved = drag.CommitAll(position);
+        if (selectionPreview.IsEmpty && moved == drag.Items)
+            return;
+        selectionPreview = moved == drag.Items ? [] : moved;
+        TeacherBoard.Edit(session.Page with { Items = BoardSelection.Apply(session.Page.Items, selectionPreview) });
+        renderedPage = null;
+        TeacherBoard.Mark(BoardSelection.BoundsOf(moved), handleUnit: SelectionUnit);
+        RefreshProgramBoard();
     }
 
     private void BoardUp(object sender, MouseButtonEventArgs args)
     {
+        if (tool == Tool.Eraser)
+            return;
         if (ClockDragging(source: false))
         {
             MoveClock(args.GetPosition(BoardInput));
@@ -1087,31 +1112,28 @@ public partial class TeacherWindow : Window
         args.Handled = true;
         var position = args.GetPosition(BoardInput);
         anchor = null;
-        (boardGesture, originalGesture) = (null, null);
+        boardGesture = null;
         BoardInput.ReleaseMouseCapture();
         if (tool == Tool.Select)
         {
             var drag = selectionDrag;
             selectionDrag = null;
-            selectionPreview = false;
-            if (drag is not null && ReferenceEquals(Selected, drag.Item))
-                Replace(drag.Commit(position));
+            selectionPreview = [];
+            if (drag is not null)
+            {
+                var moved = drag.CommitAll(position);
+                if (moved != drag.Items)
+                    session.ChangePage(session.Page with { Items = BoardSelection.Apply(session.Page.Items, moved) });
+            }
             else
-                Refresh();
-            DrawingInput.Cursor = BoardSelection.Hover(VisibleSelection, position, SelectionUnit);
-            return;
-        }
-        if (erasing is { } deleted)
-        {
-            erasing = null;
-            previousErase = null;
-            renderedPage = null;
-            if (deleted.Count > 0)
-                session.ChangePage(session.Page with
-                {
-                    Items = session.Page.Items.Where(item => !deleted.Contains(item.Id)).ToImmutableArray()
-                });
+            {
+                BoardFeedback.ShowMarquee(Rect.Empty, SelectionUnit);
+                var selected = BoardSelection.Within(session.Page.Items, start, position, SelectionUnit);
+                selectedId = selected.Length == 1 ? selected[0].Id : null;
+                groupIds = selected.Length > 1 ? selected.Select(item => item.Id).ToImmutableHashSet() : [];
+            }
             Refresh();
+            DrawingInput.Cursor = BoardSelection.Hover(BoardSelection.BoundsOf(CanvasSelection), position, SelectionUnit);
             return;
         }
 
@@ -1167,25 +1189,19 @@ public partial class TeacherWindow : Window
         };
     }
 
-    private void EraseAt(Point position)
+    private void PreviewErase()
     {
-        if (erasing is null)
-            return;
-        var previous = previousErase ?? position;
-        previousErase = position;
-        var steps = Math.Clamp((int)Math.Ceiling((position - previous).Length / 8), 1, 48);
-        var remaining = session.Page with { Items = session.Page.Items.Where(item => !erasing.Contains(item.Id)).ToImmutableArray() };
-        var count = erasing.Count;
-        for (var i = 1; i <= steps; i++)
-        {
-            var test = previous + (position - previous) * (i / (double)steps);
-            if (BoardSurface.Hit(remaining, test) is not { } item)
-                continue;
-            erasing.Add(item.Id);
-            remaining = remaining with { Items = remaining.Items.Remove(item) };
-        }
-        if (count != erasing.Count)
-            TeacherBoard.Edit(remaining);
+        TeacherBoard.Edit(session.Page with { Items = eraser.Draft ?? session.Page.Items });
+        renderedPage = null;
+    }
+
+    private void CommitErase(ImmutableArray<BoardItem> next)
+    {
+        if (next.Length > 3000)
+            Report("This page can hold up to 3,000 objects. Remove some objects before splitting more ink.");
+        else if (next != session.Page.Items)
+            session.ChangePage(session.Page with { Items = next });
+        Refresh();
     }
 
     private void BoardCaptureLost(object sender, MouseEventArgs args)
@@ -1206,15 +1222,13 @@ public partial class TeacherWindow : Window
         if (!mathOnSource)
             CancelMathDrag();
         DrawingInput.CancelStroke();
+        eraser.Cancel();
         anchor = null;
         selectionDrag = null;
-        selectionPreview = false;
+        selectionPreview = [];
+        BoardFeedback.ShowMarquee(Rect.Empty, SelectionUnit);
         (pendingArc, arcGesture) = (null, null);
         SetBoardGesture(null);
-        if (erasing is not null)
-            renderedPage = null;
-        erasing = null;
-        previousErase = null;
         if (BoardInput.IsMouseCaptured)
             BoardInput.ReleaseMouseCapture();
         if (placement is not null)
@@ -1249,7 +1263,7 @@ public partial class TeacherWindow : Window
         BoardSlot.Height = Math.Floor(boardWidth * 9 / 16);
         TeacherInstrument.ScaleControls(SelectionUnit);
         if (tool == Tool.Select && selectionDrag is null)
-            TeacherBoard.Mark(VisibleSelection, handleUnit: SelectionUnit);
+            TeacherBoard.Mark(BoardSelection.BoundsOf(CanvasSelection), handleUnit: SelectionUnit);
         ZoomButton.Content = zoom == 1 ? "Fit" : $"{zoom:P0}";
     }
 
