@@ -92,6 +92,10 @@
                                     Click="ChooseTool" Tag="Arrow" ToolTip="Draw an arrow" AutomationProperties.Name="Draw arrow"/>
                                 <Button x:Name="PointerButton" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}"
                                     Click="ChooseTool" Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
+                                <Button x:Name="TypeButton" Style="{StaticResource IconTool}" Content="{StaticResource TypeIcon}"
+                                    Click="ChooseTool" Tag="Type" ToolTip="Type on the board" AutomationProperties.Name="Type on the board"/>
+                                <Button x:Name="EffectsButton" Content="Effects…" Click="InsertEffect"
+                                    ToolTip="Place a subject sticker, image or animated GIF"/>
                                 <Button x:Name="SelectButton" Content="Select" Click="ChooseTool" Tag="Select"
                                     ToolTip="Double-click an object or drag a box around a group, then drag to move or resize"/>
                                 <Button x:Name="LineButton" Content="Ruler line" Click="ChooseTool" Tag="Line" ToolTip="Drag endpoints. Hold Shift for 15° snapping."/>
@@ -120,6 +124,7 @@
                                     AutomationProperties.Name="Subject tools and shapes"/>
                                 <Button x:Name="UseSubjectToolButton" Content="Use tool" Click="UseSubjectTool"/>
                             </studio:ToolbarPanel>
+                            <StackPanel x:Name="BoardTextTools"/>
                             <StackPanel x:Name="BoardInstrumentHost">
                                 <Border x:Name="InstrumentBar" Visibility="Collapsed" Margin="0,5,4,3"
                                         Padding="8,7,3,2" CornerRadius="8" Background="{DynamicResource Field}"
@@ -196,6 +201,7 @@
                                     <studio:LiveInkCanvas x:Name="DrawingInput" Background="Transparent" StrokeCollected="CollectInk"/>
                                     <studio:TeacherInstrumentSurface x:Name="TeacherInstrument"/>
                                     <studio:CanvasFeedback x:Name="BoardFeedback"/>
+                                    <Canvas x:Name="BoardTextOverlay"/>
                                 </Grid>
                             </Viewbox>
                         </Border>

@@ -29,6 +29,7 @@ internal sealed class ProgramVideoRenderer(RecordingProfile profile)
         surface.Present(frame.Board);
         surface.PresentInk(frame.LiveInk);
         surface.PresentLayers(frame.Layers);
+        surface.SetMotionTime(frame.MotionTime);
         var size = new Size(BoardSurface.BoardWidth, BoardSurface.BoardHeight);
         surface.Measure(size);
         surface.Arrange(new Rect(size));

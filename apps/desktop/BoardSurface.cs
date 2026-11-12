@@ -20,6 +20,10 @@ internal sealed class BoardSurface : FrameworkElement
     private static (BoardPaper Paper, uint? Color, DrawingGroup Drawing)? lastPaper;
     private readonly DrawingVisual board = new();
     private readonly DrawingVisual overlay = new();
+    private (BoardPaper Paper, uint? Background, ImmutableArray<Content> Items)? content;
+    private double motionTime;
+
+    internal bool HasMotion { get; private set; }
 
     public BoardSurface()
     {
@@ -38,30 +42,45 @@ internal sealed class BoardSurface : FrameworkElement
 
     public void Present(ProgramFrame? frame)
     {
-        using var dc = board.RenderOpen();
-        if (frame is null)
-        {
-            dc.DrawRectangle(Brushes.Black, null, Bounds);
-            return;
-        }
-        Draw(dc, frame.Paper, frame.Background, frame.Items);
+        content = frame is null ? null : (frame.Paper, frame.Background, frame.Items);
+        HasMotion = frame is not null && ContainsMotion(frame.Items);
+        RenderContent();
     }
 
     public void Edit(Page page)
     {
-        using var dc = board.RenderOpen();
-        Draw(dc, page.Paper, page.Background,
-            page.Items.Where(item => item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly));
+        var visible = page.Items.Where(item => item.Visibility is ItemVisibility.Both or ItemVisibility.TeacherOnly)
+            .ToImmutableArray();
+        content = (page.Paper, page.Background, visible);
+        HasMotion = ContainsMotion(visible);
+        RenderContent();
     }
 
-    private static void Draw(DrawingContext dc, BoardPaper paper, uint? color, IEnumerable<Content> items)
+    internal void SetMotionTime(double time)
+    {
+        if (motionTime == time)
+            return;
+        motionTime = time;
+        if (HasMotion)
+            RenderContent();
+    }
+
+    private void RenderContent()
+    {
+        using var dc = board.RenderOpen();
+        if (content is { } frame)
+            Draw(dc, frame.Paper, frame.Background, frame.Items, motionTime);
+        else
+            dc.DrawRectangle(Brushes.Black, null, Bounds);
+    }
+
+    private static void Draw(DrawingContext dc, BoardPaper paper, uint? color, IEnumerable<Content> items, double time)
     {
         dc.PushClip(new RectangleGeometry(Bounds));
         if (lastPaper is not { } cached || cached.Paper != paper || cached.Color != color)
             lastPaper = cached = (paper, color, MakePaper(paper, color));
         dc.DrawDrawing(cached.Drawing);
-        foreach (var item in items)
-            dc.DrawDrawing(For(item));
+        DrawItems(dc, items, time);
         dc.Pop();
     }
 
@@ -209,6 +228,7 @@ internal sealed class BoardSurface : FrameworkElement
             },
             Equation equation => equation with { Origin = Shift(equation.Origin) },
             BoardText text => text with { Origin = Shift(text.Origin) },
+            BoardEffect effect => effect with { Origin = Shift(effect.Origin) },
             Graph graph => graph with { Origin = Shift(graph.Origin) },
             ChemicalEquation equation => equation with { Origin = Shift(equation.Origin) },
             TeachingDiagram diagram => diagram with { Origin = Shift(diagram.Origin) },
@@ -247,10 +267,39 @@ internal sealed class BoardSurface : FrameworkElement
 
     internal static void DrawInk(DrawingContext dc, Ink ink) => dc.DrawDrawing(For(ink));
 
-    internal static void DrawItems(DrawingContext dc, IEnumerable<Content> items)
+    private static bool IsAnimated(Content item) => item switch
+    {
+        BoardText text => BoardTypography.IsTicker(text),
+        BoardEffect effect => EffectMedia.IsGif(effect.Data) && EffectMedia.For(effect.Data).Animated,
+        _ => false
+    };
+
+    internal static bool ContainsMotion(IEnumerable<Content> items) => items.Any(IsAnimated);
+
+    internal static void DrawItems(DrawingContext dc, IEnumerable<Content> items, double time = 0)
     {
         foreach (var item in items)
-            dc.DrawDrawing(For(item));
+        {
+            if (!IsAnimated(item))
+            {
+                dc.DrawDrawing(For(item));
+                continue;
+            }
+            if (item.Placement is { } placement)
+                dc.PushTransform(new MatrixTransform(placement.Scale, 0, 0, placement.Scale, placement.X, placement.Y));
+            if (item is BoardText text)
+                BoardTypography.Draw(dc, text, time);
+            else if (item is BoardEffect effect)
+                DrawEffect(dc, effect, time);
+            if (item.Placement is not null)
+                dc.Pop();
+        }
+    }
+
+    private static void DrawEffect(DrawingContext dc, BoardEffect effect, double time)
+    {
+        if (EffectMedia.For(effect.Data).At(time) is { } bitmap)
+            dc.DrawImage(bitmap, new Rect(effect.Origin.X, effect.Origin.Y, effect.Width, effect.Height));
     }
 
     private static DrawingGroup MakeDrawing(Content item)
@@ -283,7 +332,10 @@ internal sealed class BoardSurface : FrameworkElement
                     dc.Pop();
                     break;
                 case BoardText text:
-                    dc.DrawText(Format(text.Text, text.Size, brush), ToPoint(text.Origin));
+                    BoardTypography.Draw(dc, text, 0);
+                    break;
+                case BoardEffect effect:
+                    DrawEffect(dc, effect, 0);
                     break;
                 case Graph graph:
                     DrawGraph(dc, graph, brush);

@@ -68,6 +68,10 @@
                         Tag="Arrow" ToolTip="Draw an arrow from tail to tip" AutomationProperties.Name="Draw arrow"/>
                     <Button x:Name="Pointer" Style="{StaticResource IconTool}" Content="{StaticResource PointerIcon}" Click="SelectTool"
                         Tag="Pointer" ToolTip="Point without leaving a mark" AutomationProperties.Name="Arrow pointer"/>
+                    <Button x:Name="TypeButton" Style="{StaticResource IconTool}" Content="{StaticResource TypeIcon}"
+                        Click="SelectTool" Tag="Type" ToolTip="Type on the teaching resource" AutomationProperties.Name="Type on the teaching resource"/>
+                    <Button x:Name="EffectsButton" Content="Effects…" Click="InsertEffect"
+                        ToolTip="Place a subject sticker, image or animated GIF"/>
                     <Button x:Name="SmartInk" Content="Smart ink" Style="{StaticResource CreativeTool}" Click="SelectTool" Tag="SmartInk"/>
                     <Button x:Name="SmartMath" Content="Smart math ink" Style="{StaticResource CreativeTool}" Click="SelectTool" Tag="SmartMath"/>
                     <Button x:Name="SourceMathToolsButton" Content="▸ Instruments" Style="{StaticResource InstrumentTool}"
@@ -78,6 +82,7 @@
                     <Button x:Name="UndoButton" Content="Undo" Click="UndoAnnotation" IsEnabled="False"/>
                     <Button x:Name="ClearButton" Content="Clear ink" Click="ClearAnnotations" IsEnabled="False"/>
                 </studio:ToolbarPanel>
+                <StackPanel x:Name="SourceTextTools"/>
                 <StackPanel x:Name="InstrumentHost"/>
             </StackPanel>
         </ScrollViewer>
@@ -102,6 +107,7 @@
                                 LostMouseCapture="AnnotationCaptureLost"/>
                             <studio:TeacherInstrumentSurface x:Name="SourceInstruments"/>
                             <studio:CanvasFeedback x:Name="AnnotationFeedback"/>
+                            <Canvas x:Name="SourceTextOverlay"/>
                         </Grid>
                     </Viewbox>
                 </Grid>

@@ -12,6 +12,12 @@ public enum ShapeKind
     Polygon, Cone, Sphere, Cube, Cuboid, Cylinder
 }
 public enum InkTip { Round, Square, Chisel }
+public enum TextCase { AsTyped, Uppercase, Lowercase }
+public enum TextAlign { Left, Center, Right }
+public enum TextScroll { None, Left, Right }
+public sealed record BoardTextStyle(string Font, double Width, bool Bold = false, bool Italic = false,
+    bool Underline = false, TextCase Case = TextCase.AsTyped, TextAlign Align = TextAlign.Left,
+    TextScroll Scroll = TextScroll.None, double Speed = 70);
 public readonly record struct BoardPoint(double X, double Y, float Pressure = 0.5f);
 public sealed record ObjectPlacement(double Scale, double X, double Y)
 {
@@ -24,6 +30,7 @@ public sealed record ObjectPlacement(double Scale, double X, double Y)
 [JsonDerivedType(typeof(Shape), "shape")]
 [JsonDerivedType(typeof(Equation), "equation")]
 [JsonDerivedType(typeof(BoardText), "text")]
+[JsonDerivedType(typeof(BoardEffect), "effect")]
 [JsonDerivedType(typeof(Graph), "graph")]
 [JsonDerivedType(typeof(ChemicalEquation), "chemicalEquation")]
 [JsonDerivedType(typeof(TeachingDiagram), "teachingDiagram")]
@@ -52,7 +59,17 @@ public sealed record Equation(Guid Id, Visibility Visibility, bool IsAnswer, uin
     BoardPoint Origin, double Size, string Source) : Content(Id, Visibility, IsAnswer, Argb);
 
 public sealed record BoardText(Guid Id, Visibility Visibility, bool IsAnswer, uint Argb,
-    BoardPoint Origin, double Size, string Text) : Content(Id, Visibility, IsAnswer, Argb);
+    BoardPoint Origin, double Size, string Text) : Content(Id, Visibility, IsAnswer, Argb)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BoardTextStyle? Style { get; init; }
+}
+
+public sealed record BoardEffect(Guid Id, Visibility Visibility, bool IsAnswer, uint Argb,
+    BoardPoint Origin, double Width, double Height, string Name, string Data) : Content(Id, Visibility, IsAnswer, Argb)
+{
+    public const int MaxImageBytes = 3 * 1024 * 1024;
+}
 
 public sealed record Graph(Guid Id, Visibility Visibility, bool IsAnswer, uint Argb,
     BoardPoint Origin, string Source) : Content(Id, Visibility, IsAnswer, Argb);

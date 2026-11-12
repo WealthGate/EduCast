@@ -19,7 +19,7 @@ namespace EduCast.Studio;
 
 internal partial class SourceWindow : Window
 {
-    private enum Tool { Interact, Select, Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer, Instrument, Place, SmartInk, SmartMath }
+    private enum Tool { Interact, Select, Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer, Instrument, Place, SmartInk, SmartMath, Type }
     private sealed record ColorChoice(string Name, uint Argb);
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(125) };
     private readonly Stack<ImmutableArray<Classroom.Content>> undo = new();
@@ -29,6 +29,7 @@ internal partial class SourceWindow : Window
     private readonly InkTap inkTap;
     private readonly CanvasClick canvasClick = new();
     private readonly CanvasEraser eraser;
+    private readonly CanvasTextEditor textEditor;
     private BrowserLesson? browser;
     private Task? browserInitialization;
     private string? browserFile;
@@ -44,7 +45,7 @@ internal partial class SourceWindow : Window
     private BoardSelection? selectionDrag;
     private ImmutableArray<Classroom.Content> selectionPreview = [];
     private Classroom.Content? constructionPreview;
-    private string? readingToPlace;
+    private Func<BoardPoint, Classroom.Content>? placement;
     private Tool tool;
     private bool browserMode;
     private bool reading;
@@ -60,6 +61,7 @@ internal partial class SourceWindow : Window
         this.teacher = teacher;
         Owner = teacher;
         InitializeComponent();
+        textEditor = new CanvasTextEditor(SourceTextTools, SourceTextOverlay);
         Width = Math.Clamp(SystemParameters.WorkArea.Width - 36, MinWidth, Width);
         Height = Math.Clamp(SystemParameters.WorkArea.Height - 36, MinHeight, Height);
         Colors.ItemsSource = new ColorChoice[]
@@ -100,12 +102,14 @@ internal partial class SourceWindow : Window
         Deactivated += (_, _) =>
         {
             EndResourceInteraction();
-            CancelAnnotation();
+            CancelAnnotation(finishText: false);
         };
         AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(ResourceInteractionDown), true);
         AddHandler(Keyboard.PreviewKeyUpEvent, new KeyEventHandler(ResourceInteractionUp), true);
         PreviewKeyDown += (_, args) =>
         {
+            if (textEditor.Shortcut(args))
+                return;
             if (args.Key == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 teacher.ReturnToBoard();
@@ -157,8 +161,24 @@ internal partial class SourceWindow : Window
     internal void PlaceReading(string text)
     {
         SetTool(Tool.Place);
-        readingToPlace = text;
+        placement = origin => new BoardText(Guid.NewGuid(), ItemVisibility.Both, false, InkColor, origin, 26, text);
         Hint.Text = "Click the resource to place the reading. Esc cancels.";
+    }
+
+    internal bool HasMotion => IsVisible && Surface.HasMotion;
+    internal void SetMotionTime(double time) => Surface.SetMotionTime(time);
+
+    private void InsertEffect(object sender, RoutedEventArgs args)
+    {
+        if (image is null)
+            return;
+        textEditor.Commit();
+        var library = new EffectLibrary(this, teacher.CurrentSubject);
+        if (library.ShowDialog() != true || library.Result is not { } effect)
+            return;
+        SetTool(Tool.Place);
+        placement = origin => effect.Place(origin, ItemVisibility.Both);
+        Hint.Text = "Click the resource to place the effect. Esc cancels.";
     }
 
     internal uint AnnotationColor => InkColor;
@@ -489,6 +509,7 @@ internal partial class SourceWindow : Window
 
     private void ResetAnnotations()
     {
+        textEditor.Cancel();
         inkTap.Clear();
         smartInk.Clear();
         marks = [];
@@ -540,7 +561,7 @@ internal partial class SourceWindow : Window
             args.Handled = true;
             if (temporaryInteraction)
                 return;
-            CancelAnnotation();
+            CancelAnnotation(finishText: false);
             temporaryInteraction = true;
             UpdateAnnotationInput();
         }
@@ -568,6 +589,7 @@ internal partial class SourceWindow : Window
         Drawing.IsHitTestVisible = fullCanvas;
         AnnotationHits.IsHitTestVisible = BrowserClickThrough;
         SourceInstruments.IsHitTestVisible = fullCanvas;
+        SourceTextOverlay.Visibility = temporaryInteraction ? Visibility.Hidden : Visibility.Visible;
         eraser.Activate(fullCanvas && tool == Tool.Eraser);
     }
 
@@ -593,7 +615,8 @@ internal partial class SourceWindow : Window
         CancelAnnotation();
         tool = next;
         marqueeEnabled = enableMarquee;
-        Input.Cursor = tool switch { Tool.Pointer => Cursors.None, Tool.Select => Cursors.Arrow, _ => Cursors.Cross };
+        Input.Cursor = tool switch { Tool.Pointer => Cursors.None, Tool.Select => Cursors.Arrow,
+            Tool.Type => Cursors.IBeam, _ => Cursors.Cross };
         EraserSize.Visibility = tool == Tool.Eraser ? Visibility.Visible : Visibility.Collapsed;
         UpdateAnnotationInput();
         Input.EditingMode = tool is Tool.Pen or Tool.SquarePen or Tool.Highlighter or Tool.SmartInk or Tool.SmartMath
@@ -601,7 +624,8 @@ internal partial class SourceWindow : Window
         Input.EditingModeInverted = Input.EditingMode;
         Input.UseCustomCursor = true;
         UpdateInteract();
-        foreach (var button in new[] { Interact, SelectAnnotation, RoundPen, SquarePen, Marker, Eraser, Arrow, Pointer, SmartInk, SmartMath })
+        foreach (var button in new[] { Interact, SelectAnnotation, RoundPen, SquarePen, Marker, Eraser, Arrow, Pointer, SmartInk,
+            SmartMath, TypeButton })
             button.SetResourceReference(Control.BackgroundProperty, (string)button.Tag == tool.ToString() ? "AccentDark" : "Control");
         ChangeInk(null, null);
         var hint = tool switch
@@ -609,6 +633,7 @@ internal partial class SourceWindow : Window
             Tool.Instrument => "Drag an instrument to move it, or enable Trace to draw along it.",
             Tool.Select => "Double-click an annotation or drag a box around a group. Then drag to move or resize.",
             Tool.Eraser => "Choose an eraser size and drag across writing.",
+            Tool.Type => "Click the resource to type or click existing text to edit. Choose Done to apply.",
             Tool.SmartInk => "Sketch a shape and pause to clean it up.",
             Tool.SmartMath => "Write a math expression and pause to typeset it.",
             _ => ""
@@ -707,6 +732,12 @@ internal partial class SourceWindow : Window
 
     private void AnnotationDown(object sender, MouseButtonEventArgs args)
     {
+        if (textEditor.Active)
+        {
+            textEditor.Commit();
+            args.Handled = true;
+            return;
+        }
         if (image is null)
         {
             args.Handled = true;
@@ -742,13 +773,20 @@ internal partial class SourceWindow : Window
         }
         if (tool == Tool.Eraser)
             return;
-        if (tool == Tool.Place && readingToPlace is { } text)
+        if (tool == Tool.Type)
+        {
+            canvasClick.Single(() => BeginSourceText(position));
+            args.Handled = true;
+            return;
+        }
+        if (tool == Tool.Place && placement is { } create)
         {
             canvasClick.Single(() =>
             {
                 SetTool(Tool.Select);
-                EditMarks(marks.Add(new BoardText(Guid.NewGuid(), ItemVisibility.Both, false,
-                    InkColor, ToBoardPoint(position), 26, text)));
+                var item = create(ToBoardPoint(position));
+                selectedIds = [item.Id];
+                EditMarks(marks.Add(item));
             });
             args.Handled = true;
             return;
@@ -929,14 +967,16 @@ internal partial class SourceWindow : Window
             CancelAnnotation();
     }
 
-    private void CancelAnnotation()
+    private void CancelAnnotation(bool finishText = true)
     {
+        if (finishText)
+            textEditor.Commit();
         canvasClick.Clear();
         inkTap.Flush();
         smartInk.Complete();
         teacher.CancelClockDrag(source: true);
         teacher.CancelSourceInstrumentDrag();
-        readingToPlace = null;
+        placement = null;
         Input.CancelStroke();
         eraser.Cancel();
         (arrowStart, gesture, pointer) = (null, null, null);
@@ -953,6 +993,19 @@ internal partial class SourceWindow : Window
         undo.Push(marks);
         marks = next;
         RefreshOverlay();
+    }
+
+    internal void BeginSourceText(Point position)
+    {
+        var existing = BoardSelection.Hit(marks, position) as BoardText;
+        var text = existing ?? CanvasTextEditor.New(position, InkColor, ItemVisibility.Both);
+        textEditor.Open(text, next =>
+        {
+            if (existing is null)
+                EditMarks(marks.Add(next));
+            else if (next != existing && marks.Contains(existing))
+                EditMarks(marks.Replace(existing, next));
+        });
     }
 
     private void UndoAnnotation(object sender, RoutedEventArgs args)
@@ -983,10 +1036,12 @@ internal partial class SourceWindow : Window
         var selection = tool == Tool.Select && !bounds.IsEmpty ? new AnnotationSelection(bounds, SelectionUnit) : null;
         Surface.Present(browserMode ? null : image, new SourceInk(eraser.Draft ?? MovingMarks(), gesture as Shape, pointer), selection);
         Publish.IsEnabled = image is not null || Publish.IsChecked == true;
+        TypeButton.IsEnabled = EffectsButton.IsEnabled = image is not null;
         UndoButton.IsEnabled = undo.Count > 0;
         ClearButton.IsEnabled = !marks.IsEmpty;
         if (Publish.IsChecked == true)
             ProgramChanged?.Invoke(false);
+        teacher.RefreshAnimation();
     }
 
     protected override void OnClosed(EventArgs args)

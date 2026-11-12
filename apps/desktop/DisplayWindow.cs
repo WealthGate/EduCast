@@ -133,6 +133,7 @@ internal sealed class DisplayWindow : Window
 
     public void SetLiveInk(Classroom.ProgramInk? ink) => board.PresentInk(ink);
     public void SetLayers(ProgramLayers layers) => board.PresentLayers(layers);
+    internal void SetMotionTime(double time) => board.SetMotionTime(time);
 
     private sealed class AspectMatte : Grid
     {

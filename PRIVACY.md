@@ -9,6 +9,7 @@ This notice describes how the EduCast Studio Windows app handles information. Th
 - **Lessons and exports.** You choose where to save editable `.educast` projects, PNG exports, and MP4 recordings. Editable projects include teacher notes and private or hidden content. Teaching-source annotations stay in memory for the current session. A folder synced by another service can upload files under that service’s settings.
 - **Preferences and diagnostics.** EduCast stores the selected theme and any local diagnostic log under `%LOCALAPPDATA%\EduCast Studio`. The log records the time, exception type, and result code. The desktop app does not automatically upload this log. Updates also use a staging folder under Windows temporary storage.
 - **Teaching browser.** EduCast uses an InPrivate WebView2 profile with an app-specific data folder. Websites can receive the usual connection information and anything you submit to them. Microsoft WebView2 can send diagnostic data to Microsoft. [Microsoft WebView2 data privacy](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/data-privacy), [Microsoft Privacy Statement](https://www.microsoft.com/en-us/privacy/privacystatement)
+- **Effects.** When you choose **Download image**, EduCast requests the direct link you entered. The image host receives standard connection information. Images placed on the board are stored inside the lesson file when you save it.
 
 ## What you share
 

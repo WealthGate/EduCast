@@ -77,6 +77,7 @@ internal static partial class Checks
             ("WPF double-click selection takes precedence over a pending placement or eraser tap", ObjectDoubleClicks),
             ("WPF eraser sweeps split scaled ink and preserve private output", CanvasSweeps),
             ("WPF a marquee selects and moves visible objects as a group", MarqueeSelection),
+            ("WPF formatted text and GIF effects round-trip and animate in clean output", CanvasMedia),
             ("WPF Program PNG encodes visible content and excludes private objects", Snapshot),
             ("Teaching browser accepts web addresses and supported lesson files", TeachingAddresses),
             ("Bundled teaching resources include offline data and instrument assets", BundledTeachingResources),
@@ -498,6 +499,15 @@ internal static partial class Checks
         var program = Find<FrameworkElement>(teacher, "ProgramPreview");
         var clean = Pixel(program, 200, 200);
         AppearanceChecks(app, teacher, program, appearancePath);
+        Click(teacher, "TypeButton");
+        teacher.BeginBoardText(new Point(130, 300));
+        var done = EnterCanvasText(teacher, "BoardTextOverlay", "BoardTextTools");
+        var typedObjects = Find<ListBox>(teacher, "Objects");
+        Assert(typedObjects.Items.Count == 0, "typing must remain a private draft until applied");
+        done.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert(typedObjects.Items.Count == 1);
+        Click(teacher, "UndoButton");
+        Click(teacher, "PenButton");
         var drawing = Find<LiveInkCanvas>(teacher, "DrawingInput");
         static StylusPointCollection Line(int y) => new(new[]
         {

@@ -22,7 +22,7 @@ public partial class TeacherWindow : Window
 {
     private enum Tool { Pen, SquarePen, Highlighter, Eraser, Arrow, Pointer, Select, Line, Circle, Arc, Rectangle,
         Triangle, Ellipse, Resistor, Capacitor, Equal, DoubleBond, TripleBond, Polygon, Cone, Sphere, Cube, Cuboid, Cylinder,
-        Place, Instrument, SmartInk, SmartMath }
+        Place, Instrument, SmartInk, SmartMath, Type }
     private sealed record ColorChoice(string Name, uint Argb);
     private sealed record OutputChoice(Display? Display)
     {
@@ -95,6 +95,8 @@ public partial class TeacherWindow : Window
         this.checkRelease = checkRelease;
         saved = session.Lesson;
         InitializeComponent();
+        textEditor = new CanvasTextEditor(BoardTextTools, BoardTextOverlay);
+        animation.Tick += (_, _) => RefreshAnimation();
         InitializeMathTools();
         SubjectChoice.ItemsSource = Enum.GetValues<BoardSubject>();
         recordingClock = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background,
@@ -189,6 +191,8 @@ public partial class TeacherWindow : Window
         };
         Closed += (_, _) =>
         {
+            ready = false;
+            animation.Stop();
             updateLifetime.Cancel();
             updateLifetime.Dispose();
             UnregisterBoardShortcut();
@@ -391,7 +395,8 @@ public partial class TeacherWindow : Window
         Ink { Highlighter: true } => "Highlight",
         Ink => "Ink",
         Shape shape => shape.ShapeKind.ToString(),
-        BoardText => "Text",
+        BoardText text => BoardTypography.IsTicker(text) ? "Scrolling text" : "Text",
+        BoardEffect effect => effect.Name,
         ChemicalEquation => "Chemical equation",
         TeachingDiagram diagram => DiagramLabel(diagram.Diagram),
         _ => item.GetType().Name
@@ -417,6 +422,7 @@ public partial class TeacherWindow : Window
         BlackButton.Content = session.Blackout ? "Restore" : "Blackout";
         StartButton.Content = output is null ? "Start display" : "Move display";
         StopButton.IsEnabled = output is not null;
+        RefreshAnimation();
     }
 
     private void SetBoardGesture(BoardItem? item)
@@ -558,6 +564,7 @@ public partial class TeacherWindow : Window
 
     private void CommitFields()
     {
+        textEditor.Commit();
         var title = LessonTitle.Text.Trim();
         session.Rename(title.Length == 0 ? "Untitled lesson" : title);
         if (session.Page.Notes != Notes.Text)
@@ -770,7 +777,13 @@ public partial class TeacherWindow : Window
             Prepare(InsertKind.Equation, session.Page.Subject == BoardSubject.Physics ? "F = m a" : "x^2 + 5x + 6 = 0");
     }
     private void InsertGraph(object sender, RoutedEventArgs args) => Prepare(InsertKind.Graph, "y = x^2 - 4x + 3");
-    private void InsertText(object sender, RoutedEventArgs args) => Prepare(InsertKind.Text, "");
+    private void InsertText(object sender, RoutedEventArgs args)
+    {
+        CancelGesture();
+        ClearSelection();
+        SetTool(Tool.Type);
+        Refresh();
+    }
 
     private void Prepare(InsertKind kind, string initial)
     {
@@ -795,10 +808,16 @@ public partial class TeacherWindow : Window
 
     private void EditSelected(object sender, RoutedEventArgs args)
     {
+        textEditor.Commit();
         var item = Selected;
         if (item is TeachingDiagram diagram)
         {
             EditDiagram(diagram);
+            return;
+        }
+        if (item is BoardText textItem)
+        {
+            EditBoardText(textItem);
             return;
         }
         var kind = item switch
@@ -809,7 +828,7 @@ public partial class TeacherWindow : Window
         var source = item switch
         {
             Equation equation => equation.Source, Graph graph => graph.Source,
-            BoardText text => text.Text, ChemicalEquation chemical => chemical.Source, _ => null
+            ChemicalEquation chemical => chemical.Source, _ => null
         };
         if (source is null)
             return;
@@ -820,8 +839,6 @@ public partial class TeacherWindow : Window
             Replace(equationItem with { Source = dialog.Source });
         if (item is Graph graphItem)
             Replace(graphItem with { Source = dialog.Source });
-        if (item is BoardText textItem)
-            Replace(textItem with { Text = dialog.Source });
         if (item is ChemicalEquation chemicalItem)
             Replace(chemicalItem with { Source = dialog.Source });
     }
@@ -843,11 +860,11 @@ public partial class TeacherWindow : Window
             ? InkCanvasEditingMode.Ink : InkCanvasEditingMode.None;
         DrawingInput.EditingModeInverted = DrawingInput.EditingMode;
         DrawingInput.UseCustomCursor = true;
-        DrawingInput.Cursor = choice == Tool.Select ? Cursors.Arrow : Cursors.Cross;
+        DrawingInput.Cursor = choice switch { Tool.Select => Cursors.Arrow, Tool.Type => Cursors.IBeam, _ => Cursors.Cross };
         EraserSize.Visibility = choice == Tool.Eraser ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
         eraser.Activate(choice == Tool.Eraser);
         foreach (var button in new[] { PenButton, SquarePenButton, MarkerButton, EraseButton, ArrowButton, PointerButton,
-            SelectButton, LineButton, CircleButton, ArcButton, RectButton, SmartInkButton, SmartMathButton })
+            SelectButton, LineButton, CircleButton, ArcButton, RectButton, SmartInkButton, SmartMathButton, TypeButton })
             button.SetResourceReference(Control.BackgroundProperty, (string)button.Tag == choice.ToString() ? "AccentDark" : "Control");
         ToolHint.Text = choice switch
         {
@@ -857,6 +874,7 @@ public partial class TeacherWindow : Window
             Tool.Eraser => "Eraser · choose a size and drag across writing",
             Tool.Arrow => "Draw arrow · drag from tail to tip. Hold Shift to snap the angle.",
             Tool.Pointer => "Arrow pointer · move over the board to point without leaving a mark",
+            Tool.Type => "Click the board to type or click existing text to edit. Choose Done to apply.",
             Tool.Select => "Double-click an object or drag a box around a group. Then drag to move or resize.",
             Tool.Line => "Ruler line · drag endpoints, Shift snaps to 15°",
             Tool.Circle => "Compass circle · drag from the center",
@@ -948,6 +966,15 @@ public partial class TeacherWindow : Window
 
     private void BoardDown(object sender, MouseButtonEventArgs args)
     {
+        if (textEditor.Active)
+        {
+            if (!textEditor.OverEditor)
+            {
+                textEditor.Commit();
+                args.Handled = true;
+            }
+            return;
+        }
         var position = args.GetPosition(BoardInput);
         SetMathSurface(source: false);
         if (tool != Tool.Eraser && TeacherInstrument.CloseAt(position))
@@ -997,6 +1024,11 @@ public partial class TeacherWindow : Window
         args.Handled = true;
         if (tool == Tool.Pointer)
             return;
+        if (tool == Tool.Type)
+        {
+            canvasClick.Single(() => BeginBoardText(position));
+            return;
+        }
         if (tool == Tool.Place && placement is { } value)
         {
             canvasClick.Single(() =>
@@ -1235,6 +1267,7 @@ public partial class TeacherWindow : Window
 
     private void CancelGesture()
     {
+        textEditor.Commit();
         canvasClick.Clear();
         inkTap.Flush();
         smartInk.Complete();
@@ -1419,6 +1452,7 @@ public partial class TeacherWindow : Window
         try
         {
             window.SetFrame(renderedOutput);
+            window.SetMotionTime(programMotionTime);
             window.SetLiveInk(programInk);
             window.SetLayers(visibleLayers);
             window.Show();
@@ -1500,7 +1534,7 @@ public partial class TeacherWindow : Window
         catch (Exception error) when (FileError(error)) { ShowFileError(error); }
     }
 
-    private StudioFrame CurrentStudioFrame() => new(renderedOutput, programInk, visibleLayers);
+    private StudioFrame CurrentStudioFrame() => new(renderedOutput, programInk, visibleLayers, programMotionTime);
 
     private void OpenStudio(object sender, RoutedEventArgs args) => ShowStudio();
 
@@ -1548,6 +1582,7 @@ public partial class TeacherWindow : Window
         ProgramPreview.PresentLayers(next);
         output?.SetLayers(next);
         broadcastOutput?.SetLayers(next);
+        RefreshAnimation();
     }
 
     private ProgramLayers LiveStudioLayers(bool includeGestures = true) => studioLayers with
@@ -1664,6 +1699,8 @@ public partial class TeacherWindow : Window
 
     private void Shortcuts(object sender, KeyEventArgs args)
     {
+        if (textEditor.Shortcut(args))
+            return;
         var key = args.Key == Key.System ? args.SystemKey : args.Key;
         var modifiers = Keyboard.Modifiers;
         var editingText = Keyboard.FocusedElement is TextBox;

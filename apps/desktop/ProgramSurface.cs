@@ -12,7 +12,7 @@ internal sealed record ProgramLayers(BitmapSource? CameraOne = null, BitmapSourc
     ClockReading? Clock = null, ImmutableArray<PublishedInstrument> Instruments = default,
     SourceFrame? Source = null, Point? Pointer = null, Vector ClockOffset = default);
 internal sealed record PublishedInstrument(Guid Id, bool Source, InstrumentDisplay Display);
-internal sealed record StudioFrame(ProgramFrame? Board, ProgramInk? LiveInk, ProgramLayers Layers);
+internal sealed record StudioFrame(ProgramFrame? Board, ProgramInk? LiveInk, ProgramLayers Layers, double MotionTime = 0);
 
 internal sealed class ProgramSurface : Grid
 {
@@ -42,6 +42,14 @@ internal sealed class ProgramSurface : Grid
 
     public void PresentInk(ProgramInk? ink) => board.PresentInk(black ? null : ink);
 
+    internal bool HasMotion => !black && (requested.Source is null ? board.HasMotion : layers.HasMotion);
+
+    internal void SetMotionTime(double time)
+    {
+        board.SetMotionTime(time);
+        layers.SetMotionTime(time);
+    }
+
     public void PresentLayers(ProgramLayers frame)
     {
         requested = frame;
@@ -52,19 +60,31 @@ internal sealed class ProgramSurface : Grid
     private sealed class LayerSurface : FrameworkElement
     {
         private ProgramLayers frame = new();
+        private double time;
+        internal bool HasMotion { get; private set; }
 
         public void Present(ProgramLayers next)
         {
             if (next == frame)
                 return;
             frame = next;
+            HasMotion = next.Source is { } source && BoardSurface.ContainsMotion(source.Ink.Marks);
             InvalidateVisual();
+        }
+
+        internal void SetMotionTime(double next)
+        {
+            if (next == time)
+                return;
+            time = next;
+            if (HasMotion)
+                InvalidateVisual();
         }
 
         protected override void OnRender(DrawingContext dc)
         {
             if (frame.Source is { } source)
-                SourceSurface.Draw(dc, source.Image, source.Ink);
+                SourceSurface.Draw(dc, source.Image, source.Ink, time);
             Camera(dc, frame.CameraOne, 936);
             Camera(dc, frame.CameraTwo, 600);
             if (!frame.Instruments.IsDefaultOrEmpty)

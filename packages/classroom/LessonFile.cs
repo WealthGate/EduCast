@@ -79,7 +79,13 @@ public static class LessonFile
                 : shape.Vertices is null),
         Equation eq => Point(eq.Origin) && Range(eq.Size, 12, 96) &&
             Text(eq.Source, MathParser.MaxLength) && MathParser.TryParse(eq.Source, out _, out _),
-        BoardText text => Point(text.Origin) && Range(text.Size, 12, 96) && Text(text.Text, 2000),
+        BoardText text => Point(text.Origin) && Range(text.Size, 12, 96) && Text(text.Text, 2000) &&
+            (text.Style is not { } style || Text(style.Font, 128) && !string.IsNullOrWhiteSpace(style.Font) &&
+                Range(style.Width, 80, 1280) && Range(style.Speed, 20, 250) && Enum.IsDefined(style.Case) &&
+                Enum.IsDefined(style.Align) && Enum.IsDefined(style.Scroll)),
+        BoardEffect effect => Point(effect.Origin) && Range(effect.Width, 1, 1280) && Range(effect.Height, 1, 720) &&
+            Text(effect.Name, 100) && Text(effect.Data, BoardEffect.MaxImageBytes / 3 * 4) &&
+            System.Buffers.Text.Base64.IsValid(effect.Data, out var bytes) && bytes is > 0 and <= BoardEffect.MaxImageBytes,
         Graph graph => Point(graph.Origin) && Text(graph.Source, MathParser.MaxLength) &&
             MathParser.TryParseGraph(graph.Source, out _, out _),
         ChemicalEquation equation => Point(equation.Origin) && Range(equation.Size, 12, 96) &&

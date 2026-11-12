@@ -126,6 +126,15 @@ internal static partial class Checks
         Pump();
         Assert(Pixel(program, 195, 200)[2] > 225 && !Pixel(program, 195, 200).SequenceEqual(clean),
             "the browser annotation must reach Program");
+        Click(source, "TypeButton");
+        source.BeginSourceText(new Point(300, 360));
+        var done = EnterCanvasText(source, "SourceTextOverlay", "SourceTextTools");
+        Assert(source.PublishedFrame(false)?.Ink.Marks.OfType<BoardText>().Count() == 0,
+            "the teaching resource must not publish the draft editor");
+        done.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert(source.PublishedFrame(false)?.Ink.Marks.OfType<BoardText>().SingleOrDefault() is
+            { Argb: 0xffa22143, Style: { Scroll: TextScroll.Left, Case: TextCase.Uppercase } });
+        Click(source, "UndoButton");
         Click(source, "Interact");
         Pump();
         var drawing = Find<Grid>(source, "Drawing");

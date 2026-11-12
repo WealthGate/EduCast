@@ -22,6 +22,7 @@ internal static class ProgramImage
             Pointer = null,
             Source = source is null ? null : source with { Ink = source.Ink with { Gesture = null, Pointer = null } }
         });
+        renderer.SetMotionTime(frame.MotionTime);
         renderer.Measure(size);
         renderer.Arrange(new Rect(size));
         var image = new RenderTargetBitmap((int)size.Width, (int)size.Height, 96, 96, PixelFormats.Pbgra32);

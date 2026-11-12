@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.5
+
+- Choose the **T** tool and type directly on the board or a teaching resource. Change font, color, size, capitalization, bold, italic, underline and alignment. Make any text box scroll left or right at an adjustable speed.
+- Place a subject sticker, import a PNG, JPG or animated GIF, or download one from a direct HTTPS image link. Select an effect to move or resize it. Board text and effects are saved with the lesson.
+
 ## 0.13.4
 
 - **Geography** includes an offline world map and rotatable globe. Search for a country, territory, or city, zoom and pan, and show coordinate grid lines. The atlas uses Natural Earth data and can open the current area in OpenStreetMap for online detail.

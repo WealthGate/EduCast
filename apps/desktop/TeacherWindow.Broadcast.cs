@@ -86,6 +86,7 @@ public partial class TeacherWindow
         {
             var window = new DisplayWindow(this, null, online: true);
             window.SetFrame(renderedOutput);
+            window.SetMotionTime(programMotionTime);
             window.SetLiveInk(programInk);
             window.SetLayers(visibleLayers);
             window.Closed += (_, _) => broadcastOutput = null;

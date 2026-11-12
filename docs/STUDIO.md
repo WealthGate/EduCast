@@ -11,6 +11,14 @@
 
 The browser uses the Microsoft Edge WebView2 Runtime. Local lessons with bundled assets can run offline. Browser and captured window sources share a picture, and recording audio still comes from the selected microphone. [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download-section)
 
+## Type and add effects
+
+Choose **T** and click where the text belongs. Use the formatting controls to change the font, size, color, capitalization, emphasis and alignment for the text box. Choose **Scroll left** or **Scroll right** and select a speed for a ticker. Click **Done** or press **Ctrl+Enter** to apply, or press **Esc** to cancel. With **T** active, click existing text to edit it.
+
+Choose **Effects…** to select a subject sticker, import a PNG, JPG or GIF up to 3 MB, or enter a direct HTTPS image link. Select **Place effect**, then click the board or resource. Double-click the placed effect and drag it to move, or drag a selection handle to resize.
+
+Text and effects on the board are saved with the lesson and follow its object visibility settings. Text and effects on a teaching resource stay with that source for the current session. Draft typing stays in the teacher workspace. Applied animations follow **Show on Program**, **Freeze** and **Blackout**.
+
 ## Studio controls
 
 Open **Studio & clock…** in the teacher workspace. The clock works offline. The Windows release bundles EduCast’s FFmpeg-based media engine for DirectShow cameras and microphones, H.264/AAC recording, and live streaming. A developer checkout can use a separate FFmpeg executable for camera and recording checks. [FFmpeg licensing](https://www.ffmpeg.org/legal.html)

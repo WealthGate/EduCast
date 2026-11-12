@@ -15,6 +15,8 @@ internal sealed class SourceSurface : FrameworkElement
     private BitmapSource? image;
     private SourceInk ink = new([]);
     private AnnotationSelection? selection;
+    private double time;
+    internal bool HasMotion { get; private set; }
 
     public SourceSurface() => IsHitTestVisible = false;
 
@@ -23,17 +25,27 @@ internal sealed class SourceSurface : FrameworkElement
         if (image == nextImage && ink == nextInk && selection == nextSelection)
             return;
         (image, ink, selection) = (nextImage, nextInk, nextSelection);
+        HasMotion = BoardSurface.ContainsMotion(ink.Marks);
         InvalidateVisual();
+    }
+
+    internal void SetMotionTime(double next)
+    {
+        if (time == next)
+            return;
+        time = next;
+        if (HasMotion)
+            InvalidateVisual();
     }
 
     protected override void OnRender(DrawingContext dc)
     {
-        Draw(dc, image, ink);
+        Draw(dc, image, ink, time);
         if (selection is { } selected)
             BoardSelection.Draw(dc, selected.Bounds, selected.Unit);
     }
 
-    internal static void Draw(DrawingContext dc, BitmapSource? image, SourceInk ink)
+    internal static void Draw(DrawingContext dc, BitmapSource? image, SourceInk ink, double time = 0)
     {
         dc.PushClip(new RectangleGeometry(BoardSurface.Bounds));
         if (image is not null)
@@ -45,7 +57,7 @@ internal sealed class SourceSurface : FrameworkElement
             dc.DrawImage(image, new Rect((BoardSurface.BoardWidth - width) / 2,
                 (BoardSurface.BoardHeight - height) / 2, width, height));
         }
-        BoardSurface.DrawItems(dc, ink.Marks);
+        BoardSurface.DrawItems(dc, ink.Marks, time);
         if (ink.Gesture is { } gesture)
             BoardSurface.DrawItems(dc, [gesture]);
         if (ink.Pointer is { } pointer)
